@@ -1,6 +1,12 @@
 # ERP workspace
 
-This workspace holds the original ERPNext baseline for evaluation and the setup records for a future open source Flutter application on macOS, Windows, iOS and Android. UI redesign and AI agents come after reviewing the original application.
+This workspace holds the preserved ERPNext backend and the first native Flutter client, **ERP Workspace**, for macOS, Windows, iOS and Android. The reference-led overview and eight module record browsers use real ERPNext data. AI workflows and full native document editors are later increments.
+
+## Flutter application
+
+Double-click `scripts/erp-workspace.command` to start the local services and open the Mac app. Sign in with the local evaluation account below. The approved first increment includes the business overview, module navigation, search, refresh, date filtering and paginated lists. Full forms open in the original ERPNext browser application.
+
+Client code and development instructions: [apps/erp_client](apps/erp_client/README.md). Design decisions: [reference analysis](docs/design/REFERENCE_ANALYSIS.md). Start and stop launchers preserve business data.
 
 ## Original application
 
@@ -23,6 +29,8 @@ Start: double-click `scripts/erpnext.command` in Finder, or run it from Terminal
 | `upstream.lock.json` | Exact versions, revisions and notice checksums |
 | `licenses/` | Original licenses, bundled component notices and trademark policy |
 | `infrastructure/erpnext/` | Local evaluation deployment |
+| `apps/erp_client/` | Native Flutter ERP Workspace client |
+| `docs/design/` | Reference observations, image prompts, provenance and screenshots |
 | `scripts/` | Named start and stop launchers |
 | `docs/setup/` | Toolchain, licensing and verification records |
 | `.local/` | Ignored verification project and reports |
@@ -31,7 +39,7 @@ The official source trees retain their own Git repositories and notices. Git his
 
 ## Development direction
 
-Use Flutter for the future client and keep ERPNext/Frappe business logic and APIs as the starting server. The baseline currently runs in a browser on this Mac; a native Flutter ERP client has not been implemented. Product name, UI/UX, AI permissions and workflows will be decided after evaluation.
+Keep ERPNext/Frappe business logic and APIs as the starting server. This first Flutter increment applies the approved visual style to the overview and module browsers. The product name is provisional. Native document forms and AI permissions/workflows will be developed after the user reviews this preview.
 
 See [license review](docs/setup/LICENSES.md) and [setup status](docs/setup/STATUS.md). Windows builds require a Windows host with Visual Studio's Desktop development with C++ workload. macOS cannot validate a native Windows build.
 

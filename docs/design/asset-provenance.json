@@ -1,0 +1,35 @@
+[
+  {
+    "file": "apps/erp_client/assets/images/warehouse.png",
+    "tool": "built-in image_gen",
+    "purpose": "original UI 3D illustration",
+    "sha256": "56be958f788fed32a84e872de34e40fe2fb0e3cece95d3216a41896c642b5604",
+    "size": [
+      1774,
+      887
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/images/sales.png",
+    "tool": "built-in image_gen",
+    "purpose": "original UI 3D illustration",
+    "sha256": "42c6553541d5cac3de7f5574c243aa57fb1545cfb1666ca2d4a8eef7017cc299",
+    "size": [
+      1536,
+      1024
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/images/purchasing.png",
+    "tool": "built-in image_gen",
+    "purpose": "original UI 3D illustration",
+    "sha256": "76801998cd3a774bc3cbf602b55c5aa5def8fe7f164356a226ab3012eef9d9ba",
+    "size": [
+      1536,
+      1024
+    ],
+    "transparency": true
+  }
+]

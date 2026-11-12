@@ -7,8 +7,12 @@ Verified on 12 November 2026 against the official repositories and downloaded so
 | ERPNext | v16.54.0 | GNU GPL version 3 | `../../licenses/erpnext/license.txt` |
 | Frappe Framework | v16.55.2 | MIT | `../../licenses/frappe/LICENSE` |
 | Frappe Docker configuration | v4.2.0 | MIT | `../../licenses/frappe_docker/LICENSE` |
+| Independent ERP Workspace client | 0.1.0 | GNU GPL version 3 | `../../apps/erp_client/LICENSE` |
+| Manrope and Barlow Condensed fonts | Bundled source files | SIL OFL 1.1 | `../../licenses/fonts/` |
 
 The complete source working trees are in `../../upstream/`. Only Git history is shallow to conserve disk space. Original copyright headers, bundled assets, license files, attribution reports and trademark policy remain intact. Separate copies of the notice files are also in `../../licenses/` with their original subdirectories. No upstream source was edited.
+
+The independent Flutter client is explicitly licensed under GPLv3. Its bundled fonts retain OFL notices, including the derived static Manrope weight instances. Three original generated illustrations are recorded with prompts and checksums under `docs/design/`. Flutter and package notices are available through the application's Licenses screen; no source font or original ERPNext logo was copied from the photographed reference.
 
 ## Requirements to carry forward
 

@@ -1,5 +1,7 @@
 # Setup status — 12 November 2026
 
+The first Flutter UI preview is now implemented and open on this Mac. Read [CLIENT_PREVIEW.md](CLIENT_PREVIEW.md) for product build evidence, checks and the remaining native-form scope. The original ERPNext service remains the local backend.
+
 ERPNext is running. Browser sign-in, a full stop/restart check, and Flutter sample builds for macOS, the iPhone simulator, and Android have passed. Windows compilation requires a Windows host.
 
 ## Verified environment
@@ -26,7 +28,7 @@ An initial runtime startup was rejected by automatic approval review because of 
 
 The configuration in `../../infrastructure/erpnext/compose.yaml` derives from the official Frappe Docker v4.2.0 evaluation recipe. Local changes pin ERPNext v16.54.0 and bind the browser port to `127.0.0.1:8080`. Standard evaluation credentials are Administrator / admin. Data is kept in named volumes when services stop.
 
-This is the original browser-based ERPNext application running locally, not yet a rebuilt Flutter client. No UI/UX or AI behavior changes have been made.
+The original ERPNext browser UI remains unchanged. A separate native Flutter client has now been implemented under `apps/erp_client/`, following the approved reference-led design. AI behavior remains a future increment.
 
 ## Build evidence so far
 
@@ -49,7 +51,7 @@ A full stop through `scripts/stop-erpnext.command` and restart through the same 
 
 ## Final verification
 
-All three requested build targets available on this Mac compiled successfully: macOS, native ARM64 iPhone simulator, and Android ARM64 APK. Windows project files were generated, but no Windows build or physical-device execution was performed. Sample build output was deleted after recording the results to recover disk space; the small verification project and build logs remain under `.local/`. This is toolchain verification; the Flutter ERP client and AI integrations are future work.
+All three requested build targets available on this Mac compiled successfully: macOS, native ARM64 iPhone simulator, and Android ARM64 APK. Windows project files were generated, but no Windows build or physical-device execution was performed. Sample build output was deleted after recording the results to recover disk space; the small verification project and build logs remain under `.local/`. These initial sample builds established the toolchain. Product-client verification is recorded separately below; AI integrations remain future work.
 
 ## Recreating the runtime profile
 
