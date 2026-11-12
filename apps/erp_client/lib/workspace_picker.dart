@@ -5,8 +5,9 @@ import 'widgets.dart';
 
 Future<void> showWorkspacePicker(
   BuildContext context,
-  ValueChanged<ErpModule?> onSelect,
-) {
+  ValueChanged<ErpModule?> onSelect, {
+  VoidCallback? onAll,
+}) {
   String query = '';
   return showDialog<void>(
     context: context,
@@ -42,6 +43,18 @@ Future<void> showWorkspacePicker(
                   ),
                   onChanged: (s) => setLocal(() => query = s.toLowerCase()),
                 ),
+                if (onAll != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(c);
+                        onAll();
+                      },
+                      icon: const Icon(Icons.apps, size: 18),
+                      label: const Text('All modules and settings'),
+                    ),
+                  ),
                 const SizedBox(height: 15),
                 Flexible(
                   child: SingleChildScrollView(

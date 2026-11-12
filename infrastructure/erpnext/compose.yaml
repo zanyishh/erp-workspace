@@ -3,7 +3,7 @@
 name: erp-baseline
 
 services:
-  backend:
+  backend: &erp_backend
     image: frappe/erpnext:v16.54.0
     networks:
       - frappe_network
@@ -11,9 +11,11 @@ services:
       restart_policy:
         condition: on-failure
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       DB_HOST: db
       DB_PORT: "3306"
       MYSQL_ROOT_PASSWORD: admin
@@ -42,23 +44,28 @@ services:
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       DB_HOST: db
       DB_PORT: "3306"
       REDIS_CACHE: redis-cache:6379
       REDIS_QUEUE: redis-queue:6379
       SOCKETIO_PORT: "9000"
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
 
   create-site:
     image: frappe/erpnext:v16.54.0
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: none
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     entrypoint:
@@ -107,12 +114,13 @@ services:
       - --skip-character-set-client-handshake
       - --innodb-snapshot-isolation=OFF
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       MYSQL_ROOT_PASSWORD: admin
       MARIADB_ROOT_PASSWORD: admin
     volumes:
       - db-data:/var/lib/mysql
 
-  frontend:
+  frontend: &erp_frontend
     image: frappe/erpnext:v16.54.0
     networks:
       - frappe_network
@@ -125,6 +133,7 @@ services:
     command:
       - nginx-entrypoint.sh
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       BACKEND: backend:8000
       FRAPPE_SITE_NAME_HEADER: frontend
       SOCKETIO: websocket:9000
@@ -134,10 +143,42 @@ services:
       PROXY_READ_TIMEOUT: 120
       CLIENT_MAX_BODY_SIZE: 50m
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     ports:
       - "127.0.0.1:8080:8080"
+
+  native-test-backend:
+    <<: *erp_backend
+    profiles: [native-test]
+    command:
+      - /home/frappe/frappe-bench/env/bin/gunicorn
+      - --chdir=/home/frappe/frappe-bench/sites
+      - --bind=0.0.0.0:8000
+      - --workers=1
+      - --threads=2
+      - --worker-class=gthread
+      - --worker-tmp-dir=/dev/shm
+      - --timeout=120
+      - --reload
+      - frappe.app:application
+
+  native-test-frontend:
+    <<: *erp_frontend
+    profiles: [native-test]
+    depends_on: [native-test-backend, websocket]
+    environment:
+      BACKEND: native-test-backend:8000
+      FRAPPE_SITE_NAME_HEADER: native-test.localhost
+      SOCKETIO: websocket:9000
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "off"
+      PROXY_READ_TIMEOUT: 120
+      CLIENT_MAX_BODY_SIZE: 50m
+    ports:
+      - "127.0.0.1:8081:8080"
 
   queue-long:
     image: frappe/erpnext:v16.54.0
@@ -152,9 +193,11 @@ services:
       - --queue
       - long,default,short
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
     depends_on:
@@ -174,9 +217,11 @@ services:
       - --queue
       - short,default
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
     depends_on:
@@ -203,6 +248,8 @@ services:
 
   scheduler:
     image: frappe/erpnext:v16.54.0
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
     networks:
       - frappe_network
     deploy:
@@ -212,6 +259,7 @@ services:
       - bench
       - schedule
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     depends_on:
@@ -229,9 +277,11 @@ services:
       - node
       - /home/frappe/frappe-bench/apps/frappe/socketio.js
     environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
       FRAPPE_REDIS_CACHE: redis://redis-cache:6379
       FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
     volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
     depends_on:

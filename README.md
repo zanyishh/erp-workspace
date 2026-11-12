@@ -1,10 +1,10 @@
 # ERP workspace
 
-This workspace holds the preserved ERPNext backend and the first native Flutter client, **ERP Workspace**, for macOS, Windows, iOS and Android. The reference-led overview and eight module record browsers use real ERPNext data. AI workflows and full native document editors are later increments.
+This workspace holds the preserved ERPNext backend and the first native Flutter client, **ERP Workspace**, for macOS, Windows, iOS and Android. The current increment connects native document forms, wider module navigation, reports and collaboration to ERPNext. The complete conversion remains in progress; AI and further UI/UX enhancement are deferred.
 
 ## Flutter application
 
-Double-click `scripts/erp-workspace.command` to start the local services and open the Mac app. Sign in with the local evaluation account below. The approved first increment includes the business overview, module navigation, search, refresh, date filtering and paginated lists. Full forms open in the original ERPNext browser application.
+Double-click `scripts/erp-workspace.command` to start the local services and open the Mac app. The current native verification server is `http://localhost:8081`, with account **Administrator** / **admin**, company **ERP Native Verification**. Create/Edit now use native Flutter forms. See [native workflow status and remaining parity](docs/setup/NATIVE_WORKFLOWS.md).
 
 Client code and development instructions: [apps/erp_client](apps/erp_client/README.md). Design decisions: [reference analysis](docs/design/REFERENCE_ANALYSIS.md). Start and stop launchers preserve business data.
 
@@ -30,6 +30,9 @@ Start: double-click `scripts/erpnext.command` in Finder, or run it from Terminal
 | `licenses/` | Original licenses, bundled component notices and trademark policy |
 | `infrastructure/erpnext/` | Local evaluation deployment |
 | `apps/erp_client/` | Native Flutter ERP Workspace client |
+| `apps/erp_extensions/` | Local authenticated native interface for Frappe |
+| `docs/coverage/` | Source inventory, conditional/report metadata and scenario evidence |
+| `tools/native_metadata/` | Syntax-only metadata extraction; no upstream script execution |
 | `docs/design/` | Reference observations, image prompts, provenance and screenshots |
 | `scripts/` | Named start and stop launchers |
 | `docs/setup/` | Toolchain, licensing and verification records |
@@ -39,7 +42,7 @@ The official source trees retain their own Git repositories and notices. Git his
 
 ## Development direction
 
-Keep ERPNext/Frappe business logic and APIs as the starting server. This first Flutter increment applies the approved visual style to the overview and module browsers. The product name is provisional. Native document forms and AI permissions/workflows will be developed after the user reviews this preview.
+Keep ERPNext/Frappe business logic and APIs as the starting server. The approved visual style is retained while native workflow coverage is expanded. The product name is provisional. Full feature parity and packaging must be verified before completion; AI and UX changes come afterward.
 
 See [license review](docs/setup/LICENSES.md) and [setup status](docs/setup/STATUS.md). Windows builds require a Windows host with Visual Studio's Desktop development with C++ workload. macOS cannot validate a native Windows build.
 

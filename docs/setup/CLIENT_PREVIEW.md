@@ -1,4 +1,6 @@
-# Flutter UI preview — 12 November 2026
+# First Flutter UI preview — historical record
+
+**Superseded by the ongoing [native workflow increment](NATIVE_WORKFLOWS.md).** The browser handoff below describes the first checkpoint, not the current document routes.
 
 This is a **partial native client**, not a complete native replacement for ERPNext. The Flutter overview and eight record browsers are implemented. Creating/editing documents still opens the original browser-based ERPNext forms. ERPNext runs locally on this Mac at `http://localhost:8080`; no Vercel deployment was made. AI workflows are not implemented.
 

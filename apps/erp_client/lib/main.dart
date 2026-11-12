@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'design.dart';
+import 'document_editor.dart';
+import 'native_catalog.dart';
 import 'erp_api.dart';
 import 'erp_models.dart';
 import 'module_browser.dart';
 import 'overview.dart';
 import 'sign_in.dart';
+import 'session_recovery.dart';
 import 'widgets.dart';
 import 'workspace_picker.dart';
 
@@ -67,6 +70,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         api.close();
         return;
       }
+      api.onSessionExpired = () => _recoverSession(api);
       setState(() {
         _api = api;
         _module = null;
@@ -76,6 +80,30 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       api.close();
       rethrow;
     }
+  }
+
+  Future<bool> _recoverSession(ErpApi api) async {
+    if (!mounted || !identical(_api, api)) return false;
+    final restored = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SessionRecoveryDialog(api: api),
+    );
+    if (restored == true) return true;
+    if (mounted && identical(_api, api)) {
+      api.onSessionExpired = null;
+      api.close();
+      setState(() {
+        _api = null;
+        _snapshot = null;
+        _lastData = null;
+      });
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const WorkspaceShell()),
+        (_) => false,
+      );
+    }
+    return false;
   }
 
   Future<T> _guard<T>(ErpApi api, Future<T> future) async {
@@ -150,7 +178,41 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   void _select(ErpModule? module) => setState(() => _module = module);
-  void _moduleMenu() => showWorkspacePicker(context, _select);
+  void _moduleMenu() =>
+      showWorkspacePicker(context, _select, onAll: () => _catalog());
+
+  Future<void> _edit(String doctype, {String? name}) async {
+    final api = _api;
+    if (api == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => DocumentEditor(
+          api: api,
+          doctype: doctype,
+          name: name,
+          company: _lastData?.company,
+        ),
+      ),
+    );
+    if (mounted && identical(_api, api)) _refresh();
+  }
+
+  Future<void> _catalog({bool create = false}) async {
+    final api = _api;
+    if (api == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => NativeCatalogScreen(
+          api: api,
+          company: _lastData?.company,
+          create: create,
+        ),
+      ),
+    );
+    if (mounted && identical(_api, api)) _refresh();
+  }
 
   void _newDocument() {
     showModalBottomSheet<void>(
@@ -170,7 +232,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                 const Display('MAKE SOMETHING HAPPEN.', size: 32),
                 const SizedBox(height: 10),
                 const Text(
-                  'Choose a document. Its complete editor opens in ERPNext.',
+                  'Choose a document to create in your workspace.',
                   style: TextStyle(fontSize: 12, color: WorkspaceTheme.muted),
                 ),
                 const SizedBox(height: 14),
@@ -178,6 +240,15 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                   child: ListView(
                     shrinkWrap: true,
                     children: [
+                      ListTile(
+                        leading: const Icon(Icons.apps),
+                        title: const Text('All record types'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.pop(c);
+                          _catalog(create: true);
+                        },
+                      ),
                       for (final m in ErpModule.values)
                         ListTile(
                           leading: Icon(moduleIcon(m)),
@@ -185,7 +256,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                           trailing: const Icon(Icons.arrow_outward, size: 17),
                           onTap: () {
                             Navigator.pop(c);
-                            _open(m.uri(_api!.baseUri, create: true));
+                            _edit(m.doctype);
                           },
                         ),
                     ],
@@ -314,7 +385,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                     trailing: Text(r.status),
                     onTap: () {
                       Navigator.pop(c);
-                      _open(r.module.uri(_api!.baseUri, name: r.name));
+                      _edit(r.module.doctype, name: r.name);
                     },
                   ),
               ],
@@ -387,14 +458,10 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                                   start: start,
                                 ),
                               ),
-                              onRecord: (r) => _open(
-                                r.module.uri(api.baseUri, name: r.name),
-                              ),
-                              onCreate: () => _open(
-                                _module!.uri(api.baseUri, create: true),
-                              ),
-                              onOriginal: () =>
-                                  _open(_module!.uri(api.baseUri)),
+                              onRecord: (r) =>
+                                  _edit(r.module.doctype, name: r.name),
+                              onCreate: () => _edit(_module!.doctype),
+                              onBrowseAll: () => _catalog(),
                             ),
                     ),
                   ],

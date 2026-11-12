@@ -12,7 +12,7 @@ Widget browser(RecordLoader loader) => MaterialApp(
       loader: loader,
       onRecord: (_) {},
       onCreate: () {},
-      onOriginal: () {},
+      onBrowseAll: () {},
     ),
   ),
 );
@@ -73,8 +73,8 @@ void main() {
     await tester.pumpWidget(browser((query, start) async => []));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    await tester.ensureVisible(find.text('Create in ERPNext'));
-    await tester.tap(find.text('Create in ERPNext'));
+    await tester.ensureVisible(find.text('Create record'));
+    await tester.tap(find.text('Create record'));
     expect(tester.takeException(), isNull);
   });
 }

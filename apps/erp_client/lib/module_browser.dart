@@ -16,13 +16,13 @@ class ModuleBrowser extends StatefulWidget {
     required this.loader,
     required this.onRecord,
     required this.onCreate,
-    required this.onOriginal,
+    required this.onBrowseAll,
   });
   final ErpModule module;
   final String company, currency;
   final RecordLoader loader;
   final ValueChanged<ErpRecord> onRecord;
-  final VoidCallback onCreate, onOriginal;
+  final VoidCallback onCreate, onBrowseAll;
   @override
   State<ModuleBrowser> createState() => _ModuleBrowserState();
 }
@@ -87,9 +87,9 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                   ],
                 ),
                 Pill(
-                  'Open ERPNext',
-                  icon: Icons.open_in_new,
-                  onPressed: widget.onOriginal,
+                  'All records',
+                  icon: Icons.apps,
+                  onPressed: widget.onBrowseAll,
                   outline: true,
                 ),
               ],
@@ -173,10 +173,10 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                           ? 'A FRESH START'
                           : 'NO MATCHES',
                       message: _search.text.trim().isEmpty
-                          ? 'No ${widget.module.doctype.toLowerCase()} records in this view yet. Create your first one in ERPNext.'
+                          ? 'No ${widget.module.doctype.toLowerCase()} records in this view yet. Create your first record here.'
                           : 'Try a different name or document number.',
                       label: _search.text.trim().isEmpty
-                          ? 'Create in ERPNext'
+                          ? 'Create record'
                           : 'Clear search',
                       action: _search.text.trim().isEmpty
                           ? widget.onCreate
@@ -300,7 +300,7 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
             ),
             const SizedBox(height: 7),
             const Text(
-              'Full document editors open in ERPNext.',
+              'Select a record to view or edit it.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 10, color: WorkspaceTheme.muted),
             ),

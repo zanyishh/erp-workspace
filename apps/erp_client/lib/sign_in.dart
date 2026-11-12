@@ -18,7 +18,12 @@ class SignInScreen extends StatefulWidget {
 
 class _SignInScreenState extends State<SignInScreen> {
   final _server = TextEditingController(
-    text: Platform.isAndroid ? 'http://10.0.2.2:8080' : 'http://localhost:8080',
+    text:
+        const String.fromEnvironment('ERP_SERVER', defaultValue: '').isNotEmpty
+        ? const String.fromEnvironment('ERP_SERVER')
+        : Platform.isAndroid
+        ? 'http://10.0.2.2:8081'
+        : 'http://localhost:8081',
   );
   final _username = TextEditingController(text: 'Administrator');
   final _password = TextEditingController();

@@ -1,0 +1,109 @@
+{
+  "date": "2026-11-12",
+  "status": "native_foundation_verified_full_conversion_in_progress",
+  "base_commit": "3b9cae8",
+  "scope": "Evidence for the implemented foundation, not complete ERPNext parity",
+  "tests": {
+    "flutter": 66,
+    "backend_real_database": 31,
+    "metadata_extractor": 4,
+    "analyzer": "clean"
+  },
+  "versions": {
+    "flutter": "3.38.7",
+    "dart": "3.10.7",
+    "erpnext": "16.54.0",
+    "frappe": "16.55.2"
+  },
+  "builds": {
+    "macos": {
+      "mode": "release",
+      "architectures": [
+        "arm64"
+      ],
+      "signature_check": "passed",
+      "live_latest_release": "awaiting_manual_unlock"
+    },
+    "ios": {
+      "mode": "debug_simulator",
+      "architecture": "arm64",
+      "build": "passed",
+      "physical_device": "not_verified"
+    },
+    "android": {
+      "mode": "debug_apk",
+      "architectures": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86_64"
+      ],
+      "build": "passed",
+      "physical_device": "not_verified"
+    },
+    "windows": {
+      "build": "requires_windows_host"
+    }
+  },
+  "sites": {
+    "original": "frontend at localhost:8080; no extension installed; data preserved",
+    "verification": "native-test.localhost at localhost:8081; company ERP Native Verification"
+  },
+  "verified_scenarios": [
+    "native master create/edit/reopen",
+    "child ownership/order/defaults",
+    "read-only field and permission protection",
+    "concurrent write and workflow protection",
+    "submit/cancel",
+    "journal and General Ledger",
+    "sales invoice and balanced ledger",
+    "sales order to invoice source references; restricted submit denied",
+    "invoice to credit note references",
+    "duplicate clears fulfilment fields",
+    "stale source/foreign derived rows rejected",
+    "mapping previews avoid automatic price writes",
+    "lead quotation preview does not create customer",
+    "stock receipt and warehouse transfer ledger",
+    "comments/assignments/private attachments/exact bytes/PDF",
+    "same-account reauthentication retains draft without automatic retry",
+    "row dialog dirty/back/pending-operation safety",
+    "datetime time preservation",
+    "immediate same-frame parent Back protection",
+    "numeric record ID list/read/copy compatibility"
+  ],
+  "source_inventory": {
+    "doctypes": 835,
+    "child_tables": 364,
+    "single_settings": 63,
+    "report_definitions": 198
+  },
+  "metadata": {
+    "report_filters": 171,
+    "report_adapters_outstanding": 138,
+    "distinct_conditions": 1112,
+    "compiled_conditions": 1105
+  },
+  "live_mac_observed": [
+    "native document and child-row save",
+    "native activity/comment persistence; refresh bug subsequently fixed"
+  ],
+  "live_mac_pending": [
+    "latest release launch",
+    "post-fix activity/report/file dialogs",
+    "session-recovery UI",
+    "full-screen handoff"
+  ],
+  "upstream_source_changes": false,
+  "preserved_flutter_package_notices": 87,
+  "known_limits": [
+    "full ERP parity unfinished; see NATIVE_WORKFLOWS.md",
+    "seven source conditions and custom expressions need adapters",
+    "grouped Builder/custom report behavior pending",
+    "field-specific scripts/widgets/specialised pages pending",
+    "private upload 5 MB/download 10 MB; remote file storage pending",
+    "account/device/signing/installer verification pending"
+  ],
+  "deferred_by_user": [
+    "AI integration",
+    "further UI/UX enhancement"
+  ]
+}

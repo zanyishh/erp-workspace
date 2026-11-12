@@ -1,0 +1,14 @@
+{
+  "uses": 2335,
+  "distinct": 1112,
+  "supported": 1105,
+  "unsupported": [
+    "eval:doc.custom_delimiters && (doc.google_sheets_url || (doc.import_file && doc.import_file.split('.').pop().toLowerCase() === 'csv'))",
+    "eval:doc.google_sheets_url || (doc.import_file && doc.import_file.split('.').pop().toLowerCase() === 'csv')",
+    "eval:doc.items.every((item) => !item.pr_detail)",
+    "eval:doc.items.every((item) => !item.dn_detail)",
+    "eval:doc.suppliers.some((item) => item.send_email)",
+    "eval:cint(erpnext.is_perpetual_inventory_enabled(parent.company))",
+    "eval: erpnext.stock.is_subcontracting_or_return_transfer(doc)"
+  ]
+}
