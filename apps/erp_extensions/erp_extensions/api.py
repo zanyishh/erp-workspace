@@ -145,7 +145,7 @@ def _result(doc):
 
 
 @frappe.whitelist()
-def document(doctype, name=None, company=None):
+def document(doctype, name=None, company=None, tree_parent=None):
     meta = _meta(doctype, "read" if name or frappe.get_meta(doctype).issingle else "create")
     if name or meta.issingle:
         doc = frappe.get_doc(doctype, name or doctype)
@@ -153,6 +153,17 @@ def document(doctype, name=None, company=None):
         doc.run_method("onload")
     else:
         doc = frappe.new_doc(doctype)
+        if tree_parent:
+            parent_field = _tree_meta(meta)
+            parent = _tree_parent(meta, tree_parent, company)
+            df = meta.get_field(parent_field)
+            if df.read_only or df.hidden or parent_field not in _fieldnames(meta, "create"):
+                frappe.throw("This account cannot create a child here.", frappe.PermissionError)
+            if meta.has_field("is_group") and not parent.is_group:
+                frappe.throw("Choose a group before creating a child.")
+            doc.set(parent_field, parent.name)
+            if meta.has_field("company"):
+                company = company or parent.company
         if company and meta.has_field("company"):
             frappe.get_doc("Company", company).check_permission("read")
             doc.company = company
@@ -295,6 +306,49 @@ def records(doctype, query="", start=0, company=None, limit=50):
     rows = frappe.get_list(doctype, fields=fields, filters=filters, or_filters=or_filters,
         start=max(0, cint(start)), page_length=min(100, max(1, cint(limit))), order_by="modified desc")
     return [{**row, "name":str(row["name"])} for row in rows]
+
+
+def _tree_meta(meta):
+    parent_field = meta.nsm_parent_field or "parent_" + frappe.scrub(meta.name)
+    if not meta.is_tree or not meta.has_field(parent_field):
+        frappe.throw("This record type does not provide a hierarchy.")
+    readable = _fieldnames(meta, "read")
+    masked = {f.fieldname for f in meta.get_masked_fields()}
+    required = {parent_field} | ({"is_group"} if meta.has_field("is_group") else set())
+    if not required.issubset(readable - masked):
+        frappe.throw("This account cannot read this hierarchy.", frappe.PermissionError)
+    return parent_field
+
+
+def _tree_parent(meta, name, company):
+    parent = frappe.get_doc(meta.name, name)
+    parent.check_permission("read")
+    if company and meta.has_field("company") and parent.company not in (None, "", company):
+        frappe.throw("The selected group belongs to another company.", frappe.PermissionError)
+    return parent
+
+
+@frappe.whitelist()
+def tree_children(doctype, parent=None, company=None, start=0, limit=50):
+    meta = _meta(doctype)
+    parent_field = _tree_meta(meta)
+    if parent:
+        _tree_parent(meta, parent, company)
+    filters = [["docstatus", "<", 2],
+        [parent_field, "=", parent] if parent else [parent_field, "is", "not set"]]
+    shared_company = [["company", "=", company], ["company", "is", "not set"]] if company and meta.has_field("company") else None
+    fields = ["name"] + (["is_group"] if meta.has_field("is_group") else [])
+    readable = _fieldnames(meta, "read") - {f.fieldname for f in meta.get_masked_fields()}
+    if meta.title_field and meta.title_field in readable and meta.title_field != "name":
+        fields.append(meta.title_field)
+    limit = min(100, max(1, cint(limit)))
+    rows = frappe.get_list(doctype, fields=fields, filters=filters, or_filters=shared_company,
+        offset=max(0, cint(start)), limit=limit + 1, order_by="name asc")
+    df = meta.get_field(parent_field)
+    return {"nodes": [{"name":str(row.name), "title":row.get(meta.title_field) or str(row.name),
+        "expandable":bool(row.is_group) if meta.has_field("is_group") else True} for row in rows[:limit]], "has_more":len(rows) > limit,
+        "can_create":bool(frappe.has_permission(doctype, "create") and not df.read_only and not df.hidden
+            and parent_field in _fieldnames(meta, "create"))}
 
 
 @frappe.whitelist()

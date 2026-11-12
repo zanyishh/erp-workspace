@@ -127,6 +127,114 @@ class NativeApiTests(unittest.TestCase):
         doc.update(title=title, **values)
         return api.save(doc)["doc"]
 
+    def test_native_tree_lists_company_roots_and_paginates_children(self):
+        self.assertTrue(callable(getattr(api, "tree_children", None)), "Native tree browsing is missing")
+        company = "ERP Native Verification"
+        roots = api.tree_children("Warehouse", company=company)
+        self.assertEqual([r["name"] for r in roots["nodes"]], ["All Warehouses - NTEST"])
+        self.assertTrue(roots["nodes"][0]["expandable"])
+        first = api.tree_children("Warehouse", parent="All Warehouses - NTEST", company=company, limit=2)
+        second = api.tree_children("Warehouse", parent="All Warehouses - NTEST", company=company, start=2, limit=2)
+        self.assertEqual(len(first["nodes"]), 2)
+        self.assertTrue(first["has_more"])
+        self.assertEqual(len(second["nodes"]), 2)
+        self.assertFalse(second["has_more"])
+        self.assertTrue(set(r["name"] for r in first["nodes"]).isdisjoint(r["name"] for r in second["nodes"]))
+
+    def test_native_tree_checks_type_parent_and_user_permissions(self):
+        self.assertTrue(callable(getattr(api, "tree_children", None)), "Native tree browsing is missing")
+        with self.assertRaises(frappe.ValidationError):
+            api.tree_children(TYPE)
+        with self.assertRaises(frappe.PermissionError):
+            api.tree_children("Warehouse", parent="All Warehouses - NTEST", company="Another company")
+        frappe.set_user("native-editor@example.invalid")
+        with self.assertRaises(frappe.PermissionError):
+            api.tree_children("Warehouse", parent=self.denied_warehouse)
+        frappe.set_user("Guest")
+        with self.assertRaises(frappe.PermissionError):
+            api.tree_children("Warehouse")
+
+    def test_native_child_creation_and_move_use_nestedset_validation(self):
+        from frappe.utils.nestedset import NestedSetRecursionError
+        self.assertIn("tree_parent", __import__("inspect").signature(api.document).parameters,
+            "Native child drafts do not accept their tree parent")
+        company = "ERP Native Verification"
+        root = "All Warehouses - NTEST"
+        group = api.document("Warehouse", company=company, tree_parent=root)["doc"]
+        self.assertEqual(group["parent_warehouse"], root)
+        group = api.save({"doctype":"Warehouse", "__islocal":1, "company":company,
+            "parent_warehouse":group["parent_warehouse"], "warehouse_name":"Native tree group", "is_group":1})["doc"]
+        leaf = api.document("Warehouse", company=company, tree_parent=group["name"])["doc"]
+        leaf = api.save({"doctype":"Warehouse", "__islocal":1, "company":company,
+            "parent_warehouse":leaf["parent_warehouse"], "warehouse_name":"Native tree leaf"})["doc"]
+        self.assertEqual(api.tree_children("Warehouse", parent=group["name"])["nodes"][0]["name"], leaf["name"])
+        moved = api.save({"doctype":"Warehouse", "name":leaf["name"], "modified":leaf["modified"],
+            "parent_warehouse":root})["doc"]
+        self.assertEqual(moved["parent_warehouse"], root)
+        self.assertEqual(api.tree_children("Warehouse", parent=group["name"])["nodes"], [])
+        with self.assertRaises((NestedSetRecursionError, frappe.ValidationError)):
+            api.save({"doctype":"Warehouse", "name":group["name"], "modified":group["modified"],
+                "parent_warehouse":group["name"]})
+
+    def test_native_tree_cannot_create_a_child_under_a_leaf_or_hidden_parent(self):
+        self.assertIn("tree_parent", __import__("inspect").signature(api.document).parameters)
+        with self.assertRaises(frappe.ValidationError):
+            api.document("Warehouse", tree_parent=self.allowed_warehouse)
+        frappe.set_user("native-editor@example.invalid")
+        with self.assertRaises(frappe.PermissionError):
+            api.document("Warehouse", tree_parent="All Warehouses - NTEST")
+
+    def test_native_department_tree_keeps_shared_root_with_company_filter(self):
+        company = "ERP Native Verification"
+        roots = api.tree_children("Department", company=company)
+        self.assertIn("All Departments", [r["name"] for r in roots["nodes"]])
+        draft = api.document("Department", company=company, tree_parent="All Departments")["doc"]
+        self.assertEqual(draft["parent_department"], "All Departments")
+        self.assertEqual(draft["company"], company)
+        saved = api.save({"doctype":"Department", "__islocal":1, "department_name":"Native department",
+            "company":company, "parent_department":draft["parent_department"]})["doc"]
+        children = api.tree_children("Department", parent="All Departments", company=company)
+        self.assertIn(saved["name"], [r["name"] for r in children["nodes"]])
+
+    def test_native_employee_tree_supports_reporting_lines_and_empty_branches(self):
+        company = "ERP Native Verification"
+        frappe.get_doc({"doctype":"Gender", "gender":"Native test gender"}).insert()
+        api.tree_children("Employee", company=company)
+        manager = api.save({"doctype":"Employee", "__islocal":1, "company":company,
+            "first_name":"Native manager", "gender":"Native test gender", "date_of_birth":"1990-01-01",
+            "date_of_joining":"2020-01-01", "status":"Active"})["doc"]
+        roots = api.tree_children("Employee", company=company)
+        node = next(r for r in roots["nodes"] if r["name"] == manager["name"])
+        self.assertTrue(node["expandable"])
+        self.assertEqual(api.tree_children("Employee", parent=manager["name"], company=company)["nodes"], [])
+        draft = api.document("Employee", company=company, tree_parent=manager["name"])["doc"]
+        self.assertEqual(draft["reports_to"], manager["name"])
+        report = api.save({"doctype":"Employee", "__islocal":1, "company":company,
+            "first_name":"Native report", "gender":"Native test gender", "date_of_birth":"1995-01-01",
+            "date_of_joining":"2020-01-01", "status":"Active", "reports_to":draft["reports_to"]})["doc"]
+        self.assertEqual([r["name"] for r in api.tree_children("Employee", parent=manager["name"],
+            company=company)["nodes"]], [report["name"]])
+
+    def test_native_tree_checks_parent_permission_after_type_access_is_allowed(self):
+        company = "ERP Native Verification"
+        group = api.save({"doctype":"Warehouse", "__islocal":1, "company":company,
+            "warehouse_name":"Native permitted group", "parent_warehouse":"All Warehouses - NTEST", "is_group":1})["doc"]
+        user = "native-tree@example.invalid"
+        frappe.get_doc({"doctype":"User", "email":user, "first_name":"Native tree test",
+            "send_welcome_email":0, "roles":[{"role":"Stock User"}, {"role":"Item Manager"}]}).insert()
+        frappe.get_doc({"doctype":"User Permission", "user":user, "allow":"Warehouse",
+            "for_value":group["name"], "apply_to_all_doctypes":0, "applicable_for":"Warehouse"}).insert()
+        frappe.set_user(user)
+        self.assertTrue(frappe.has_permission("Warehouse", "read"))
+        self.assertTrue(frappe.has_permission("Warehouse", "create"))
+        allowed = api.tree_children("Warehouse", parent=group["name"], company=company)
+        self.assertEqual(allowed["nodes"], [])
+        self.assertEqual(api.document("Warehouse", company=company, tree_parent=group["name"])["doc"]["parent_warehouse"], group["name"])
+        with self.assertRaises(frappe.PermissionError):
+            api.tree_children("Warehouse", parent="All Warehouses - NTEST", company=company)
+        with self.assertRaises(frappe.PermissionError):
+            api.document("Warehouse", company=company, tree_parent="All Warehouses - NTEST")
+
     def test_activity_comments_and_private_attachment_roundtrip(self):
         import base64
         doc = self.create()

@@ -213,9 +213,10 @@ class NativeType {
     : name = json['name'] as String,
       module = json['module']?.toString() ?? 'Other',
       single = enabled(json['issingle']),
+      tree = enabled(json['is_tree']),
       canCreate = enabled(json['create']);
   final String name, module;
-  final bool single, canCreate;
+  final bool single, tree, canCreate;
 }
 
 class NativeCatalog {

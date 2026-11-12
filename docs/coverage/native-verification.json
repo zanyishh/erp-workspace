@@ -1,11 +1,11 @@
 {
-  "date": "2026-11-12",
+  "date": "2026-11-13",
   "status": "native_foundation_verified_full_conversion_in_progress",
   "base_commit": "3b9cae8",
   "scope": "Evidence for the implemented foundation, not complete ERPNext parity",
   "tests": {
-    "flutter": 66,
-    "backend_real_database": 31,
+    "flutter": 71,
+    "backend_real_database": 38,
     "metadata_extractor": 4,
     "analyzer": "clean"
   },
@@ -22,7 +22,8 @@
         "arm64"
       ],
       "signature_check": "passed",
-      "live_latest_release": "awaiting_manual_unlock"
+      "live_latest_release": "passed_2026-11-13; hierarchy, native child draft, General Ledger and full-screen overview observed",
+      "incremental_signature_check": "passed after changed Dart source; embed output dependency declared"
     },
     "ios": {
       "mode": "debug_simulator",
@@ -68,7 +69,12 @@
     "row dialog dirty/back/pending-operation safety",
     "datetime time preservation",
     "immediate same-frame parent Back protection",
-    "numeric record ID list/read/copy compatibility"
+    "numeric record ID list/read/copy compatibility",
+    "company-scoped tree roots/children/paging and permission checks",
+    "tree child creation, nested-set move and self-parent rejection",
+    "Department shared root with selected-company child creation",
+    "Employee manager/report hierarchy and empty reporting branches",
+    "allowed and denied hierarchy parents with real type access and scoped User Permission"
   ],
   "source_inventory": {
     "doctypes": 835,
@@ -83,15 +89,18 @@
     "compiled_conditions": 1105
   },
   "live_mac_observed": [
-    "native document and child-row save",
-    "native activity/comment persistence; refresh bug subsequently fixed"
+    "release app launch and full-screen overview handoff",
+    "native saved document and child row reopened",
+    "post-fix comment creation/refresh",
+    "Mac file picker upload and save; downloaded 80 bytes match source exactly",
+    "native PDF preview",
+    "expired sign-in prompts same-account recovery and returns to form; unsaved-change retention covered by automated tests",
+    "warehouse hierarchy root and four children displayed in latest release",
+    "new child draft shows ERP Native Verification company and All Warehouses - NTEST parent",
+    "General Ledger native filters run; opening/total/closing rows display zero balances",
+    "latest hierarchy release left full screen on connected overview"
   ],
-  "live_mac_pending": [
-    "latest release launch",
-    "post-fix activity/report/file dialogs",
-    "session-recovery UI",
-    "full-screen handoff"
-  ],
+  "live_mac_pending": [],
   "upstream_source_changes": false,
   "preserved_flutter_package_notices": 87,
   "known_limits": [
@@ -105,5 +114,13 @@
   "deferred_by_user": [
     "AI integration",
     "further UI/UX enhancement"
-  ]
+  ],
+  "hierarchy": {
+    "installed_types_root_pages_checked": 14,
+    "specialised_actions_outstanding": [
+      "rename",
+      "delete",
+      "custom tree actions"
+    ]
+  }
 }

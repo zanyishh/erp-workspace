@@ -5,6 +5,7 @@ import 'document_editor.dart';
 import 'erp_api.dart';
 import 'native_models.dart';
 import 'report_screen.dart';
+import 'native_tree.dart';
 import 'widgets.dart';
 
 class NativeCatalogScreen extends StatefulWidget {
@@ -270,6 +271,24 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
     appBar: AppBar(
       title: Display(widget.type.name.toUpperCase(), size: 27),
       actions: [
+        if (widget.type.tree)
+          IconButton(
+            tooltip: 'Browse hierarchy',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => NativeTreeScreen(
+                    api: widget.api,
+                    type: widget.type,
+                    company: widget.company,
+                  ),
+                ),
+              );
+              if (mounted) _reload();
+            },
+            icon: const Icon(Icons.account_tree_outlined),
+          ),
         IconButton(
           tooltip: 'Refresh records',
           onPressed: () => _reload(),

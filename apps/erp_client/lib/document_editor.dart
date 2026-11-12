@@ -14,10 +14,11 @@ class DocumentEditor extends StatefulWidget {
     this.name,
     this.company,
     this.initial,
+    this.treeParent,
   });
   final ErpApi api;
   final String doctype;
-  final String? name, company;
+  final String? name, company, treeParent;
   final NativeDocument? initial;
   @override
   State<DocumentEditor> createState() => _DocumentEditorState();
@@ -34,6 +35,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
               widget.doctype,
               name: widget.name,
               company: widget.company,
+              treeParent: widget.treeParent,
             ),
     ]);
     return (results[0] as NativeSchema, results[1] as NativeDocument);

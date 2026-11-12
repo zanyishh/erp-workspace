@@ -5,9 +5,10 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 cd "$(dirname "$0")/.."
 scripts/setup-native-test.command
 APP_PATH="$PWD/apps/erp_client/build/macos/Build/Products/Release/ERP Workspace.app"
-if [[ ! -d "$APP_PATH" ]]; then
+if [[ ! -d "$APP_PATH" ]] || ! codesign --verify --deep --strict "$APP_PATH" 2>/dev/null; then
   (cd apps/erp_client && flutter build macos --release)
 fi
+codesign --verify --deep --strict "$APP_PATH"
 for attempt in {1..30}; do
   if curl -fsS --max-time 2 http://localhost:8081/api/method/ping >/dev/null 2>&1; then
     open "$APP_PATH"

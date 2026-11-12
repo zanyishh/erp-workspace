@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-12-complete-native-erp-design.md`; builder check found nothing important left and confirmed source counts.
 
-**Current checkpoint:** native foundation implemented; 66 Flutter tests, 31 real-backend tests and 4 metadata tests pass. Mac release, iOS simulator and Android builds pass. Latest live Mac checks await manual unlock; full specialised-feature parity remains unfinished. See `docs/setup/NATIVE_WORKFLOWS.md`.
+**Current checkpoint:** native foundation implemented; 71 Flutter tests, 38 real-backend tests and 4 metadata tests pass. Mac release, iOS simulator and Android builds pass. Foundation release live Mac checks passed after manual unlock and full-screen handoff. Native hierarchy increment passed review, all three builds and live Mac navigation/report checks; full specialised-feature parity remains unfinished. See `docs/setup/NATIVE_WORKFLOWS.md`.
 
 ## Global Constraints
 
@@ -67,7 +67,7 @@
 **Interfaces:** Native catalogue groups server-permitted types/reports by module; single settings open directly, record types open paginated native lists. Existing eight overview entry points use the same native editor.
 
 - [x] Test menu/catalogue search, permissions, pagination, returning from a saved record, and all existing Create/Edit callbacks remaining native.
-- [ ] Connect the overview, modules, recent activity and New document picker. Keep the original browser application only as an explicit settings fallback. Run live Mac create/edit and reopening flows.
+- [x] Connect the overview, modules, recent activity and New document picker. Keep the original browser application only as an explicit settings fallback. Run live Mac create/edit and reopening flows.
 
 ### Task 5: Reports, collaboration, files and specialised workflows
 

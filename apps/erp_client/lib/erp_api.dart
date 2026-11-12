@@ -337,15 +337,48 @@ class ErpApi {
 
   Future<NativeSchema> nativeSchema(String doctype) async =>
       NativeSchema.fromJson(await _native('schema', {'doctype': doctype}));
+  Future<Map<String, dynamic>> nativeTree(
+    String doctype, {
+    String? parent,
+    String? company,
+    int start = 0,
+  }) async {
+    final result = await _native('tree_children', {
+      'doctype': doctype,
+      'parent': parent,
+      'company': company,
+      'start': start,
+    });
+    final nodes = result['nodes'];
+    if (nodes is! List ||
+        result['has_more'] is! bool ||
+        result['can_create'] is! bool ||
+        nodes.any(
+          (row) =>
+              row is! Map ||
+              row['name'] is! String ||
+              (row['name'] as String).isEmpty ||
+              row['title'] is! String ||
+              row['expandable'] is! bool,
+        )) {
+      throw const ErpException(
+        'ERPNext returned an invalid hierarchy. Refresh and try again.',
+      );
+    }
+    return result;
+  }
+
   Future<NativeDocument> nativeDocument(
     String doctype, {
     String? name,
     String? company,
+    String? treeParent,
   }) async => NativeDocument.fromJson(
     await _native('document', {
       'doctype': doctype,
       'name': name,
       'company': company,
+      'tree_parent': treeParent,
     }),
   );
   Future<NativeDocument> saveNative(
