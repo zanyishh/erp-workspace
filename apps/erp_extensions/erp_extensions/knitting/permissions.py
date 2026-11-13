@@ -205,7 +205,10 @@ def query_conditions(user=None, doctype=None):
     if doctype == 'Knitting Event' and (user or frappe.session.user) != 'Administrator':
         # JSON sources are not covered by Frappe's Link-field User Permission
         # joins. Generic Desk/API lists must enforce the same source checks.
-        names = [r.name for r in frappe.get_all('Knitting Event', filters={'company':['in',allowed]},
-            fields=['name']) if source_scope(frappe.get_doc('Knitting Event', r.name), user)]
+        filters = {"company": ["in", allowed]}
+        if "financial_read" not in caps:
+            filters["kind"] = ["not in", FINANCIAL_EVENTS]
+        names = [r.name for r in frappe.get_all('Knitting Event', filters=filters, fields=['name'])
+                 if source_scope(frappe.get_doc('Knitting Event', r.name), user)]
         condition += f' and `tab{doctype}`.`name` in (' + (','.join(frappe.db.escape(n) for n in names) or 'NULL') + ')'
     return condition

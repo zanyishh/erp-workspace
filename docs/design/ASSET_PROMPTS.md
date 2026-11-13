@@ -14,3 +14,9 @@ Use case: stylized-concept. Asset type: small premium ERP Selling workspace thum
 
 Use case: stylized-concept. Asset type: small premium ERP Buying workspace thumbnail, matching semi-realistic white industrial catalogue renders. A compact white pallet jack with a charcoal handle alongside a tidy stack of three chalk-white unbranded shipping cartons on a very pale grey pallet. A single subtle pale-peach packing band. All items form one compact purposeful product group, viewed from shallow front three-quarter angle close to eye level, full object visible with ample transparent padding in a wide landscape composition. Fine realistic edges, paper textures understated, soft frontal studio lighting, ambient occlusion and broad faint grey contact shadow. Palette almost entirely chalk white and pale grey, restrained charcoal hardware. Actual transparent background with feathered shadow. No lettering, no brand, no barcodes, no people, no colourful toy style, no ground slab, no watermark. Quiet premium white 3D product photography for a charcoal-and-light-grey business dashboard.
 
+
+## Studio library
+
+The purchasing render above was the visual reference for six original transparent objects. Each uses the same near-eye-level catalogue camera, chalk-white surfaces, graphite details, muted peach trim and soft contact shadow. The subjects are yarn cones, a circular knitting machine, rolled jersey fabric, a fabric inspection station, a dispatch truck and a calculator with invoice forms. Their source and output checksums are in `asset-provenance.json`.
+
+The client bundles the six renders alongside optimized copies of the original warehouse, point-of-sale terminal and purchasing trolley. Each image has 144, 448 and 960 pixel WebP versions under `assets/studio/`. Table headers use compact symbols and screen-reader labels, while quantities, dates and customer names stay in text.

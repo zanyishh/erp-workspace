@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -428,7 +429,7 @@ class _KnittingReportsState extends State<KnittingReports> {
                               child: Column(
                                 children: [
                                   Container(
-                                    color: WorkspaceTheme.palePeach,
+                                    color: const Color(0xFFE5E5E1),
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 16,
                                     ),
@@ -442,12 +443,8 @@ class _KnittingReportsState extends State<KnittingReports> {
                                                   const EdgeInsets.symmetric(
                                                     horizontal: 12,
                                                   ),
-                                              child: Text(
+                                              child: ColumnCaption(
                                                 c['label'] as String,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 12,
-                                                ),
                                               ),
                                             ),
                                           ),

@@ -67,6 +67,7 @@ void main() {
         expect(tester.hasRunningAnimations, !reduced);
         await tester.pumpAndSettle();
         final chart = find.bySemanticsLabel('Daily sales chart');
+        await tester.ensureVisible(chart);
         final rect = tester.getRect(chart);
         await tester.tapAt(Offset(rect.left + 1, rect.center.dy));
         await tester.pumpAndSettle();
@@ -93,6 +94,28 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'refresh keeps the inspected date within the same reporting period',
+    (tester) async {
+      Widget view(ErpSnapshot data) => MaterialApp(
+        home: Scaffold(body: SalesChart(data: data)),
+      );
+      await tester.pumpWidget(view(sample));
+      await tester.tap(find.byTooltip('Previous day'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        view(
+          ErpSnapshot(
+            company: sample.company,
+            currency: sample.currency,
+            sales: [...sample.sales, SalesDay(DateTime(2026, 2, 4), 52)],
+          ),
+        ),
+      );
+      expect(find.text('Feb 2, 2026 · ₹0'), findsOneWidget);
+    },
+  );
 
   testWidgets('single credit note stays selectable on a large-text phone', (
     tester,

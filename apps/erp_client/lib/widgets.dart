@@ -13,20 +13,11 @@ class WorkspaceBackdrop extends StatelessWidget {
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFF0E8DC), Color(0xFFE3E9E5), Color(0xFFD6DFDA)],
+        colors: [Color(0xFFF1F1EE), Color(0xFFE8E8E5), Color(0xFFDEDEDB)],
         stops: [0, .48, 1],
       ),
     ),
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(.85, -.94),
-          radius: .92,
-          colors: [Color(0xC1F5CCB4), Color(0x00F5CCB4)],
-        ),
-      ),
-      child: child,
-    ),
+    child: child,
   );
 }
 
@@ -38,7 +29,7 @@ class Panel extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.border = false,
     this.frosted = false,
-    this.radius = 20,
+    this.radius = 16,
   });
   final Widget child;
   final bool dark, border, frosted;
@@ -52,12 +43,12 @@ class Panel extends StatelessWidget {
     final useBlur = frosted && !highContrast;
     final fill = dark
         ? [
-            Color(frosted ? 0xCE35423C : 0xF4343936),
-            Color(frosted ? 0xDC141D19 : 0xF01C221F),
+            Color(frosted ? 0xDA292A29 : 0xFF242525),
+            Color(frosted ? 0xE31B1C1B : 0xFF1A1B1A),
           ]
         : [
             Color(frosted ? 0xBFFFFFFC : 0xEFFFFFFC),
-            Color(frosted ? 0xA4F0F4EE : 0xC5F4F6F0),
+            Color(frosted ? 0xB5F3F3F1 : 0xE5F4F4F1),
           ];
     final content = DecoratedBox(
       decoration: BoxDecoration(
@@ -74,9 +65,9 @@ class Panel extends StatelessWidget {
               ),
         border: Border.all(
           color: dark
-              ? const Color(0xFF505854)
+              ? const Color(0xFF4B4C4A)
               : border
-              ? const Color(0xFFD0D7CF)
+              ? const Color(0xFFC9CAC7)
               : const Color(0xEFFFFFFF),
         ),
       ),
@@ -96,8 +87,8 @@ class Panel extends StatelessWidget {
         boxShadow: const [
           BoxShadow(
             color: Color(0x100D1F16),
-            blurRadius: 12,
-            offset: Offset(0, 4),
+            blurRadius: 7,
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -105,7 +96,7 @@ class Panel extends StatelessWidget {
         borderRadius: corners,
         child: useBlur
             ? BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                filter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
                 child: content,
               )
             : content,
@@ -221,9 +212,11 @@ class MetricTile extends StatelessWidget {
     required this.value,
     required this.footer,
     this.icon,
+    this.art,
   });
   final String label, value, footer;
   final IconData? icon;
+  final Widget? art;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
@@ -251,7 +244,9 @@ class MetricTile extends StatelessWidget {
                 style: const TextStyle(fontSize: 11, color: WorkspaceTheme.ink),
               ),
             ),
-            if (icon != null) Icon(icon, size: 15, color: WorkspaceTheme.muted),
+            ?art,
+            if (art == null && icon != null)
+              Icon(icon, size: 15, color: WorkspaceTheme.muted),
           ],
         ),
         const SizedBox(height: 12),

@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -7,6 +5,7 @@ import 'design.dart';
 import 'erp_models.dart';
 import 'sales_chart.dart';
 import 'widgets.dart';
+import 'ui/workspace_art.dart';
 
 class OverviewScreen extends StatelessWidget {
   const OverviewScreen({
@@ -27,88 +26,101 @@ class OverviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      final compact = box.maxWidth < 660;
-      final wide = box.maxWidth >= 1090;
-      const gap = SizedBox(height: 16);
+      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+      final wide = box.maxWidth >= 1120 && scale < 1.5;
+      final medium = box.maxWidth >= 720 && scale < 1.5;
+      const gap = SizedBox(height: 12);
+      final stage = _inventory();
       final chart = SalesChart(data: data, range: range);
-      final inventory = _inventory();
-      final orders = _orders();
+      final operating = _orders();
+      final directory = _directory();
       final invoices = _invoices();
-      Widget split(
-        Widget left,
-        Widget right, {
-        int leftFlex = 7,
-        int rightFlex = 4,
-      }) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: leftFlex, child: left),
-          const SizedBox(width: 16),
-          Expanded(flex: rightFlex, child: right),
-        ],
+      Widget column(List<Widget> children) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
       );
       return SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
-          compact ? 16 : 28,
-          compact ? 16 : 22,
-          compact ? 16 : 28,
-          28,
+          medium ? 24 : 14,
+          16,
+          medium ? 24 : 14,
+          24,
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1540),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  runSpacing: 12,
-                  spacing: 14,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data.company,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: WorkspaceTheme.muted,
-                          ),
+            constraints: const BoxConstraints(maxWidth: 1580),
+            child: column([
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 6,
+                spacing: 16,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data.company,
+                        style: const TextStyle(
+                          color: WorkspaceTheme.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(height: 3),
-                        Semantics(
-                          header: true,
-                          child: Display(
-                            'BUSINESS OVERVIEW',
-                            size: compact ? 34 : 44,
-                          ),
+                      ),
+                      Semantics(
+                        header: true,
+                        child: Display(
+                          'BUSINESS OVERVIEW',
+                          size: medium ? 37 : 31,
                         ),
-                      ],
-                    ),
-                    Pill('New document', icon: Icons.add, onPressed: onNew),
-                  ],
-                ),
-                const SizedBox(height: 19),
-                if (wide) ...[
-                  split(
-                    Column(children: [chart, gap, invoices]),
-                    Column(children: [inventory, gap, orders]),
+                      ),
+                    ],
                   ),
-                ] else ...[
-                  chart,
-                  gap,
-                  if (compact) ...[
-                    orders,
-                    gap,
-                    inventory,
-                  ] else
-                    split(inventory, orders, leftFlex: 1, rightFlex: 1),
-                  gap,
-                  invoices,
+                  Pill('New document', icon: Icons.add, onPressed: onNew),
                 ],
+              ),
+              const SizedBox(height: 14),
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 24,
+                      child: column([directory, gap, invoices]),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 51, child: column([stage, gap, chart])),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 25, child: operating),
+                  ],
+                )
+              else if (medium)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 57,
+                      child: column([stage, gap, chart, gap, invoices]),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 39,
+                      child: column([operating, gap, directory]),
+                    ),
+                  ],
+                )
+              else ...[
+                stage,
+                gap,
+                chart,
+                gap,
+                operating,
+                gap,
+                directory,
+                gap,
+                invoices,
               ],
-            ),
+            ]),
           ),
         ),
       );
@@ -118,109 +130,42 @@ class OverviewScreen extends StatelessWidget {
   Widget _inventory() {
     final items = data.count(ErpModule.stock);
     return Panel(
-      padding: EdgeInsets.zero,
+      border: true,
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
-            child: Row(
-              children: [
-                const Expanded(child: Display('INVENTORY', size: 28)),
-                if (items != null)
-                  Semantics(
-                    button: true,
-                    label: 'Open Stock',
-                    excludeSemantics: true,
-                    onTap: () => onModule(ErpModule.stock),
-                    child: IconButton.outlined(
-                      tooltip: 'Open Stock',
-                      onPressed: () => onModule(ErpModule.stock),
-                      icon: const Icon(Icons.arrow_outward, size: 17),
-                    ),
+          Row(
+            children: [
+              const Expanded(child: Display('INVENTORY', size: 26)),
+              if (items != null)
+                Semantics(
+                  button: true,
+                  label: 'Open Stock',
+                  excludeSemantics: true,
+                  onTap: () => onModule(ErpModule.stock),
+                  child: IconButton.outlined(
+                    tooltip: 'Open Stock',
+                    onPressed: () => onModule(ErpModule.stock),
+                    icon: const Icon(Icons.north_east, size: 17),
                   ),
-              ],
+                ),
+            ],
+          ),
+          LayoutBuilder(
+            builder: (_, box) => WorkspaceArt(
+              ArtObject.warehouse,
+              width: box.maxWidth,
+              height: (box.maxWidth * .37).clamp(131.0, 245.0),
             ),
           ),
-          Stack(
+          const Divider(height: 16),
+          Row(
             children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment(.35, .25),
-                      radius: .9,
-                      colors: [
-                        Color(0xFFBBCBC4),
-                        Color(0xFFDEE9E2),
-                        Color(0x00DFE8E3),
-                      ],
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 7),
-                    child: Image.asset(
-                      'assets/images/warehouse.png',
-                      fit: BoxFit.contain,
-                      cacheWidth: 880,
-                      excludeFromSemantics: true,
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(13, 133, 13, 13),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Builder(
-                    builder: (context) {
-                      final highContrast = MediaQuery.highContrastOf(context);
-                      final plate = Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: highContrast
-                                ? [Colors.white, Colors.white]
-                                : const [Color(0xCDFFFFFF), Color(0x9FDCEAE5)],
-                          ),
-                          border: Border.all(color: const Color(0xE9FFFFFF)),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _inventoryValue('Catalog items', items),
-                            ),
-                            Container(
-                              width: 1,
-                              height: 36,
-                              color: const Color(0x998C9F95),
-                            ),
-                            const SizedBox(width: 17),
-                            Expanded(
-                              child: _inventoryValue(
-                                'Warehouses',
-                                data.warehouses,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                      return highContrast
-                          ? plate
-                          : BackdropFilter(
-                              filter: ui.ImageFilter.blur(sigmaX: 9, sigmaY: 9),
-                              child: plate,
-                            );
-                    },
-                  ),
-                ),
-              ),
+              Expanded(child: _metric('Catalog items', items)),
+              Container(width: 1, height: 32, color: WorkspaceTheme.border),
+              const SizedBox(width: 16),
+              Expanded(child: _metric('Warehouses', data.warehouses)),
             ],
           ),
         ],
@@ -228,109 +173,139 @@ class OverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _inventoryValue(String title, int? value) => Column(
+  Widget _metric(String label, int? count) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
-        value == null
+        count == null
             ? 'No access'
-            : NumberFormat.decimalPattern().format(value),
+            : NumberFormat.decimalPattern().format(count),
         style: TextStyle(
-          fontSize: value == null ? 17 : 27,
+          fontSize: count == null ? 14 : 25,
           fontWeight: FontWeight.w600,
-          height: 1.2,
-          letterSpacing: -.6,
+          height: 1.15,
+          color: WorkspaceTheme.ink,
         ),
       ),
-      const SizedBox(height: 3),
       Text(
-        title,
-        style: const TextStyle(color: WorkspaceTheme.muted, fontSize: 12),
+        label,
+        style: const TextStyle(fontSize: 12, color: WorkspaceTheme.muted),
       ),
     ],
   );
 
-  Widget _orders() => Panel(
-    padding: const EdgeInsets.fromLTRB(18, 18, 18, 7),
+  Widget _directory() => Panel(
+    dark: true,
+    padding: const EdgeInsets.all(13),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Display('OPERATING ACTIVITY', size: 27),
-        const SizedBox(height: 7),
-        for (final (label, module, count) in [
-          ('Sales orders', ErpModule.selling, data.count(ErpModule.selling)),
-          ('Purchase orders', ErpModule.buying, data.count(ErpModule.buying)),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 3, 4, 12),
+          child: Display('TRADING PARTNERS', size: 24, light: true),
+        ),
+        for (final (index, (title, art, count)) in [
+          ('Customers', ArtObject.sales, data.customers),
+          ('Suppliers', ArtObject.purchasing, data.suppliers),
+        ].indexed) ...[
+          if (index > 0) const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.fromLTRB(13, 9, 4, 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(13),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [WorkspaceTheme.light, Color(0xFFE7E7E1)],
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(child: _metric(title, count)),
+                Flexible(child: WorkspaceArt(art, width: 104, height: 65)),
+              ],
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  Widget _orders() => Panel(
+    dark: true,
+    padding: const EdgeInsets.all(12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 4, 4, 12),
+          child: Display('OPERATING ACTIVITY', size: 24, light: true),
+        ),
+        for (final (index, (label, module, art, count)) in [
+          (
+            'Sales orders',
+            ErpModule.selling,
+            ArtObject.sales,
+            data.count(ErpModule.selling),
+          ),
+          (
+            'Purchase orders',
+            ErpModule.buying,
+            ArtObject.purchasing,
+            data.count(ErpModule.buying),
+          ),
           (
             'Work orders',
             ErpModule.manufacturing,
+            ArtObject.machine,
             data.count(ErpModule.manufacturing),
           ),
           (
             'Unpaid invoices',
             ErpModule.accounts,
+            ArtObject.invoice,
             data.invoicesAvailable ? data.unpaidInvoices : null,
           ),
-        ])
-          _metricRow(label, module, count),
+        ].indexed) ...[
+          if (index > 0) const SizedBox(height: 6),
+          _metricRow(label, module, art, count),
+        ],
       ],
     ),
   );
 
-  Widget _metricRow(String label, ErpModule module, int? count) {
+  Widget _metricRow(String label, ErpModule module, ArtObject art, int? count) {
     final value = count == null
         ? 'No access'
         : NumberFormat.decimalPattern().format(count);
     final open = count == null ? null : () => onModule(module);
     return Semantics(
       button: open != null,
+      onTap: open,
+      excludeSemantics: true,
       label: open == null
           ? '$label, no access'
           : '$label, $value. Open ${module.label}',
-      onTap: open,
-      excludeSemantics: true,
       child: Material(
-        color: Colors.transparent,
+        color: WorkspaceTheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: open,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-            constraints: const BoxConstraints(minHeight: 51),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xFFD8DED7), width: .8),
-              ),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(9, 9, 9, 9),
             child: Row(
               children: [
-                Icon(moduleIcon(module), size: 17, color: WorkspaceTheme.muted),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                Flexible(
+                  flex: 4,
+                  child: WorkspaceArt(art, width: 110, height: 74),
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      fontSize: count == null ? 12 : 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 7),
+                const SizedBox(width: 8),
+                Expanded(flex: 5, child: _metric(label, count)),
+                const SizedBox(width: 4),
                 Icon(
-                  open == null ? Icons.lock_outline : Icons.chevron_right,
-                  size: 17,
+                  open == null ? Icons.lock_outline : Icons.north_east,
+                  size: 15,
                   color: WorkspaceTheme.muted,
                 ),
               ],
@@ -342,17 +317,20 @@ class OverviewScreen extends StatelessWidget {
   }
 
   Widget _invoices() => Panel(
-    padding: const EdgeInsets.fromLTRB(20, 15, 20, 12),
+    padding: const EdgeInsets.fromLTRB(14, 9, 12, 7),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            const Expanded(child: Display('RECENT INVOICES', size: 27)),
+            const WorkspaceArt(ArtObject.invoice, width: 44, height: 46),
+            const SizedBox(width: 7),
+            const Expanded(child: Display('RECENT INVOICES', size: 22)),
             if (data.invoicesAvailable)
-              TextButton(
+              IconButton(
+                tooltip: 'View all invoices',
+                icon: const Icon(Icons.arrow_forward, size: 17),
                 onPressed: () => onModule(ErpModule.accounts),
-                child: const Text('View all'),
               ),
           ],
         ),
@@ -395,26 +373,12 @@ class OverviewScreen extends StatelessWidget {
           child: Container(
             decoration: const BoxDecoration(
               border: Border(
-                top: BorderSide(color: Color(0xFFD8DED7), width: .8),
+                top: BorderSide(color: WorkspaceTheme.border, width: .8),
               ),
             ),
             padding: const EdgeInsets.symmetric(vertical: 11),
             child: Row(
               children: [
-                Container(
-                  width: 34,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6EAE4),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: const Icon(
-                    Icons.receipt_long_outlined,
-                    size: 18,
-                    color: Color(0xFF536159),
-                  ),
-                ),
-                const SizedBox(width: 11),
                 Expanded(
                   flex: 3,
                   child: Column(
@@ -449,7 +413,7 @@ class OverviewScreen extends StatelessWidget {
                         textAlign: TextAlign.end,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                       if (record.status.isNotEmpty)

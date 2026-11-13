@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -291,12 +292,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
             : null;
         if (old != null && now == null) continue;
         final target =
-            now ??
-            {
-              'doctype': child.doctype,
-              '__islocal': 1,
-              'name': ?name,
-            };
+            now ?? {'doctype': child.doctype, '__islocal': 1, 'name': ?name};
         _retainDraft(child, old ?? {}, row, target, parent: fresh);
         rows.add(target);
       }
@@ -456,10 +452,22 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            widget.schema.doctype,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          title: Row(
+            children: [
+              WorkspaceArt(
+                recordArt(widget.schema.doctype),
+                width: 50,
+                height: 37,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  widget.schema.doctype,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
           actions: [
             Padding(

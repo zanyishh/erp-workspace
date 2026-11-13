@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -117,9 +118,9 @@ class _SignInScreenState extends State<SignInScreen> {
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                           colors: [
-                                            Color(0xFFCDD6D2),
-                                            Color(0xFFEBE5DC),
-                                            Color(0xFFD6B9A8),
+                                            Color(0xFFD9DAD7),
+                                            Color(0xFFF4F4F2),
+                                            Color(0xFFDFDFDD),
                                           ],
                                         ),
                                       ),
@@ -127,10 +128,10 @@ class _SignInScreenState extends State<SignInScreen> {
                                         alignment: Alignment.centerLeft,
                                         child: FractionallySizedBox(
                                           widthFactor: .68,
-                                          child: Image.asset(
-                                            'assets/images/warehouse.png',
-                                            fit: BoxFit.contain,
-                                            excludeFromSemantics: true,
+                                          child: const WorkspaceArt(
+                                            ArtObject.warehouse,
+                                            width: double.infinity,
+                                            height: 400,
                                           ),
                                         ),
                                       ),

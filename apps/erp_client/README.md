@@ -29,7 +29,7 @@ The code is GPL-3.0; see [LICENSE](LICENSE) and the workspace [NOTICE](../../NOT
 
 ## Verification
 
-The updated industry home and form verification has 131 passing Flutter checks and clean analysis. Choosing Knitting ERP during company setup opens the permitted mill overview at sign-in. The General ERP action opens the same company’s business dashboard, and Back to mill restores factory navigation. Business records in the navigation opens the shared ERP catalogue. The final Mac ARM64 release, iPhone simulator debug and Android ARM64 debug builds pass; the native Mac walkthrough includes production, QC, delivery, reviewed invoicing, yarn return, completion, source reconciliation and an in-app invoice PDF. Backend and platform limits are recorded in the [release evidence](../../docs/setup/KNITTING_V1.md).
+All 136 Flutter checks passed and static analysis reported no issues. The [Mac measurements](../../docs/coverage/workspace-frame-timings.json) cover register scrolling, chart interaction and first dashboard opens. Choosing Knitting ERP during company setup opens the permitted mill overview at sign-in. The General ERP action opens the same company’s business dashboard, and Back to mill restores factory navigation. Business records in the navigation opens the shared ERP catalogue. The final Mac ARM64 release, iPhone simulator debug and Android ARM64 debug builds pass; the native Mac walkthrough includes production, QC, delivery, reviewed invoicing, yarn return, completion, source reconciliation and an in-app invoice PDF. Backend and platform limits are recorded in the [release evidence](../../docs/setup/KNITTING_V1.md).
 
 ```sh
 flutter analyze

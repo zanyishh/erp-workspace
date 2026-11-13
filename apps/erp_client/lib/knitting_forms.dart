@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -717,6 +718,7 @@ class _RecordPickerState extends State<_RecordPicker> {
     widget.entity,
     query,
     start: start,
+    job: widget.job,
   );
   @override
   Widget build(BuildContext context) => Dialog(
@@ -1014,10 +1016,15 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   bool get busy =>
       draft?.state == CommandState.posting ||
       draft?.state == CommandState.checking;
+  void _finish() => Navigator.pop(context, draft?.result);
+
   Future<void> _leave() async {
     if (busy || checkingTotals || leaving) return;
-    if (!changed && draft?.state != CommandState.uncertain ||
-        draft?.state == CommandState.confirmed) {
+    if (draft?.state == CommandState.confirmed) {
+      _finish();
+      return;
+    }
+    if (!changed && draft?.state != CommandState.uncertain) {
       Navigator.pop(context);
       return;
     }
@@ -1253,10 +1260,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     if (checkingTotals || accessInvalidatedDraft) return null;
     final state = draft!.state;
     if (state == CommandState.confirmed) {
-      return FilledButton(
-        onPressed: () => Navigator.pop(context, true),
-        child: const Text('Done'),
-      );
+      return FilledButton(onPressed: _finish, child: const Text('Done'));
     }
     if (state == CommandState.uncertain) {
       return FilledButton.icon(
@@ -1316,7 +1320,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                     draft = null;
                     accessInvalidatedDraft = false;
                   } else if (draft?.state == CommandState.confirmed) {
-                    Navigator.pop(context, true);
+                    _finish();
                   }
                 });
               },

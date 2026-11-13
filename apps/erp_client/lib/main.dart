@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -373,7 +374,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                       ),
                       for (final m in ErpModule.values)
                         ListTile(
-                          leading: Icon(moduleIcon(m)),
+                          leading: WorkspaceArt(
+                            moduleArt(m),
+                            width: 52,
+                            height: 34,
+                          ),
                           title: Text(m.doctype),
                           trailing: const Icon(Icons.arrow_outward, size: 17),
                           onTap: () {

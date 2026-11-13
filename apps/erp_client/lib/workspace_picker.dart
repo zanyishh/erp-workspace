@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'package:flutter/material.dart';
 import 'design.dart';
 import 'erp_models.dart';
@@ -75,7 +76,11 @@ Future<void> showWorkspacePicker(
                               .contains(query),
                         ))
                           ListTile(
-                            leading: Icon(moduleIcon(m)),
+                            leading: WorkspaceArt(
+                              moduleArt(m),
+                              width: 54,
+                              height: 35,
+                            ),
                             title: Text(m.label),
                             subtitle: Text(
                               m.description,

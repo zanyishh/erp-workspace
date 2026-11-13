@@ -1,7 +1,7 @@
 part of 'knitting_forms.dart';
 
-const _paper = Color(0xFFFAF8F3);
-const _sheet = Color(0xFFF1EEE7);
+const _paper = Color(0xFFF8F8F6);
+const _sheet = Color(0xFFE9E9E6);
 const _nestedKinds = {'programme', 'entries', 'inputs'};
 
 String _entityFor(String kind) => switch (kind) {
@@ -345,104 +345,102 @@ class _EntryPage extends StatelessWidget {
       if (job?['customer'] != null) job!['customer'],
       if (job?['name'] != null) job!['name'],
     ].join('  ·  ');
-    final alignment = switch (action.group) {
-      'Yarn' => Alignment.centerLeft,
-      'Factory' || 'Planning' || 'Production' => Alignment.centerRight,
-      _ => Alignment.center,
+    final object = switch (action.group) {
+      'Yarn' => ArtObject.yarn,
+      'Factory' || 'Planning' || 'Production' => ArtObject.machine,
+      'Quality' => ArtObject.inspection,
+      'Delivery' => ArtObject.dispatch,
+      'Billing' => ArtObject.invoice,
+      _ => ArtObject.fabric,
     };
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/knitting-studio.jpg',
-              fit: BoxFit.cover,
-              alignment: alignment,
-              excludeFromSemantics: true,
-            ),
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Display(action.title, size: compact ? 27 : 33, light: true),
+        const SizedBox(height: 8),
+        Text(
+          detail,
+          style: const TextStyle(
+            color: Color(0xFFE7E6E3),
+            fontSize: 12,
+            height: 1.4,
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(10, compact ? 28 : 132, 10, 10),
-            child: Panel(
-              dark: true,
-              frosted: true,
-              radius: 13,
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 14 : 18,
-                vertical: compact ? 12 : 18,
+        ),
+      ],
+    );
+    final stage = confirmed
+        ? 2
+        : review
+        ? 1
+        : 0;
+    return Panel(
+      dark: true,
+      radius: 17,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (compact)
+            Row(
+              children: [
+                Expanded(child: title),
+                const SizedBox(width: 12),
+                WorkspaceArt(object, width: 86, height: 66),
+              ],
+            )
+          else ...[
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFAFAF9), Color(0xFFE7E7E4)],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    action.title,
-                    style: displayStyle(
-                      compact ? 30 : 37,
-                      color: WorkspaceTheme.light,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    detail,
-                    style: const TextStyle(
-                      color: WorkspaceTheme.palePeach,
-                      height: 1.45,
-                    ),
-                  ),
-                  if (!compact) ...[
-                    const SizedBox(height: 20),
-                    Semantics(
-                      label: confirmed
-                          ? 'Entry posted'
-                          : review
-                          ? 'Review before posting'
-                          : 'Editing entry',
-                      child: ExcludeSemantics(
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < 3; i++)
-                              Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: i == 2 ? 0 : 4,
-                                  ),
-                                  child: AnimatedContainer(
-                                    duration: workspaceMotion(context),
-                                    height: 3,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(4),
-                                      color:
-                                          i <=
-                                              (confirmed
-                                                  ? 2
-                                                  : review
-                                                  ? 1
-                                                  : 0)
-                                          ? WorkspaceTheme.palePeach
-                                          : const Color(0xFF5C6862),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+              child: WorkspaceArt(object, width: double.infinity, height: 144),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(5, 18, 5, 8),
+              child: title,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (final (i, label) in ['Entry', 'Review', 'Posted'].indexed)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i == 2 ? 0 : 5),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AnimatedContainer(
+                            duration: workspaceMotion(context),
+                            height: 3,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2),
+                              color: i <= stage
+                                  ? WorkspaceTheme.peach
+                                  : const Color(0xFF545454),
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: i == stage
+                                  ? Colors.white
+                                  : const Color(0xFFBBBBB9),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Entry', style: TextStyle(fontSize: 11)),
-                        Text('Review', style: TextStyle(fontSize: 11)),
-                        Text('Posted', style: TextStyle(fontSize: 11)),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+                  ),
+              ],
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -493,7 +491,30 @@ class _EntrySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: displayStyle(26)),
+          Row(
+            children: [
+              WorkspaceArt(
+                switch (title) {
+                  'Fabric programme' || 'Quantities' => ArtObject.fabric,
+                  'Source & destination' ||
+                  'Dispatch details' => ArtObject.dispatch,
+                  'Material ownership' ||
+                  'Yarn & ownership' ||
+                  'Yarn inputs' => ArtObject.yarn,
+                  'Machine & programme' ||
+                  'Factory details' ||
+                  'Timing' => ArtObject.machine,
+                  'Inspection' => ArtObject.inspection,
+                  'Job brief' || 'Estimate details' => ArtObject.sales,
+                  _ => ArtObject.invoice,
+                },
+                width: 49,
+                height: 33,
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: displayStyle(24))),
+            ],
+          ),
           const SizedBox(height: 18),
           child,
         ],

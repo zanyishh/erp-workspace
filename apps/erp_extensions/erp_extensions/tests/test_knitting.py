@@ -545,6 +545,33 @@ class KnittingTests(unittest.TestCase):
         self.assertEqual(report['rows'][0]['gauge'], '24')
         self.assertEqual(report['rows'][0]['quantity'], '3')
 
+    def test_selected_job_workflow_tracks_partial_invoices_returns_and_permissions(self):
+        self.fixtures()
+        def workflow():
+            return self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["workflow"]
+
+        self.assertNotIn("workflow", self.knitting().snapshot(COMPANY)["jobs"][0])
+        self.assertEqual(workflow()["remaining_lines"], ["P1"])
+        lot = self.receive()
+        self.assertEqual(workflow()["only_lot"], lot)
+        rolls = self.produce(lot)
+        self.assertEqual(workflow()["remaining_lines"], [])
+        self.assertEqual(workflow()["inspection"], {"count": 2, "only": None})
+        self.release(rolls)
+        deliveries = [self.call("deliver", {"job": self.job, "rolls": [roll]})["event"] for roll in rolls]
+        self.assertNotIn("only_delivery", workflow())
+        self.call("invoice", {"job": self.job, "deliveries": [deliveries[0]], "quantity_kg": "10.000"})
+        self.assertNotIn("only_delivery", workflow())
+        self.call("return_fabric", {"job": self.job, "delivery": deliveries[1], "rolls": [rolls[1]], "reason": "Synthetic reinspection"})
+        self.assertEqual(workflow()["only_delivery"], deliveries[0])
+        self.assertEqual(workflow()["inspection"], {"count": 1, "only": rolls[1]})
+        self.assertEqual(workflow()["units"], "2")
+        self.call("return_yarn", {"job": self.job, "lot": lot, "quantity_kg": "10.000"})
+        self.assertEqual(workflow()["units"], "0")
+        self.assertNotIn("only_lot", workflow())
+        frappe.set_user("knit-checker@example.invalid")
+        self.assertNotIn("only_delivery", workflow())
+
     def test_customer_job_to_invoice_exact_balances_and_closure(self):
         self.knitting()
         self.fixtures()
@@ -680,6 +707,15 @@ class KnittingTests(unittest.TestCase):
         values = {j["name"]: j["balances"]["yarn_kg"] for j in snapshot["jobs"]}
         self.assertEqual(values[self.job], "94.500")
         self.assertEqual(values[target], "5.000")
+        for job in (self.job, target):
+            register = next(j["balances"] for j in snapshot["jobs"] if j.name == job)
+            self.assertEqual(register, self.knitting().snapshot(COMPANY, job)["jobs"][0]["balances"])
+        allocations = {row.name: row.allocations for row in snapshot["lots"]}
+        self.assertEqual([row["job"] for row in allocations[lot]], [self.job])
+        self.assertEqual({row["job"] for row in allocations[transformed]}, {self.job, target})
+        self.call("adjust_yarn", {"job": target, "lot": lot, "quantity_kg": "0", "units": "1", "reason": "Count an empty cone"})
+        adjusted = next(row for row in self.knitting().snapshot(COMPANY)["lots"] if row.name == lot)
+        self.assertIn({"job": target, "quantity_kg": "0.000", "units": "1"}, adjusted.allocations)
         self.assertEqual(frappe.db.get_value("Knitting Material Lot", transformed, "party"), self.customer)
 
     def test_roll_split_preserves_total_and_delivery_rate_is_frozen(self):

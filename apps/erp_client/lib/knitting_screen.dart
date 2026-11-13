@@ -13,6 +13,9 @@ import 'knitting_reports.dart';
 import 'workspace_context.dart';
 import 'widgets.dart';
 import 'ui/workspace_ui.dart';
+import 'ui/workspace_art.dart';
+
+part 'knitting_job_workflow.dart';
 
 class KnittingScreen extends StatefulWidget {
   const KnittingScreen({
@@ -152,7 +155,10 @@ class _KnittingScreenState extends State<KnittingScreen> {
       'Factory' => 'create_machine',
       _ => null,
     };
-    if (selected?['status'] == 'Completed' && page != 'Jobs') return null;
+    if (selected != null &&
+        (page == 'Jobs' || selected?['status'] == 'Completed')) {
+      return null;
+    }
     return knitActions
         .where(
           (a) =>
@@ -168,9 +174,11 @@ class _KnittingScreenState extends State<KnittingScreen> {
     KnitAction spec, {
     Map<String, dynamic> initial = const {},
   }) async {
-    await Navigator.push(
+    final company = workspace.company;
+    final access = widget.api.accessRevision;
+    final receipt = await Navigator.push(
       context,
-      MaterialPageRoute<bool>(
+      MaterialPageRoute<Map<String, dynamic>>(
         builder: (_) => KnittingCommandForm(
           api: widget.api,
           workspace: workspace,
@@ -180,8 +188,31 @@ class _KnittingScreenState extends State<KnittingScreen> {
         ),
       ),
     );
-    if (mounted) refresh();
+    if (!mounted) return;
+    final job = receipt?['data']?['job'];
+    if (const {'create_job', 'job_from_estimate'}.contains(spec.id) &&
+        job is String &&
+        job.isNotEmpty &&
+        workspace.company == company &&
+        widget.api.accessReady &&
+        access == widget.api.accessRevision &&
+        workspace.allows('jobs')) {
+      openJob({'name': job});
+    } else {
+      refresh();
+    }
   }
+
+  void openJob(Map<String, dynamic> job) => setState(() {
+    selected = job;
+    page = 'Jobs';
+    search = '';
+    queueFilter = null;
+    future = widget.api.knittingSnapshot(
+      workspace.company!,
+      job: job['name'] as String,
+    );
+  });
 
   Future<void> printLabel() async {
     try {
@@ -190,6 +221,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
         widget.api,
         workspace.company!,
         'LabelRoll',
+        job: selected?['name'] as String?,
       );
       if (row == null) return;
       final r = await widget.api.knittingExport(
@@ -277,6 +309,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
     child: KnittingWorkspaceLayout(
       workspace: workspace,
       page: page,
+      jobDetail: page == 'Jobs' && selected != null,
       onDestination: destination,
       onCompany: setupDirty ? null : widget.onCompany,
       onAccount: setupDirty ? null : widget.onAccount,
@@ -361,18 +394,8 @@ class _KnittingScreenState extends State<KnittingScreen> {
                         final matches = snap
                             .rows('jobs')
                             .where((j) => j['name'] == selected!['name']);
-                        if (matches.isNotEmpty) selected = matches.first;
+                        selected = matches.firstOrNull;
                       }
-                      void openJob(Map<String, dynamic> job) => setState(() {
-                        selected = job;
-                        page = 'Jobs';
-                        search = '';
-                        queueFilter = null;
-                        future = widget.api.knittingSnapshot(
-                          workspace.company!,
-                          job: job['name'] as String,
-                        );
-                      });
                       if (page == 'Overview') {
                         return MillOverview(
                           api: widget.api,
@@ -401,36 +424,23 @@ class _KnittingScreenState extends State<KnittingScreen> {
                           );
                         }),
                         onAction: action,
+                        primaryAction: primary,
                         onSource: source,
                         workspace: workspace,
                         onFind: () async {
+                          final company = workspace.company!;
+                          final access = widget.api.accessRevision;
                           final row = await pickKnitRecord(
                             context,
                             widget.api,
-                            workspace.company!,
+                            company,
                             'Job',
                           );
-                          if (row != null) {
-                            final fresh = await widget.api.knittingLookup(
-                              workspace.company!,
-                              'Job',
-                              row['name'] as String,
-                            );
-                            if (mounted) {
-                              final rows = fresh['rows'] as List;
-                              setState(() {
-                                selected = Map<String, dynamic>.from(
-                                  rows.firstWhere(
-                                        (r) => r['name'] == row['name'],
-                                      )
-                                      as Map,
-                                );
-                                future = widget.api.knittingSnapshot(
-                                  workspace.company!,
-                                  job: row['name'] as String,
-                                );
-                              });
-                            }
+                          if (row != null &&
+                              mounted &&
+                              workspace.company == company &&
+                              access == widget.api.accessRevision) {
+                            openJob(row);
                           }
                         },
                       );
@@ -457,9 +467,11 @@ class KnittingWorkbench extends StatelessWidget {
     required this.onSource,
     required this.workspace,
     required this.onFind,
+    this.primaryAction,
     this.queueFilter,
     this.onFilter,
   });
+  final KnitAction? primaryAction;
   final KnittingSnapshot snapshot;
   final String page, query;
   final String? queueFilter;
@@ -482,7 +494,10 @@ class KnittingWorkbench extends StatelessWidget {
                     (r['allocations'] as List? ?? []).any(
                       (a) =>
                           a['job'] == selected!['name'] &&
-                          a['quantity_kg'] != '0.000',
+                          (a['quantity_kg'] != '0.000' ||
+                              (num.tryParse(a['units']?.toString() ?? '0') ??
+                                      0) !=
+                                  0),
                     )) &&
             (queueFilter == null ||
                 (key == 'jobs'
@@ -497,18 +512,75 @@ class KnittingWorkbench extends StatelessWidget {
     final jobs = rows('jobs');
     final record = selected;
     final balances = record?['balances'] as Map? ?? {};
-    final actions = knitActions
-        .where(
-          (a) =>
-              workspace.allows(a.capability) &&
-              a.appearsIn(page) &&
-              (a.id != 'create_job' || workspace.state == 'Active') &&
-              (a.id != 'reopen_job' || record?['status'] != 'Running') &&
-              (record == null ||
-                  record['status'] == 'Running' ||
-                  a.id == 'reopen_job'),
-        )
-        .toList();
+    final jobPage = page == 'Jobs' && record != null;
+    final steps = jobPage
+        ? _jobSteps(record, snapshot, workspace)
+        : const <_JobStep>[];
+    final actions = knitActions.where((a) {
+      if (!workspace.allows(a.capability) || a == primaryAction) return false;
+      if (a.capability == 'new_job' && workspace.state != 'Active') {
+        return false;
+      }
+      if (record != null && record['status'] == 'Completed') {
+        return jobPage && a.id == 'reopen_job';
+      }
+      if (a.id == 'reopen_job' && record != null) return false;
+      if (jobPage) {
+        if (!a.needsJob || a.id == steps.first.id || a.id == 'close_job') {
+          return false;
+        }
+        if (const {'deliver', 'invoice', 'quality'}.contains(a.id)) {
+          return steps.any((s) => s.id == a.id);
+        }
+        return true;
+      }
+      if (page == 'Jobs' && a.id == 'create_job') return false;
+      return a.appearsIn(page);
+    }).toList();
+    bool correction(KnitAction a) => const {
+      'revise_job',
+      'adjust_yarn',
+      'cancel_event',
+      'reopen_job',
+      'reopen_subcontract',
+      'short_close_subcontract',
+      'credit_invoice',
+      'return_fabric',
+      'transfer_fabric',
+    }.contains(a.id);
+    Widget menuItem(KnitAction a) => MenuItemButton(
+      leadingIcon: Icon(_icon(a.group), size: 17),
+      onPressed: () => onAction(
+        a,
+        initial:
+            steps.where((s) => s.id == a.id).firstOrNull?.initial ?? const {},
+      ),
+      child: Text(a.title),
+    );
+    Widget menu(String label, Iterable<KnitAction> items, IconData icon) {
+      return MenuAnchor(
+        menuChildren: items.length > 8
+            ? [
+                for (final group in items.map((a) => a.group).toSet())
+                  SubmenuButton(
+                    leadingIcon: Icon(_icon(group), size: 17),
+                    menuChildren: [
+                      for (final a in items.where((a) => a.group == group))
+                        menuItem(a),
+                    ],
+                    child: Text(group),
+                  ),
+              ]
+            : [for (final a in items) menuItem(a)],
+        builder: (_, controller, _) => OutlinedButton.icon(
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          icon: Icon(icon, size: 16),
+          label: Text(label),
+        ),
+      );
+    }
+
     final main = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -519,67 +591,64 @@ class KnittingWorkbench extends StatelessWidget {
             label: const Text('All jobs'),
             style: TextButton.styleFrom(alignment: Alignment.centerLeft),
           ),
-          Panel(
-            dark: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    Display(record['name'].toString(), size: 32, light: true),
-                    StatusChip(
-                      record['status']?.toString() ?? 'Job',
-                      dark: true,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${record['customer']} · ${record['material_mode']} material · Due ${record['due_date'] ?? 'not set'}',
-                  style: const TextStyle(color: WorkspaceTheme.light),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'TARGET  ${record['target_kg']} kg',
-                  style: const TextStyle(
-                    color: WorkspaceTheme.palePeach,
-                    letterSpacing: 1.1,
+          if (jobPage)
+            _JobWorkflow(record, steps, workspace, onAction)
+          else
+            Panel(
+              border: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 5,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Icon(Icons.assignment_outlined, size: 19),
+                  Text(
+                    record['name'].toString(),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
-                ),
-              ],
+                  Text(record['customer']?.toString() ?? ''),
+                  StatusChip(record['status']?.toString() ?? 'Job'),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          WorkspaceSteps(current: _stage(balances)),
           const SizedBox(height: 18),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              for (final (key, label) in [
+          LayoutBuilder(
+            builder: (_, box) {
+              final metrics = [
                 if (workspace.allows('materials'))
-                  ('yarn_kg', 'Yarn in custody'),
-                ('fabric_kg', 'Fabric in house'),
+                  ('yarn_kg', 'Yarn in custody', ArtObject.yarn),
+                ('fabric_kg', 'Fabric in house', ArtObject.fabric),
                 if (workspace.allows('billing'))
-                  ('unbilled_kg', 'Awaiting invoice'),
-                ('loss_kg', 'Process loss'),
-              ])
-                SizedBox(
-                  width: 170,
-                  child: MetricTile(
-                    label: label,
-                    value: '${balances[key] ?? '—'}',
-                    footer: 'kg · current job',
-                  ),
-                ),
-            ],
+                  ('unbilled_kg', 'Awaiting invoice', ArtObject.invoice),
+                ('loss_kg', 'Process loss', ArtObject.inspection),
+              ];
+              final columns = (box.maxWidth / 172).floor().clamp(
+                1,
+                metrics.length,
+              );
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final (key, label, art) in metrics)
+                    SizedBox(
+                      width: (box.maxWidth - (columns - 1) * 12) / columns,
+                      child: MetricTile(
+                        art: WorkspaceArt(art, width: 40, height: 30),
+                        label: label,
+                        value: '${balances[key] ?? '—'}',
+                        footer: 'kg · current job',
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
           if (page == 'Jobs')
             _section(
-              'FABRIC PROGRAMME',
+              'Fabric programme',
               (record['programme'] as List? ?? [])
                   .map(
                     (r) => _row(
@@ -589,6 +658,7 @@ class KnittingWorkbench extends StatelessWidget {
                     ),
                   )
                   .toList(),
+              art: ArtObject.fabric,
             ),
         ],
         if (page != 'Jobs' || record == null)
@@ -639,64 +709,51 @@ class KnittingWorkbench extends StatelessWidget {
               deleteButtonTooltipMessage: 'Clear queue filter',
             ),
           ),
-        if (page == 'Jobs' &&
-            record == null &&
-            actions.any((a) => a.id != 'create_job'))
-          Align(
-            alignment: Alignment.centerRight,
-            child: PopupMenuButton<KnitAction>(
-              tooltip: 'Job actions',
-              onSelected: (value) => onAction(value),
-              itemBuilder: (_) => [
-                for (final item in actions.where((a) => a.id != 'create_job'))
-                  PopupMenuItem(value: item, child: Text(item.title)),
-              ],
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Job actions'),
-                    Icon(Icons.expand_more, size: 18),
-                  ],
-                ),
-              ),
-            ),
-          )
-        else if (actions.isNotEmpty && (page != 'Jobs' || record != null)) ...[
-          const SizedBox(height: 4),
-          const Display('AVAILABLE ACTIONS', size: 25),
-          const SizedBox(height: 12),
+        if (actions.isNotEmpty) ...[
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final a in actions)
-                OutlinedButton.icon(
-                  onPressed: () => onAction(a, initial: const {}),
-                  icon: Icon(_icon(a.group), size: 16),
-                  label: Text(a.title),
+              if (actions.any((a) => !correction(a)))
+                menu(
+                  jobPage
+                      ? 'More job entries'
+                      : page == 'Jobs'
+                      ? 'Job actions'
+                      : 'More entries',
+                  actions.where((a) => !correction(a)),
+                  Icons.add,
+                ),
+              if (actions.any(correction))
+                menu(
+                  'Corrections & revisions',
+                  actions.where(correction),
+                  Icons.history_outlined,
                 ),
             ],
           ),
         ],
         const SizedBox(height: 16),
-        if (page == 'Jobs' && record == null) ...[
-          MillJobRegister(
-            jobs: jobs,
-            onJob: onJob,
-            showOutput: workspace.allows('production'),
-            caption:
-                '${jobs.length} of ${snapshot.rows('jobs').length} recent jobs',
-            empty: 'No jobs match this view.',
-          ),
-        ] else
-          ..._sections(),
+        if (page != 'Jobs' || record != null) ..._sections(),
       ],
     );
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 28),
-      children: [main],
+    return LayoutBuilder(
+      builder: (context, bounds) => CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: main),
+          if (page == 'Jobs' && record == null)
+            MillJobRegister(
+              sliverWidth: bounds.maxWidth,
+              jobs: jobs,
+              onJob: onJob,
+              showOutput: workspace.allows('production'),
+              caption:
+                  '${jobs.length} of ${snapshot.rows('jobs').length} recent jobs',
+              empty: 'No jobs match this view.',
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 28)),
+        ],
+      ),
     );
   }
 
@@ -708,38 +765,6 @@ class KnittingWorkbench extends StatelessWidget {
     'Planning' => Icons.calendar_month_outlined,
     _ => Icons.arrow_forward,
   };
-  int _stage(Map b) {
-    for (final (key, i) in [
-      ('billed_kg', 5),
-      ('delivered_kg', 4),
-      ('produced_kg', 2),
-      ('received_kg', 1),
-    ]) {
-      if (b[key] != null && Kg.parse(b[key].toString()).milli > BigInt.zero) {
-        if (key == 'produced_kg' &&
-            snapshot
-                .rows('inspections')
-                .any((r) => r['job'] == selected?['name']) &&
-            snapshot
-                .rows('rolls')
-                .any(
-                  (r) =>
-                      r['job'] == selected?['name'] &&
-                      [
-                        'Released',
-                        'On Hold',
-                        'Rejected',
-                        'Rework',
-                      ].contains(r['state']),
-                )) {
-          return 3;
-        }
-        return i;
-      }
-    }
-    return 0;
-  }
-
   List<Widget> _sections() {
     return [
       if (page == 'Yarn')
@@ -857,7 +882,7 @@ class KnittingWorkbench extends StatelessWidget {
               ['Billing', 'Delivery', 'Production', 'Quality'].contains(page) ||
           page == 'Jobs' && selected != null)
         _section(
-          'POSTED ACTIVITY',
+          'Posted activity',
           rows('events').map((r) {
             final result = r['result'] as Map? ?? {};
             return _row(
@@ -902,23 +927,32 @@ class KnittingWorkbench extends StatelessWidget {
     return '${a.isEmpty ? '0.000' : a.first['quantity_kg']} kg · ${a.isEmpty ? '0' : a.first['units'] ?? '0'} units allocated';
   }
 
-  Widget _section(String title, List<Widget> children) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
-    child: Panel(
-      border: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Display(title, size: 25),
-          const SizedBox(height: 14),
-          if (children.isEmpty)
-            _empty('Nothing recorded here yet.')
-          else
-            ...children,
-        ],
-      ),
-    ),
-  );
+  Widget _section(String title, List<Widget> children, {ArtObject? art}) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Panel(
+          border: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  if (art != null) ...[
+                    WorkspaceArt(art, width: 48, height: 36),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(child: Display(title, size: 25)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (children.isEmpty)
+                _empty('Nothing recorded here yet.')
+              else
+                ...children,
+            ],
+          ),
+        ),
+      );
   Widget _row(
     String title,
     String detail,

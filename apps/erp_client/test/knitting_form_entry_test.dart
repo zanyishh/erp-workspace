@@ -224,6 +224,7 @@ class _SourceApi extends ErpApi {
     String entity,
     String query, {
     int start = 0,
+    String? job,
   }) async => {
     'rows': [
       if (entity == 'YarnReceipt' || entity == 'ConsumableIssue')

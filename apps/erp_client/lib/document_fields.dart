@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -198,7 +199,15 @@ class _DocumentFieldsState extends State<DocumentFields> {
               widgets.add(
                 Padding(
                   padding: const EdgeInsets.only(top: 20, bottom: 14),
-                  child: Display(field.label.toUpperCase(), size: 25),
+                  child: Row(
+                    children: [
+                      Icon(sectionSymbol(field.label), size: 19),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Display(field.label.toUpperCase(), size: 24),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -221,9 +230,21 @@ class _DocumentFieldsState extends State<DocumentFields> {
                     Row(
                       children: [
                         Expanded(
-                          child: Display(
-                            '${field.label.toUpperCase()} · ${rows.length}',
-                            size: 25,
+                          child: Row(
+                            children: [
+                              WorkspaceArt(
+                                recordArt(field.options),
+                                width: 41,
+                                height: 28,
+                              ),
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: Display(
+                                  '${field.label.toUpperCase()} · ${rows.length}',
+                                  size: 24,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         if (canEdit)

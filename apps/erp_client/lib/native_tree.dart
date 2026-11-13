@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'ui/access_gate.dart';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -83,9 +84,17 @@ class _NativeTreeScreenState extends State<NativeTreeScreen> {
     },
     child: Scaffold(
       appBar: AppBar(
-        title: Display(
-          '${widget.type.name.toUpperCase()} · HIERARCHY',
-          size: 25,
+        title: Row(
+          children: [
+            WorkspaceArt(recordArt(widget.type.name), width: 42, height: 32),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Display(
+                '${widget.type.name.toUpperCase()} · HIERARCHY',
+                size: 24,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(

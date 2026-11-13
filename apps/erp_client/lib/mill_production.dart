@@ -132,230 +132,251 @@ class _MillProductionChartState extends State<_MillProductionChart> {
     final peak = days.values
         .map((d) => d.milli?.toDouble() ?? 0.0)
         .fold<double>(0, math.max);
-    const light = Color(0xFFE0E6DC);
     return Panel(
-      frosted: true,
-      dark: true,
-      padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 16),
+      border: true,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 11),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const WorkspaceArt(ArtObject.fabric, width: 54, height: 44),
+              const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Display('Posted production', size: 28, light: true),
-                    const SizedBox(height: 4),
+                    const Display('Posted production', size: 24),
                     Text(
                       day == null
                           ? 'In-house output · kg'
                           : '${DateFormat.MMMd().format(days.keys.first)} – ${DateFormat.yMMMd().format(days.keys.last)}',
-                      style: const TextStyle(fontSize: 12, color: light),
+                      style: _meta,
                     ),
                   ],
                 ),
               ),
               if (day != null)
-                IconButton(
+                IconButton.outlined(
                   onPressed: () => sources(day),
                   tooltip: 'View production entries',
-                  style: IconButton.styleFrom(
-                    foregroundColor: light,
-                    side: const BorderSide(color: Color(0xFF64726A)),
-                  ),
-                  icon: const Icon(Icons.open_in_new, size: 17),
+                  icon: const Icon(Icons.north_east, size: 16),
                 ),
             ],
           ),
           if (day == null)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 28),
+              padding: const EdgeInsets.symmetric(vertical: 18),
               child: Text(
                 !sourceAvailable
                     ? 'Production entries unavailable.'
                     : missingDate
                     ? 'Production posting dates unavailable.'
                     : 'No in-house production in the loaded postings.',
-                style: const TextStyle(color: light),
+                style: _meta,
               ),
             )
           else ...[
-            const SizedBox(height: 13),
-            Wrap(
-              spacing: 9,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  day.milli == null ? '— kg' : '${_quantity(day.milli!)} kg',
-                  style: displayStyle(33, color: const Color(0xFFFFD0AD)),
-                ),
-                Text(
-                  '${DateFormat.MMMd().format(day.date)} · ${day.entries.length} ${day.entries.length == 1 ? 'entry' : 'entries'}',
-                  style: const TextStyle(color: light, fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 9),
-            LayoutBuilder(
-              builder: (_, bounds) {
-                final width = math.max(308.0, bounds.maxWidth);
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: width,
-                    child: Stack(
-                      children: [
-                        const Positioned(
-                          top: 12,
-                          left: 0,
-                          right: 0,
-                          child: Divider(height: 1, color: Color(0xFF49564D)),
-                        ),
-                        const Positioned(
-                          top: 48,
-                          left: 0,
-                          right: 0,
-                          child: Divider(height: 1, color: Color(0xFF49564D)),
-                        ),
-                        const Positioned(
-                          top: 84,
-                          left: 0,
-                          right: 0,
-                          child: Divider(height: 1, color: Color(0xFF657165)),
-                        ),
-                        Row(
-                          children: [
-                            for (final point in days.values)
-                              Expanded(
-                                child: Builder(
-                                  builder: (context) {
-                                    final active = point.date == day.date;
-                                    final qty = point.milli;
-                                    final label =
-                                        '${DateFormat.MMMd().format(point.date)} · ${qty == null ? 'Unknown weight' : '${_quantity(qty)} kg'}';
-                                    return Semantics(
-                                      button: true,
-                                      selected: active,
-                                      label: label,
-                                      excludeSemantics: true,
-                                      child: Tooltip(
-                                        message: label,
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: () => setState(
-                                              () => selected = point.date,
-                                            ),
-                                            child: Column(
-                                              children: [
-                                                SizedBox(
-                                                  height: 85,
-                                                  child: Align(
-                                                    alignment:
-                                                        Alignment.bottomCenter,
-                                                    child: AnimatedContainer(
-                                                      duration: workspaceMotion(
-                                                        context,
-                                                      ),
-                                                      curve:
-                                                          Curves.easeOutCubic,
-                                                      width: math.min(
-                                                        48,
-                                                        (width / 7) * .52,
-                                                      ),
-                                                      height:
-                                                          qty == null ||
-                                                              qty ==
-                                                                  BigInt.zero ||
-                                                              peak == 0
-                                                          ? 2
-                                                          : math.max(
-                                                              3.0,
-                                                              qty.toDouble() /
-                                                                  peak *
-                                                                  74,
-                                                            ),
-                                                      decoration: BoxDecoration(
-                                                        gradient: LinearGradient(
-                                                          begin: Alignment
-                                                              .topCenter,
-                                                          end: Alignment
-                                                              .bottomCenter,
-                                                          colors: active
-                                                              ? const [
-                                                                  Color(
-                                                                    0xFFFFCCA7,
-                                                                  ),
-                                                                  Color(
-                                                                    0xFFCC8969,
-                                                                  ),
-                                                                ]
-                                                              : const [
-                                                                  Color(
-                                                                    0xFFB5C9AB,
-                                                                  ),
-                                                                  Color(
-                                                                    0xFF708E78,
-                                                                  ),
-                                                                ],
-                                                        ),
-                                                        borderRadius:
-                                                            const BorderRadius.vertical(
-                                                              top:
-                                                                  Radius.circular(
-                                                                    6,
-                                                                  ),
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 5),
-                                                Text(
-                                                  DateFormat(
-                                                    'EE',
-                                                  ).format(point.date),
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: active
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w400,
-                                                    color: active
-                                                        ? const Color(
-                                                            0xFFFFD3B4,
-                                                          )
-                                                        : light,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
+            const SizedBox(height: 7),
+            _bars(day, peak),
+            const Divider(height: 12),
+            Semantics(
+              liveRegion: true,
+              child: Wrap(
+                spacing: 9,
+                runSpacing: 2,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    day.milli == null ? '— kg' : '${_quantity(day.milli!)} kg',
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
+                      height: 1.18,
                     ),
                   ),
-                );
-              },
+                  Text(
+                    '${DateFormat.MMMd().format(day.date)} · ${day.entries.length} ${day.entries.length == 1 ? 'entry' : 'entries'}',
+                    style: _meta,
+                  ),
+                ],
+              ),
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           Text(
             !sourceAvailable
                 ? 'Recent entries unavailable'
                 : 'In-house output · ${loaded == 500 ? 'latest 500 postings' : '$loaded loaded postings'}${missingDate ? ' · some dates unavailable' : ''}',
-            style: const TextStyle(fontSize: 11, color: Color(0xFFBFCBC0)),
+            style: const TextStyle(fontSize: 11, color: WorkspaceTheme.muted),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _bars(_PostedDay selectedDay, double peakMilli) {
+    final peakKg = peakMilli / 1000;
+    final unit = math
+        .pow(10, (math.log(peakKg == 0 ? 1 : peakKg) / math.ln10).floor())
+        .toDouble();
+    final top = [1, 2, 5, 10].firstWhere((n) => n * unit >= peakKg) * unit;
+    const axisStyle = TextStyle(fontSize: 11, color: WorkspaceTheme.muted);
+    final scaler = MediaQuery.textScalerOf(context);
+    final labelHeight = scaler.scale(11) * 1.5;
+    const plotHeight = 64.0;
+    String tick(double kg) => kg == 0
+        ? '0'
+        : kg >= 1000
+        ? NumberFormat.compact().format(kg)
+        : NumberFormat('0.####').format(kg);
+    final axisWidth = math.max(
+      29.0,
+      scaler.scale(7) * math.max(tick(top).length, tick(top / 2).length) + 5,
+    );
+    final minimumBarWidth = math.max(44.0, scaler.scale(30));
+    return LayoutBuilder(
+      builder: (context, box) {
+        final plotWidth = math.max(
+          box.maxWidth - axisWidth,
+          minimumBarWidth * days.length,
+        );
+        final columns = <Widget>[
+          for (final point in days.values)
+            Expanded(
+              child: _bar(
+                point,
+                selectedDay.date == point.date,
+                top,
+                plotHeight,
+                labelHeight / 2,
+                math.min(38, plotWidth / days.length * .55),
+              ),
+            ),
+        ];
+        final axes = SizedBox(
+          width: axisWidth,
+          height: plotHeight + labelHeight,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final v in [top, top / 2, 0.0])
+                Text(tick(v), style: axisStyle),
+            ],
+          ),
+        );
+        final plot = SizedBox(
+          width: plotWidth,
+          child: Stack(
+            children: [
+              for (final y in [0.0, .5, 1.0])
+                Positioned(
+                  top: labelHeight / 2 + y * plotHeight,
+                  left: 0,
+                  right: 0,
+                  child: Divider(
+                    height: 1,
+                    color: y == 1
+                        ? const Color(0xFF9E9F99)
+                        : WorkspaceTheme.border,
+                  ),
+                ),
+              Row(children: columns),
+            ],
+          ),
+        );
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            axes,
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: plot,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _bar(
+    _PostedDay point,
+    bool active,
+    double top,
+    double plotHeight,
+    double topInset,
+    double width,
+  ) {
+    final qty = point.milli;
+    final label =
+        '${DateFormat.MMMd().format(point.date)} · ${qty == null ? 'Unknown weight' : '${_quantity(qty)} kg'}';
+    void select() {
+      if (!active) setState(() => selected = point.date);
+    }
+
+    final duration = workspaceMotion(context);
+    final immediate = duration == Duration.zero ? ValueKey(active) : null;
+    final bar = qty == null
+        ? const Text('—', style: _meta)
+        : AnimatedContainer(
+            key: immediate,
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: width,
+            height: math.max(2, plotHeight * (qty.toDouble() / 1000) / top),
+            decoration: BoxDecoration(
+              color: active ? WorkspaceTheme.peach : const Color(0xFF60615D),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(4),
+              ),
+            ),
+          );
+    final dateLabel = AnimatedContainer(
+      key: immediate,
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: active ? WorkspaceTheme.charcoal : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        DateFormat('EEE').format(point.date),
+        style: TextStyle(
+          fontSize: 11,
+          color: active ? WorkspaceTheme.light : WorkspaceTheme.muted,
+        ),
+      ),
+    );
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      onTap: select,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: select,
+            borderRadius: BorderRadius.circular(7),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: topInset + plotHeight,
+                  child: Align(alignment: Alignment.bottomCenter, child: bar),
+                ),
+                const SizedBox(height: 4),
+                dateLabel,
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

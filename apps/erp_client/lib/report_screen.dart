@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'ui/access_gate.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -104,7 +105,15 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
       await fresh;
     },
     child: Scaffold(
-      appBar: AppBar(title: Display(widget.name.toUpperCase(), size: 27)),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            WorkspaceArt(recordArt(widget.name), width: 42, height: 32),
+            const SizedBox(width: 8),
+            Flexible(child: Display(widget.name.toUpperCase(), size: 26)),
+          ],
+        ),
+      ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _definition,
         builder: (context, state) {
@@ -365,12 +374,10 @@ class NativeReportTable extends StatelessWidget {
             numeric: _numericColumn(col),
             label: SizedBox(
               width: 140,
-              child: Text(
+              child: ColumnCaption(
                 plainReportText(col.label),
-                maxLines: 2,
-                textAlign: _numericColumn(col)
-                    ? TextAlign.right
-                    : TextAlign.left,
+                fieldtype: col.type,
+                alignEnd: _numericColumn(col),
               ),
             ),
           ),

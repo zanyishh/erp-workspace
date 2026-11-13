@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'ui/access_gate.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -268,13 +269,10 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                       ),
                       minVerticalPadding: 6,
                       minTileHeight: module.isEmpty ? 60 : 50,
-                      leading: Icon(
-                        _reports
-                            ? Icons.table_chart_outlined
-                            : type!.single
-                            ? Icons.settings_outlined
-                            : Icons.description_outlined,
-                        size: 20,
+                      leading: WorkspaceArt(
+                        recordArt('$group $name'),
+                        width: 46,
+                        height: 30,
                       ),
                       title: Text(
                         name,
@@ -344,6 +342,13 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                                       selected: module == name,
                                       textColor: WorkspaceTheme.light,
                                       selectedColor: WorkspaceTheme.ink,
+                                      leading: WorkspaceArt(
+                                        recordArt(name),
+                                        width: 33,
+                                        height: 26,
+                                      ),
+                                      minLeadingWidth: 33,
+                                      horizontalTitleGap: 8,
                                       title: Text(
                                         name.isEmpty ? 'All modules' : name,
                                       ),

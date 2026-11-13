@@ -19,10 +19,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/knitting-studio.jpg
-    - assets/images/warehouse.png
-    - assets/images/sales.png
-    - assets/images/purchasing.png
+    - assets/studio/
     - assets/licenses/
   fonts:
     - family: Manrope

@@ -10,13 +10,13 @@ Keep Manrope for body, labels and values; use Barlow Condensed SemiBold for shor
 
 | Foundation | Contract |
 | --- | --- |
-| Colours | Canvas `#E7E8E4`; surface `#F4F4F0`; charcoal `#191B19`; ink `#20231F`; muted `#686E66`; border `#C7CBC3`; peach `#E99A70`; pale peach `#F4D7C3`; light text `#F8F8F3` |
+| Colours | Canvas `#E8E8E5`; surface `#F4F4F0`; charcoal `#1C1C1C`; ink `#20231F`; muted `#686E66`; border `#C7CBC3`; peach `#E99A70`; pale peach `#F4D7C3`; light text `#F8F8F3` |
 | Semantic status | Muted green `#3E6B54`, amber `#916318`, red `#A23F38`; pale backgrounds and explicit labels/icons. Verify contrast on actual surfaces before adopting |
 | Typography | Body/inputs 14 to 16; table rows 13 to 14; metadata 12, minimum 11; display 28 to 36; section 20 to 24; readable tabular numbers with unit/currency |
 | Spacing | 4, 8, 12, 16, 24, 32; consistent 24 desktop outer margin and 16 gutters; compact station mode increases touch spacing |
 | Shape | Primary panels 24 radius; nested surfaces 18; form controls 12 to 14; pills circular ends; consistent one-pixel borders |
 | Controls | Minimum 44 by 44 touch target; clear focus; icons accompany a label or accessible name; one visual style for each action level |
-| Elevation | Translucent cards on a stationary warm/cool background. Use clipped backdrop blur on focal cards and overlays, with a solid fill in high contrast. Use lightweight painted surfaces in repeated table rows |
+| Elevation | Translucent cards on a neutral light-grey background. Use clipped backdrop blur on focal cards and overlays, with a solid fill in high contrast. Use lightweight painted surfaces in repeated table rows |
 | Density | Comfortable by default; compact table mode for office use. No smaller font solely to squeeze data |
 
 ## Shared navigation and page anatomy
@@ -33,7 +33,7 @@ Core page patterns are overview, workbench/list, record detail, task entry, repo
 | --- | --- |
 | Sign in and company selection | Clear account/server identity; company tiles from permission context; no industry choice that grants itself access |
 | General overview | Existing white 3D stage and charcoal summary; honest metrics, period/time basis, real workspace cards and action drilldown |
-| Knitting overview | Compact operational strip; active jobs with remaining kg and next action; machine/QC/shortage queues; one original spool/fabric illustration can support orientation |
+| Knitting overview | Compact operational strip; active jobs with remaining kg and next action; machine/QC/shortage queues; use isolated studio objects for the primary stage and corresponding action panels |
 | Jobs workbench | Search, status/due/party filters, saved local view, list/compact cards; kg, due date, progress and next eligible action; no unlabelled floating-point numbers |
 | Job detail | Large job identity and status; programme-to-invoice step rail; material balance strip; Programme, Yarn, Plan, Rolls and QC, Deliveries, Billing, Activity tabs; source-linked ledger side summary |
 | Machine planner | Day/shift timeline or queue columns, available-on and capacity; incompatibilities/shortages named; local plan changes with Review and Apply; accessible move actions |

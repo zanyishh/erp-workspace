@@ -59,6 +59,17 @@ Future<void> main() async {
       );
     }
 
+    Future<Map<String, dynamic>> guide() async {
+      final selected = await api.knittingSnapshot(company, job: job);
+      return Map<String, dynamic>.from(
+        selected.rows('jobs').single['workflow'] as Map,
+      );
+    }
+
+    void verify(bool ok, String message) {
+      if (!ok) throw StateError(message);
+    }
+
     final created = await post('create_job', {
       'customer': 'Demo Knitting Mills',
       'kind': 'Order',
@@ -78,6 +89,10 @@ Future<void> main() async {
       'notes': 'Synthetic Dart HTTP acceptance cycle',
     });
     job = (created['data'] as Map)['job'] as String;
+    verify(
+      ((await guide())['remaining_lines'] as List).single == 'P1',
+      'New programme missing from job guide.',
+    );
     final received = await post('receive_yarn', {
       'job': job,
       'item': 'DEMO-KNIT-YARN',
@@ -87,6 +102,10 @@ Future<void> main() async {
       'warehouse': warehouse,
     });
     final lot = (received['data'] as Map)['lot'];
+    verify(
+      (await guide())['only_lot'] == lot,
+      'Guide lost the received yarn lot.',
+    );
     final produced = await post('produce', {
       'job': job,
       'programme_line': 'P1',
@@ -99,6 +118,11 @@ Future<void> main() async {
       'warehouse': warehouse,
     });
     final rolls = List<String>.from((produced['data'] as Map)['rolls'] as List);
+    final inspection = (await guide())['inspection'] as Map;
+    verify(
+      inspection['count'] == 2 && inspection['only'] == null,
+      'Two rolls must require an inspection choice.',
+    );
     for (final roll in rolls) {
       await post('quality', {
         'job': job,
@@ -108,6 +132,10 @@ Future<void> main() async {
       });
     }
     final delivery = await post('deliver', {'job': job, 'rolls': rolls});
+    verify(
+      (await guide())['only_delivery'] == delivery['event'],
+      'Incorrect invoice source in job guide.',
+    );
     final invoice = await post('invoice', {
       'job': job,
       'deliveries': [delivery['event']],
@@ -140,6 +168,10 @@ Future<void> main() async {
       'rolls': [rolls.first],
       'reason': 'Synthetic return received',
     });
+    verify(
+      ((await guide())['inspection'] as Map)['only'] == rolls.first,
+      'Returned roll needs reinspection.',
+    );
     final afterReturn =
         (await api.knittingSnapshot(
               company,
@@ -197,6 +229,7 @@ Future<void> main() async {
         'amount': '8800.00',
         'balances': b,
         'httpCycle': 'passed',
+        'selectedJobGuidance': 'passed',
         'receiptLookup': 'passed',
         'invoicePdf': 'passed',
       }),

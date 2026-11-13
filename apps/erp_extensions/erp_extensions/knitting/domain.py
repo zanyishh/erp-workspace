@@ -126,14 +126,55 @@ def ledger(event, lot, quantity, job=None, custodian="Warehouse", voucher=None, 
                   voucher_type=voucher.doctype if voucher else None, voucher_name=voucher.name if voucher else None)
 
 
-def balances(job):
+def balances(job, *, workflow=None, programme=()):
     company = frappe.db.get_value("Knitting Job", job, "company")
     permissions.require_aggregate_scope(company, job)
-    events = job_events(job)
+    entries = current_rows("Knitting Ledger Entry", filters={"job": job}, fields=["quantity_kg", "custodian", "lot", "units"] if workflow is not None else ["quantity_kg", "custodian"])
+    rolls = current_rows("Knitting Roll", filters={"job": job}, fields=["state", "weight_kg", "name"] if workflow is not None else ["state", "weight_kg"])
+    return _balance_totals(job, job_events(job), entries, rolls, workflow=workflow, programme=programme)
+
+
+def register_balances(company, jobs):
+    """Read all source rows for the bounded register after checking the entire company reconciliation."""
+    permissions.require_aggregate_scope(company)
+    names = {row.name for row in jobs}
+    events, entries, rolls = ({name: [] for name in names} for _ in range(3))
+    if names:
+        scope = ["in", list(names)]
+        for row in frappe.get_all("Knitting Event", filters={"company": company, "cancelled": 0},
+                or_filters={"job": scope, "target_job": scope}, fields=["job", "target_job", "kind", "result"]):
+            if row.job in names:
+                events[row.job].append(row)
+            if row.target_job in names and row.target_job != row.job:
+                events[row.target_job].append(row)
+        for doctype, fields, target in (("Knitting Ledger Entry", ["job", "custodian", "quantity_kg"], entries),
+                                         ("Knitting Roll", ["job", "state", "weight_kg"], rolls)):
+            for row in frappe.get_all(doctype, filters={"company": company, "job": scope}, fields=fields):
+                target[row.job].append(row)
+    return {name: _balance_totals(name, events[name], entries[name], rolls[name]) for name in names}
+
+
+def _balance_totals(job, events, entries, rolls, *, workflow=None, programme=()):
     totals = {k: ZERO for k in ("received_kg", "consumed_kg", "returned_kg", "produced_kg", "delivered_kg", "billed_kg", "loss_kg", "fabric_transfer_in_kg", "fabric_transfer_out_kg", "yarn_transfer_in_kg", "yarn_transfer_out_kg")}
+    output, deliveries = {}, {}
+    billing = workflow is not None and {"billing", "financial_read"} <= permissions.capabilities()
     for event in events:
         result = json_value(event.result, {})
         kind = event.kind
+        if workflow is not None:
+            for line, quantity in production_lines(event, job):
+                output[line] = output.get(line, ZERO) + quantity
+        if billing and event.job == job:
+            if kind == "deliver":
+                deliveries[event.name] = deliveries.get(event.name, ZERO) + Decimal(result["quantity_kg"])
+            elif kind == "return_fabric":
+                delivery = result["delivery"]
+                deliveries[delivery] = deliveries.get(delivery, ZERO) - Decimal(result["quantity_kg"])
+            elif kind in ("invoice", "credit_invoice"):
+                sign = 1 if kind == "credit_invoice" else -1
+                for row in result.get("allocations", []):
+                    delivery = row["delivery"]
+                    deliveries[delivery] = deliveries.get(delivery, ZERO) + sign * Decimal(row["quantity_kg"])
         if kind in ("transfer_fabric", "transfer_yarn"):
             prefix = "fabric" if kind == "transfer_fabric" else "yarn"
             totals[f"{prefix}_transfer_{'in' if event.target_job == job else 'out'}_kg"] += Decimal(result["quantity_kg"])
@@ -148,28 +189,49 @@ def balances(job):
         if kind in ("produce", "produce_bulk", "repack_yarn", "subcontract_receive"):
             totals["consumed_kg"] += Decimal(result.get("consumed_kg", "0"))
             totals["loss_kg"] += Decimal(result.get("loss_kg", "0"))
-    entries = current_rows("Knitting Ledger Entry", filters={"job": job}, fields=["quantity_kg", "custodian"])
     totals["yarn_kg"] = sum((Decimal(e.quantity_kg) for e in entries if e.custodian == "Warehouse"), ZERO)
     totals["subcontract_kg"] = sum((Decimal(e.quantity_kg) for e in entries if (e.custodian or "").startswith("SC:")), ZERO)
-    rolls = current_rows("Knitting Roll", filters={"job": job}, fields=["state", "weight_kg"])
     totals["fabric_kg"] = sum((Decimal(r.weight_kg) for r in rolls if r.state not in ("Delivered", "Split", "Cancelled")), ZERO)
     totals["unbilled_kg"] = totals["delivered_kg"] - totals["billed_kg"]
+    if workflow is not None:
+        workflow["remaining_lines"] = [line["id"] for line in programme if output.get(line["id"], ZERO) < Decimal(line["target_kg"])]
+        workflow["units"] = str(sum((Decimal(e.units or "0") for e in entries), ZERO))
+        workflow["open_subcontract"] = bool(frappe.db.exists("Knitting Subcontract", {"job": job, "status": "Open"}))
+        warehouse_lots = {}
+        for entry in entries:
+            if entry.custodian == "Warehouse":
+                warehouse_lots[entry.lot] = warehouse_lots.get(entry.lot, ZERO) + Decimal(entry.quantity_kg)
+        lots = [lot for lot, amount in warehouse_lots.items() if amount > 0]
+        if len(lots) == 1 and permissions.link_visible("Knitting Material Lot", lots[0]):
+            workflow["only_lot"] = lots[0]
+        for group, states in (("inspection", {"Awaiting QC"}), ("held", {"On Hold", "Rework", "Rejected"}), ("released", {"Released"})):
+            names = [roll.name for roll in rolls if roll.state in states]
+            workflow[group] = {"count": len(names), "only": names[0] if len(names) == 1 else None}
+        if billing:
+            outstanding = [name for name, amount in deliveries.items() if amount > 0]
+            if len(outstanding) == 1 and permissions.link_visible("Knitting Event", outstanding[0]):
+                workflow["only_delivery"] = outstanding[0]
     return {key: kg(value) for key, value in totals.items()}
 
 
+def production_lines(event, job):
+    """Programme output credited by active production and incoming fabric transfers."""
+    value = json_value(event.result, {})
+    if not value:
+        return
+    if event.job == job:
+        if event.kind in ("produce", "subcontract_receive"):
+            yield json_value(event.payload, {}).get("programme_line"), Decimal(value["quantity_kg"])
+        elif event.kind == "produce_bulk":
+            for row in value.get("entries", []):
+                yield row.get("programme_line"), Decimal(row["quantity_kg"])
+    if event.target_job == job and event.kind == "transfer_fabric":
+        yield value.get("target_programme_line"), Decimal(value["quantity_kg"])
+
+
 def programme_produced(job, line):
-    total = ZERO
-    for event in job_events(job.name):
-        payload, value = json_value(event.payload, {}), json_value(event.result, {})
-        if not value:
-            continue
-        if event.job == job.name and event.kind in ("produce", "subcontract_receive") and payload.get("programme_line") == line:
-            total += Decimal(value["quantity_kg"])
-        if event.job == job.name and event.kind == "produce_bulk":
-            total += sum((Decimal(row["quantity_kg"]) for row in value.get("entries", []) if row.get("programme_line") == line), ZERO)
-        if event.target_job == job.name and event.kind == "transfer_fabric" and value.get("target_programme_line") == line:
-            total += Decimal(value["quantity_kg"])
-    return total
+    return sum((quantity for event in job_events(job.name)
+                for key, quantity in production_lines(event, job.name) if key == line), ZERO)
 
 
 def programme(job, line):

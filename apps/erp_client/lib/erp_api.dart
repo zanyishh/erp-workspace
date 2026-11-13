@@ -404,11 +404,13 @@ class ErpApi {
     String entity,
     String query, {
     int start = 0,
+    String? job,
   }) => _industry('knitting.api', 'lookup', {
     'company': company,
     'entity': entity,
     'query': query,
     'start': start,
+    'job': ?job,
   });
   Future<Map<String, dynamic>> knittingReport(
     String company,

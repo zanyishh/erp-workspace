@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'ui/access_gate.dart';
 import 'dart:convert';
 import 'package:file_selector/file_selector.dart';
@@ -260,7 +261,7 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Display('FILES', size: 25),
+                          const ColumnCaption('Files', icon: Icons.attach_file),
                           if (attachments.isEmpty)
                             const Padding(
                               padding: EdgeInsets.all(12),
@@ -317,7 +318,10 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Display('ASSIGNED TO', size: 25),
+                          const ColumnCaption(
+                            'Assigned to',
+                            icon: Icons.people_outline,
+                          ),
                           if ((data['assignments'] as List).isEmpty)
                             const Padding(
                               padding: EdgeInsets.all(12),
@@ -352,7 +356,10 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Display('COMMENTS & HISTORY', size: 25),
+                          const ColumnCaption(
+                            'Comments & history',
+                            icon: Icons.history,
+                          ),
                           const SizedBox(height: 16),
                           TextField(
                             controller: _comment,

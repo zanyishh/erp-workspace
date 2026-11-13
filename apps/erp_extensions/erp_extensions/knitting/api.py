@@ -17,13 +17,15 @@ def request_key(company, request_id):
     return hashlib.sha256(f"{frappe.local.site}|{frappe.session.user}|{company}|{request_id}".encode()).hexdigest()
 
 
-def project(value):
-    if "financial_read" in permissions.capabilities():
+def project(value, *, financial_read=None):
+    if financial_read is None:
+        financial_read = "financial_read" in permissions.capabilities()
+    if financial_read:
         return value
     private = {"rate", "amount", "valuation_rate", "charge_rate", "income_account", "expense_account", "grand_total", "pricing"}
     if isinstance(value, Mapping):
-        return {key: project(item) for key, item in value.items() if key not in private}
-    return [project(item) for item in value] if isinstance(value, list) else value
+        return {key: project(item, financial_read=False) for key, item in value.items() if key not in private}
+    return [project(item, financial_read=False) for item in value] if isinstance(value, list) else value
 
 
 def response(event):
@@ -115,20 +117,26 @@ def command_status(company, request_id):
 @frappe.whitelist()
 def snapshot(company, job=None):
     permissions.require(company, "jobs", history=True)
-    permissions.require_aggregate_scope(company, job)
     finance = "financial_read" in permissions.capabilities()
     if job:
         domain.reference("Knitting Job", job, company)
+        permissions.require_aggregate_scope(company, job)
     jobs = []
     fields = ["name", "modified", "customer", "kind", "material_mode", "due_date", "status", "target_kg", "revision", "programme"]
     if finance:
         fields += ["rate", "service_item"]
     for row in frappe.get_list("Knitting Job", filters={"company": company, **({"name": job} if job else {})}, fields=fields, order_by="modified desc", limit=200):
         row.programme = domain.json_value(row.programme, [])
-        row.balances = domain.balances(row.name)
+        if job:
+            row.workflow = {}
+            row.balances = domain.balances(row.name, workflow=row.workflow, programme=row.programme)
         if finance:
             row.rate = domain.money(row.rate or 0)
         jobs.append(row)
+    if not job:
+        balances = domain.register_balances(company, jobs)
+        for row in jobs:
+            row.balances = balances[row.name]
     limits = {"jobs": jobs}
     for key, doctype, fields in (
         ("rolls", "Knitting Roll", ["name", "job", "programme_line", "weight_kg", "state", "warehouse", "machine", "operator", "shift", "produced_at", "production", "delivery"]),
@@ -146,8 +154,12 @@ def snapshot(company, job=None):
         query_fields = [f for f in fields if f != "result"] if key == "events" else fields
         filters = {"company": company, **({"job": job} if job and frappe.get_meta(doctype).has_field("job") else {})}
         limits[key] = frappe.get_list(doctype, filters=filters, fields=query_fields, order_by="creation desc", limit=500)
-    for event in limits["events"]:
-        event.result = project(domain.json_value(frappe.db.get_value("Knitting Event", event.name, "result"), {}))
+    visible_events = limits["events"]
+    if visible_events:
+        results = dict(frappe.get_all("Knitting Event", filters={"name": ["in", [event.name for event in visible_events]]},
+                                      fields=["name", "result"], as_list=True))
+        for event in visible_events:
+            event.result = project(domain.json_value(results.get(event.name), {}), financial_read=finance)
     for component in limits["components"]:
         component.remaining_kg = domain.kg(Decimal(component.boundary_kg) - Decimal(component.run_kg or "0"))
     if finance:
@@ -162,8 +174,14 @@ def snapshot(company, job=None):
             key = (row.lot, row.job or None)
             allocated[key] = allocated.get(key, Decimal(0)) + Decimal(row.quantity_kg)
             units[key] = units.get(key, Decimal(0)) + Decimal(row.units or '0')
+    visible_jobs = {row.name for row in jobs}
+    by_lot = {}
+    for (lot, owner_job), quantity in allocated.items():
+        physical = units[(lot, owner_job)]
+        if owner_job in visible_jobs and (quantity or physical):
+            by_lot.setdefault(lot, []).append({"job": owner_job, "quantity_kg": domain.kg(quantity), "units": str(physical)})
     for lot in limits["lots"]:
-        lot.allocations = [{"job": job["name"], "quantity_kg": domain.kg(allocated.get((lot.name, job["name"]), 0)), "units": str(units.get((lot.name, job['name']),0))} for job in jobs]
+        lot.allocations = by_lot.get(lot.name, [])
         lot.general_kg = domain.kg(allocated.get((lot.name, None), 0))
         lot.general_units = str(units.get((lot.name, None),0))
     return {"version": 1, "company": company, "financial_read": finance, **limits,
@@ -171,7 +189,7 @@ def snapshot(company, job=None):
 
 
 @frappe.whitelist()
-def lookup(company, entity, query="", start=0):
+def lookup(company, entity, query="", start=0, job=None):
     """Bounded permission-scoped selectors, never an arbitrary DocType/query endpoint."""
     if "configure" not in permissions.capabilities() or not permissions.company_allowed(company):
         permissions.require(company, "jobs", history=True)
@@ -210,6 +228,9 @@ def lookup(company, entity, query="", start=0):
     doctype, fields, filters = registry[entity]
     if frappe.get_meta(doctype).has_field("company"):
         filters = {**filters, "company": company}
+    if job and frappe.get_meta(doctype).has_field("job") and "job" not in filters:
+        domain.reference("Knitting Job", job, company)
+        filters = {**filters, "job": job}
     rows = frappe.get_list(doctype, filters=filters, or_filters=[[field, "like", "%" + query + "%"] for field in ("name", "title", "customer", "supplier", "item", "customer_name", "supplier_name", "item_name") if field == "name" or frappe.get_meta(doctype).has_field(field)] if query else None,
                            fields=fields, order_by="modified desc, name", start=int(start), limit=51)
     for row in rows:

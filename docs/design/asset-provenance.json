@@ -42,5 +42,77 @@
       724
     ],
     "transparency": false
+  },
+  {
+    "file": "apps/erp_client/assets/studio/yarn-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original yarn product render matched to the original purchasing artwork",
+    "source_sha256": "a22c622a3d411ce52dfdd47cf50a1d8bf46ea6a19b56426f709cdf46b117505f",
+    "sha256": "de0df25bb63bd0c4924410bfe5b6eb3ba98f3d4ba4b67ce26e97aeecaf359c01",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/machine-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original machine product render matched to the original purchasing artwork",
+    "source_sha256": "cafffeaf13b0156ba7a9add19d8d478a919912a09e23e2ab850cf825b03c7eec",
+    "sha256": "2dd6af16124b1806ac53b5a9ea9f8126001f6c48db342c6c708208d99e658930",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/fabric-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original fabric product render matched to the original purchasing artwork",
+    "source_sha256": "eb5a70098b71d0f4747c48f61570a9761142474f42373b38c7d9d70d7c7ad2d6",
+    "sha256": "8a576d9ffaa42b6b6e73634e0760620b7fadc012c035e6f68ab2dc0678707833",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/inspection-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original inspection product render matched to the original purchasing artwork",
+    "source_sha256": "2d1f9447243a31b4e350cbe4f84f04d87516a654cfe5933ee92dcaad08e065e3",
+    "sha256": "87d012e8618e1c4108bd31198721a3e3c62ee15dd18d1fce04a465a60d8b89bb",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/dispatch-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original dispatch product render matched to the original purchasing artwork",
+    "source_sha256": "a59d8b36d372cf3e5fde79a83467de606d82ab66d8046ffd45edae6e5fb1bc38",
+    "sha256": "f2fe6326e7f3846ae6483131289492a29165c92cba454c7371767e25fa376166",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/invoice-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original invoice product render matched to the original purchasing artwork",
+    "source_sha256": "fa9b70b0dd87fc9ac723abd00e2b76bb384d3f35e3fb8dc90ca2133f60e03943",
+    "sha256": "d4a491cdd3d9b7682b760c2c6c4dfd29d9931ffbfdf413c2bc6e133558d04e64",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
   }
 ]

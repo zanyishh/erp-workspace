@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'design.dart';
 import 'ui/workspace_ui.dart';
+import 'ui/workspace_art.dart';
 import 'widgets.dart';
 import 'workspace_context.dart';
 
@@ -27,6 +28,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
     required this.onDestination,
     required this.actions,
     required this.child,
+    this.jobDetail = false,
     this.onCompany,
     this.onRecords,
     this.onGeneral,
@@ -35,6 +37,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
 
   final WorkspaceContext workspace;
   final String page;
+  final bool jobDetail;
   final ValueChanged<String> onDestination;
   final VoidCallback? onCompany, onRecords, onAccount, onGeneral;
   final List<Widget> actions;
@@ -58,13 +61,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
         child: AnimatedContainer(
           duration: workspaceMotion(context),
           decoration: BoxDecoration(
-            gradient: active
-                ? const LinearGradient(
-                    colors: [Color(0xFFF0BE9D), Color(0xFFF8E4CB)],
-                  )
-                : const LinearGradient(
-                    colors: [Color(0x00F0BE9D), Color(0x00F8E4CB)],
-                  ),
+            color: active ? WorkspaceTheme.palePeach : Colors.transparent,
             borderRadius: BorderRadius.circular(11),
           ),
           child: TextButton.icon(
@@ -74,7 +71,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
               alignment: Alignment.centerLeft,
               foregroundColor: active
                   ? WorkspaceTheme.ink
-                  : const Color(0xFFE2E8E0),
+                  : WorkspaceTheme.light,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(11),
@@ -92,7 +89,11 @@ class KnittingWorkspaceLayout extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF3B4740), Color(0xFF222C28), Color(0xFF1B201E)],
+          colors: [
+            Color(0xFF333432),
+            Color(0xFF262725),
+            WorkspaceTheme.charcoal,
+          ],
           stops: [0, .28, 1],
         ),
       ),
@@ -137,7 +138,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                         active: name == page,
                       ),
                     if (onRecords != null || onGeneral != null)
-                      const Divider(color: Color(0xFF4E5B52), height: 24),
+                      const Divider(color: Color(0xFF50504D), height: 24),
                     if (onRecords != null)
                       entry(
                         'Business records',
@@ -150,7 +151,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                 ),
               ),
               if (onCompany != null || onAccount != null) ...[
-                const Divider(color: Color(0xFF4E5B52), height: 20),
+                const Divider(color: Color(0xFF50504D), height: 20),
                 Row(
                   children: [
                     Expanded(
@@ -186,9 +187,102 @@ class KnittingWorkspaceLayout extends StatelessWidget {
     );
   }
 
+  Widget _desktopBar(BuildContext context) => Panel(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+    radius: 15,
+    child: Row(
+      children: [
+        Builder(
+          builder: (context) => IconButton(
+            tooltip: 'All mill workspaces',
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(right: 16),
+          child: Display('Knitting ERP', size: 23),
+        ),
+        for (final destination in <String>{
+          ...workspace.destinations.where(
+            (s) => s == 'Overview' || s == 'Jobs',
+          ),
+          page,
+        })
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Semantics(
+              selected: destination == page,
+              child: AnimatedContainer(
+                duration: workspaceMotion(context),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: destination == page
+                      ? WorkspaceTheme.charcoal
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: destination == page
+                        ? WorkspaceTheme.light
+                        : WorkspaceTheme.ink,
+                  ),
+                  onPressed: () => onDestination(destination),
+                  icon: Icon(_destinations[destination]!.$1, size: 16),
+                  label: Text(destination),
+                ),
+              ),
+            ),
+          ),
+        const Spacer(),
+        if (onRecords != null)
+          IconButton(
+            tooltip: 'Business records',
+            onPressed: onRecords,
+            icon: const Icon(Icons.library_books_outlined, size: 18),
+          ),
+        if (onGeneral != null)
+          TextButton.icon(
+            onPressed: onGeneral,
+            icon: const Icon(Icons.apps_rounded, size: 16),
+            label: const Text('General ERP'),
+          ),
+        if (onCompany != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 230),
+            child: TextButton.icon(
+              onPressed: onCompany,
+              icon: const Icon(Icons.business_outlined, size: 17),
+              label: Text(
+                workspace.company ?? 'Switch company',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        if (onAccount != null)
+          IconButton(
+            tooltip: 'Account',
+            onPressed: onAccount,
+            icon: const Icon(Icons.account_circle_outlined),
+          ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 970;
+    final wide =
+        MediaQuery.sizeOf(context).width >= 1140 &&
+        MediaQuery.textScalerOf(context).scale(14) < 19;
+    final pageArt = switch (page) {
+      'Yarn' => ArtObject.yarn,
+      'Planning' || 'Production' || 'Factory' => ArtObject.machine,
+      'Quality' => ArtObject.inspection,
+      'Delivery' => ArtObject.dispatch,
+      'Jobs' => ArtObject.fabric,
+      _ => ArtObject.invoice,
+    };
     return Scaffold(
       appBar: wide
           ? null
@@ -198,70 +292,61 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                 if (onAccount != null)
                   IconButton(
                     tooltip: 'Account',
-                    icon: const Icon(Icons.account_circle_outlined),
                     onPressed: onAccount,
+                    icon: const Icon(Icons.account_circle_outlined),
                   ),
               ],
             ),
-      drawer: wide
-          ? null
-          : Drawer(
-              child: Builder(builder: (c) => _navigation(c, drawer: true)),
-            ),
+      drawer: Drawer(
+        child: Builder(builder: (c) => _navigation(c, drawer: true)),
+      ),
       body: WorkspaceBackdrop(
-        child: Row(
-          children: [
-            if (wide) SizedBox(width: 202, child: _navigation(context)),
-            Expanded(
-              child: SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    wide ? 26 : 14,
-                    wide ? 24 : 10,
-                    wide ? 26 : 14,
-                    0,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Wrap(
-                        spacing: 16,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (wide) ...[
-                                Text(
-                                  'KNITTING  /  ${workspace.company?.toUpperCase() ?? 'WORKSPACE'}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 1.4,
-                                    color: WorkspaceTheme.muted,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                              ],
-                              Display(
-                                _destinations[page]!.$2,
-                                size: wide ? 40 : 31,
-                              ),
-                            ],
-                          ),
-                          Wrap(spacing: 8, runSpacing: 4, children: actions),
-                        ],
-                      ),
-                      SizedBox(height: wide ? 18 : 12),
-                      Expanded(child: child),
-                    ],
-                  ),
-                ),
-              ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              wide ? 24 : 14,
+              wide ? 10 : 6,
+              wide ? 24 : 14,
+              0,
             ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (wide) ...[_desktopBar(context), const SizedBox(height: 16)],
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (page != 'Overview') ...[
+                          WorkspaceArt(pageArt, width: 48, height: 45),
+                          const SizedBox(width: 8),
+                        ],
+                        Flexible(
+                          child: Semantics(
+                            header: true,
+                            child: Display(
+                              jobDetail
+                                  ? 'Job details'
+                                  : _destinations[page]!.$2,
+                              size: wide ? 37 : 30,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Wrap(spacing: 8, runSpacing: 4, children: actions),
+                  ],
+                ),
+                SizedBox(height: wide ? 14 : 9),
+                Expanded(child: child),
+              ],
+            ),
+          ),
         ),
       ),
     );

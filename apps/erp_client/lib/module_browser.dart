@@ -1,3 +1,4 @@
+import 'ui/workspace_art.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -79,7 +80,20 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                       widget.module.label,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    Display(widget.module.doctype, size: 38),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        WorkspaceArt(
+                          moduleArt(widget.module),
+                          width: 62,
+                          height: 42,
+                        ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Display(widget.module.doctype, size: 34),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 7),
                     Text(
                       widget.company,
@@ -223,26 +237,36 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                                         children: [
                                           const Expanded(
                                             flex: 4,
-                                            child: Text('Record'),
+                                            child: ColumnCaption(
+                                              'Record',
+                                              dark: true,
+                                            ),
                                           ),
                                           const Expanded(
                                             flex: 3,
-                                            child: Text('Document number'),
+                                            child: ColumnCaption(
+                                              'Document number',
+                                              dark: true,
+                                            ),
                                           ),
                                           const Expanded(
                                             flex: 2,
-                                            child: Text('Status'),
+                                            child: ColumnCaption(
+                                              'Status',
+                                              dark: true,
+                                            ),
                                           ),
                                           SizedBox(
                                             width: 120,
-                                            child: Text(
+                                            child: ColumnCaption(
                                               widget.module.amountField == null
                                                   ? 'Last modified'
                                                   : widget.module ==
                                                         ErpModule.manufacturing
                                                   ? 'Quantity'
                                                   : 'Amount',
-                                              textAlign: TextAlign.right,
+                                              dark: true,
+                                              alignEnd: true,
                                             ),
                                           ),
                                           const SizedBox(width: 28),

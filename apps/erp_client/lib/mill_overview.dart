@@ -7,6 +7,7 @@ import 'design.dart';
 import 'knitting_models.dart';
 import 'erp_api.dart';
 import 'ui/workspace_ui.dart';
+import 'ui/workspace_art.dart';
 import 'dart:math' as math;
 import 'widgets.dart';
 import 'workspace_context.dart';
@@ -138,19 +139,18 @@ class MillOverview extends StatelessWidget {
       );
     }
 
-    final cards = [
-      _JobSummary(
-        running: hasJobs ? running : null,
-        count: hasJobs ? jobs.length : null,
-        onTap: () => onDestination('Jobs', filter: 'Running'),
-      ),
+    final stage = _JobSummary(
+      running: hasJobs ? running : null,
+      count: hasJobs ? jobs.length : null,
+      onTap: () => onDestination('Jobs', filter: 'Running'),
+    );
+    final balances = <Widget>[
       if (workspace.allows('materials'))
         _BalanceCard(
           title: 'Job yarn in store',
           amount: balance('yarn_kg'),
           detail: 'Allocated to recent jobs',
-          icon: Icons.all_inbox_outlined,
-          tint: const Color(0xFFDCE9D8),
+          art: ArtObject.yarn,
           onTap: () => showBalances('yarn_kg', 'Job yarn in store'),
         ),
       if (workspace.allows('billing'))
@@ -158,19 +158,17 @@ class MillOverview extends StatelessWidget {
           title: 'Awaiting invoice',
           amount: balance('unbilled_kg'),
           detail: 'Delivered and unbilled',
-          icon: Icons.receipt_long_outlined,
-          tint: const Color(0xFFF2D9C6),
+          art: ArtObject.invoice,
           onTap: () => showBalances('unbilled_kg', 'Awaiting invoice'),
         ),
     ];
-    final queues = <(String, String, String, IconData, Color, int?)>[
+    final queues = <(String, String, String, ArtObject, int?)>[
       if (workspace.allows('quality')) ...[
         (
           'Awaiting inspection',
           'Quality',
           'Awaiting QC',
-          Icons.fact_check_outlined,
-          const Color(0xFFF1D6BF),
+          ArtObject.inspection,
           snapshot.data['rolls'] is List
               ? rolls.where((r) => r['state'] == 'Awaiting QC').length
               : null,
@@ -179,8 +177,7 @@ class MillOverview extends StatelessWidget {
           'On hold',
           'Quality',
           'On Hold',
-          Icons.pause_circle_outline,
-          const Color(0xFFEFDEB8),
+          ArtObject.fabric,
           snapshot.data['rolls'] is List
               ? rolls.where((r) => r['state'] == 'On Hold').length
               : null,
@@ -191,8 +188,7 @@ class MillOverview extends StatelessWidget {
           'Ready to dispatch',
           'Delivery',
           'Released',
-          Icons.local_shipping_outlined,
-          const Color(0xFFD3E6CD),
+          ArtObject.dispatch,
           snapshot.data['rolls'] is List
               ? rolls.where((r) => r['state'] == 'Released').length
               : null,
@@ -202,8 +198,7 @@ class MillOverview extends StatelessWidget {
           'Planned runs',
           'Planning',
           'Planned',
-          Icons.event_available_outlined,
-          const Color(0xFFCFDEE2),
+          ArtObject.machine,
           snapshot.data['plans'] is List
               ? snapshot
                     .rows('plans')
@@ -213,54 +208,64 @@ class MillOverview extends StatelessWidget {
         ),
     ];
     final queue = Panel(
-      frosted: true,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+      dark: true,
+      padding: const EdgeInsets.all(12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Display('Work queues', size: 27),
-          const SizedBox(height: 5),
-          const Text('From recent rolls and plans', style: _meta),
-          const SizedBox(height: 12),
-          for (final (index, q) in queues.indexed) ...[
-            if (index != 0) const Divider(height: 1),
-            InkWell(
-              onTap: () => onDestination(q.$2, filter: q.$3),
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: q.$5,
-                        borderRadius: BorderRadius.circular(10),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 3, 4, 0),
+            child: Display('Work queues', size: 25, light: true),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 2, 4, 12),
+            child: Text(
+              'From recent rolls and plans',
+              style: TextStyle(fontSize: 12, color: Color(0xFFDEDED8)),
+            ),
+          ),
+          for (final (i, q) in queues.indexed) ...[
+            if (i > 0) const SizedBox(height: 6),
+            Material(
+              color: WorkspaceTheme.surface,
+              clipBehavior: Clip.antiAlias,
+              borderRadius: BorderRadius.circular(13),
+              child: InkWell(
+                onTap: () => onDestination(q.$2, filter: q.$3),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 6, 9, 6),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        flex: 4,
+                        child: WorkspaceArt(q.$4, width: 90, height: 58),
                       ),
-                      child: Icon(q.$4, size: 17),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Text(
-                        q.$1,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              q.$5?.toString() ?? '—',
+                              style: const TextStyle(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w600,
+                                height: 1.15,
+                                color: WorkspaceTheme.ink,
+                              ),
+                            ),
+                            Text(q.$1, style: _meta),
+                          ],
                         ),
                       ),
-                    ),
-                    Text(
-                      q.$6?.toString() ?? '—',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: WorkspaceTheme.muted,
-                    ),
-                  ],
+                      const Icon(
+                        Icons.north_east,
+                        size: 14,
+                        color: WorkspaceTheme.muted,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -270,96 +275,111 @@ class MillOverview extends StatelessWidget {
     );
     final chart = _MillProductionChart(snapshot: snapshot, api: api);
     final showChart = workspace.allows('production');
+    final summary = Panel(
+      dark: true,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 3, 4, 12),
+            child: Display('Material balances', size: 24, light: true),
+          ),
+          for (final (i, card) in balances.indexed) ...[
+            if (i > 0) const SizedBox(height: 6),
+            card,
+          ],
+        ],
+      ),
+    );
+    final register = MillJobRegister(
+      jobs: jobs.take(5).toList(),
+      onJob: onJob,
+      title: 'Recent jobs',
+      caption: 'Most recently updated',
+      showOutput: workspace.allows('production'),
+      empty: hasJobs ? 'No recent jobs.' : 'Job records unavailable.',
+      action: TextButton.icon(
+        onPressed: () => onDestination('Jobs'),
+        iconAlignment: IconAlignment.end,
+        icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+        label: const Text('Job register'),
+      ),
+    );
     return ListView(
       key: PageStorageKey('mill-${snapshot.company}'),
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         LayoutBuilder(
-          builder: (_, c) {
-            final gap = c.maxWidth < 600 ? 8.0 : 12.0;
-            final stacked = c.maxWidth < 700;
-            if (!stacked) {
+          builder: (context, box) {
+            final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+            const gap = SizedBox(height: 12);
+            Widget column(List<Widget> children) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            );
+            final hasQueue = queues.isNotEmpty;
+            if (box.maxWidth >= 1040 && scale < 1.5) {
+              return column([
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (balances.isNotEmpty) ...[
+                      Expanded(flex: 22, child: summary),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 51,
+                      child: column([
+                        stage,
+                        if (showChart) ...[gap, chart],
+                      ]),
+                    ),
+                    if (hasQueue) ...[
+                      const SizedBox(width: 12),
+                      Expanded(flex: 25, child: queue),
+                    ],
+                  ],
+                ),
+                gap,
+                register,
+              ]);
+            }
+            if (box.maxWidth >= 700 &&
+                scale < 1.5 &&
+                (balances.isNotEmpty || hasQueue)) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final (i, card) in cards.indexed) ...[
-                    if (i > 0) SizedBox(width: gap),
-                    Expanded(flex: i == 0 ? 15 : 10, child: card),
-                  ],
+                  Expanded(
+                    flex: 57,
+                    child: column([
+                      stage,
+                      if (showChart) ...[gap, chart],
+                      gap,
+                      register,
+                    ]),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 39,
+                    child: column([
+                      if (balances.isNotEmpty) summary,
+                      if (hasQueue) ...[if (balances.isNotEmpty) gap, queue],
+                    ]),
+                  ),
                 ],
               );
             }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                cards.first,
-                if (cards.length > 1) ...[
-                  SizedBox(height: gap),
-                  if (c.maxWidth >= 325 &&
-                      MediaQuery.textScalerOf(context).scale(1) < 1.5)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        for (final (i, card) in cards.skip(1).indexed) ...[
-                          if (i > 0) SizedBox(width: gap),
-                          Expanded(child: card),
-                        ],
-                      ],
-                    )
-                  else
-                    ...cards
-                        .skip(1)
-                        .map(
-                          (card) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: card,
-                          ),
-                        ),
-                ],
-              ],
-            );
+            return column([
+              stage,
+              if (showChart) ...[gap, chart],
+              if (hasQueue) ...[gap, queue],
+              if (balances.isNotEmpty) ...[gap, summary],
+              gap,
+              register,
+            ]);
           },
-        ),
-        if (showChart || queues.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (_, c) {
-              if (showChart && queues.isNotEmpty && c.maxWidth >= 770) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 17, child: chart),
-                    const SizedBox(width: 14),
-                    Expanded(flex: 10, child: queue),
-                  ],
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (showChart) chart,
-                  if (showChart && queues.isNotEmpty)
-                    const SizedBox(height: 12),
-                  if (queues.isNotEmpty) queue,
-                ],
-              );
-            },
-          ),
-        ],
-        const SizedBox(height: 14),
-        MillJobRegister(
-          jobs: jobs.take(5).toList(),
-          onJob: onJob,
-          title: 'Recent jobs',
-          caption: 'Most recently updated',
-          showOutput: workspace.allows('production'),
-          empty: hasJobs ? 'No recent jobs.' : 'Job records unavailable.',
-          action: TextButton.icon(
-            onPressed: () => onDestination('Jobs'),
-            iconAlignment: IconAlignment.end,
-            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-            label: const Text('Job register'),
-          ),
         ),
         const SizedBox(height: 10),
         const Text(
@@ -386,125 +406,63 @@ class _JobSummary extends StatelessWidget {
   final int? running, count;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(21),
-    child: Stack(
-      children: [
-        Positioned.fill(
-          child: Image.asset(
-            'assets/images/knitting-studio.jpg',
-            fit: BoxFit.cover,
-            alignment: Alignment.centerRight,
-            excludeFromSemantics: true,
-          ),
-        ),
-        const Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF242E28),
-                  Color(0xB1253029),
-                  Color(0x18222B23),
-                ],
-                stops: [0, .42, 1],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(10),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(15),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 165),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(15),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0x973E4941), Color(0xB8212A24)],
+  Widget build(BuildContext context) => Panel(
+    border: true,
+    padding: EdgeInsets.zero,
+    child: Semantics(
+      button: true,
+      label: 'Open running jobs',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(15, 12, 15, 9),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(child: Display('Running jobs', size: 26)),
+                    const Icon(
+                      Icons.north_east,
+                      size: 17,
+                      color: WorkspaceTheme.muted,
                     ),
-                    border: Border.all(color: const Color(0x7ACFD6C9)),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 15,
-                    vertical: 10,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.assignment_outlined,
-                            color: Color(0xFFF5CCB1),
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Running jobs',
-                            style: TextStyle(
-                              color: WorkspaceTheme.light,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        running?.toString() ?? '—',
-                        style: displayStyle(42, color: WorkspaceTheme.light),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        count == null
-                            ? 'Register unavailable'
-                            : 'of $count recent jobs',
-                        style: const TextStyle(
-                          color: Color(0xFFE3E9DF),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  ],
+                ),
+                LayoutBuilder(
+                  builder: (_, box) => WorkspaceArt(
+                    ArtObject.machine,
+                    height: (box.maxWidth * .46).clamp(144.0, 275.0),
+                    width: box.maxWidth,
                   ),
                 ),
-              ),
+                const Divider(height: 10),
+                Wrap(
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      running?.toString() ?? '—',
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      count == null
+                          ? 'Register unavailable'
+                          : 'of $count recent jobs',
+                      style: _meta,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
-        Positioned.fill(
-          child: Material(
-            color: Colors.transparent,
-            child: Semantics(
-              label: 'Open running jobs',
-              button: true,
-              child: InkWell(onTap: onTap),
-            ),
-          ),
-        ),
-        const Positioned(
-          top: 13,
-          right: 13,
-          child: IgnorePointer(
-            child: CircleAvatar(
-              radius: 13,
-              backgroundColor: Color(0xDFF4F4E9),
-              child: Icon(
-                Icons.north_east_rounded,
-                size: 14,
-                color: WorkspaceTheme.ink,
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     ),
   );
 }
@@ -514,78 +472,69 @@ class _BalanceCard extends StatelessWidget {
     required this.title,
     required this.amount,
     required this.detail,
-    required this.icon,
-    required this.tint,
+    required this.art,
     required this.onTap,
   });
   final String title, amount, detail;
-  final IconData icon;
-  final Color tint;
+  final ArtObject art;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Panel(
-    frosted: true,
-    padding: EdgeInsets.zero,
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 27,
-                    height: 27,
-                    decoration: BoxDecoration(
-                      color: tint,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Icon(icon, size: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+  Widget build(BuildContext context) => Material(
+    color: WorkspaceTheme.surface,
+    clipBehavior: Clip.antiAlias,
+    borderRadius: BorderRadius.circular(13),
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: WorkspaceTheme.ink,
                     ),
                   ),
-                  const Icon(
-                    Icons.north_east_rounded,
-                    size: 14,
-                    color: WorkspaceTheme.muted,
+                ),
+                const SizedBox(width: 5),
+                const Icon(
+                  Icons.north_east,
+                  size: 14,
+                  color: WorkspaceTheme.muted,
+                ),
+              ],
+            ),
+            WorkspaceArt(art, width: double.infinity, height: 79),
+            Text.rich(
+              TextSpan(
+                text: amount,
+                style: const TextStyle(
+                  fontSize: 25,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -.7,
+                  height: 1.15,
+                  color: WorkspaceTheme.ink,
+                ),
+                children: const [
+                  TextSpan(
+                    text: ' kg',
+                    style: TextStyle(
+                      fontSize: 16,
+                      letterSpacing: 0,
+                      color: WorkspaceTheme.muted,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 7),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text.rich(
-                  TextSpan(
-                    text: amount,
-                    style: displayStyle(38),
-                    children: [
-                      TextSpan(
-                        text: ' kg',
-                        style: displayStyle(21, color: WorkspaceTheme.muted),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                amount == '—' ? 'Balance unavailable' : detail,
-                style: _meta,
-              ),
-            ],
-          ),
+            ),
+            Text(amount == '—' ? 'Balance unavailable' : detail, style: _meta),
+          ],
         ),
       ),
     ),
@@ -602,150 +551,194 @@ class MillJobRegister extends StatelessWidget {
     required this.showOutput,
     this.title = 'Recent jobs',
     this.action,
+    this.sliverWidth,
   });
   final List<Map<String, dynamic>> jobs;
   final ValueChanged<Map<String, dynamic>> onJob;
   final String title, caption, empty;
   final bool showOutput;
+  final double? sliverWidth;
   final Widget? action;
 
+  bool _wide(BuildContext context, double width) =>
+      width >= 820 && MediaQuery.textScalerOf(context).scale(12) < 18;
   @override
-  Widget build(BuildContext context) => Panel(
-    frosted: true,
-    padding: EdgeInsets.zero,
-    child: LayoutBuilder(
-      builder: (_, c) {
-        final desktop =
-            c.maxWidth >= 690 &&
-            MediaQuery.textScalerOf(context).scale(1) < 1.6;
-        Widget cell(String text, int flex, {TextStyle? style}) => Expanded(
-          flex: flex,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Tooltip(
-              message: text,
-              child: Text(
-                text,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: style,
-              ),
+  Widget build(BuildContext context) {
+    final width = sliverWidth;
+    if (width != null) {
+      final wide = _wide(context, width);
+      return DecoratedSliver(
+        decoration: BoxDecoration(
+          color: WorkspaceTheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: WorkspaceTheme.border),
+        ),
+        sliver: SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(child: _header(wide)),
+            SliverList.builder(
+              itemCount: jobs.length,
+              itemBuilder: (context, i) => _row(jobs[i], wide),
             ),
+          ],
+        ),
+      );
+    }
+    return Panel(
+      border: true,
+      padding: EdgeInsets.zero,
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final wide = _wide(context, c.maxWidth);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [_header(wide), for (final job in jobs) _row(job, wide)],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _header(bool desktop) {
+    Widget heading(String title, int flex, {IconData? icon}) => Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: Tooltip(
+          message: title,
+          child: ColumnCaption(title, icon: icon),
+        ),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+          child: Row(
+            children: [
+              const WorkspaceArt(ArtObject.fabric, width: 48, height: 45),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Display(title, size: 24),
+                    const SizedBox(height: 3),
+                    Text(caption, style: _meta),
+                  ],
+                ),
+              ),
+              ?action,
+            ],
           ),
-        );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 12, 12),
+        ),
+        if (desktop)
+          Container(
+            color: const Color(0x0D292A2A),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+            child: DefaultTextStyle(
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                color: WorkspaceTheme.muted,
+                fontWeight: FontWeight.w600,
+              ),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Display(title, size: 27),
-                        const SizedBox(height: 3),
-                        Text(caption, style: _meta),
-                      ],
-                    ),
-                  ),
-                  ?action,
+                  heading('JOB / CUSTOMER', 25),
+                  heading('DUE DATE', 12),
+                  heading('MATERIAL', 12, icon: Icons.layers_outlined),
+                  heading('TARGET KG', 11),
+                  if (showOutput) heading('PRODUCED KG', 13),
+                  heading('STATUS', 12),
+                  const SizedBox(width: 18),
                 ],
               ),
             ),
-            if (desktop)
-              Container(
-                color: const Color(0x10627463),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 9,
+          ),
+        if (jobs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Text(empty, style: _meta),
+          ),
+      ],
+    );
+  }
+
+  Widget _row(Map<String, dynamic> job, bool desktop) {
+    Widget cell(String text, int flex, {TextStyle? style}) => Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Tooltip(
+          message: text,
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+      ),
+    );
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(width: .75, color: WorkspaceTheme.border),
+        ),
+      ),
+      child: InkWell(
+        onTap: () => onJob(job),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          child: desktop
+              ? Row(
+                  children: [
+                    Expanded(flex: 25, child: _JobIdentity(job)),
+                    cell(job['due_date']?.toString() ?? '—', 12),
+                    cell(job['material_mode']?.toString() ?? '—', 12),
+                    cell(_kg(job['target_kg']), 11, style: _numeric),
+                    if (showOutput)
+                      cell(
+                        _kg((job['balances'] as Map?)?['produced_kg']),
+                        13,
+                        style: _numeric,
+                      ),
+                    Expanded(
+                      flex: 12,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _JobState(job['status']?.toString()),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: WorkspaceTheme.muted,
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _JobIdentity(job)),
+                        _JobState(job['status']?.toString()),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      'Target ${_kg(job['target_kg'])} kg  ·  Due ${job['due_date'] ?? '—'}',
+                      style: _meta,
+                    ),
+                  ],
                 ),
-                child: DefaultTextStyle(
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 11,
-                    color: WorkspaceTheme.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  child: Row(
-                    children: [
-                      cell('JOB / CUSTOMER', 25),
-                      cell('DUE DATE', 12),
-                      cell('MATERIAL', 12),
-                      cell('TARGET KG', 11),
-                      if (showOutput) cell('PRODUCED KG', 13),
-                      cell('STATUS', 12),
-                      const SizedBox(width: 18),
-                    ],
-                  ),
-                ),
-              ),
-            if (jobs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(18),
-                child: Text(empty, style: _meta),
-              ),
-            for (final job in jobs) ...[
-              const Divider(height: 1),
-              InkWell(
-                onTap: () => onJob(job),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
-                  ),
-                  child: desktop
-                      ? Row(
-                          children: [
-                            Expanded(flex: 25, child: _JobIdentity(job)),
-                            cell(job['due_date']?.toString() ?? '—', 12),
-                            cell(job['material_mode']?.toString() ?? '—', 12),
-                            cell(_kg(job['target_kg']), 11, style: _numeric),
-                            if (showOutput)
-                              cell(
-                                _kg((job['balances'] as Map?)?['produced_kg']),
-                                13,
-                                style: _numeric,
-                              ),
-                            Expanded(
-                              flex: 12,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: _JobState(job['status']?.toString()),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              size: 18,
-                              color: WorkspaceTheme.muted,
-                            ),
-                          ],
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(child: _JobIdentity(job)),
-                                _JobState(job['status']?.toString()),
-                              ],
-                            ),
-                            const SizedBox(height: 7),
-                            Text(
-                              'Target ${_kg(job['target_kg'])} kg  ·  Due ${job['due_date'] ?? '—'}',
-                              style: _meta,
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    ),
-  );
+        ),
+      ),
+    );
+  }
 }
 
 class _JobIdentity extends StatelessWidget {

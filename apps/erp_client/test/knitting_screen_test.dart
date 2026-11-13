@@ -60,6 +60,274 @@ void main() {
     ],
   });
   testWidgets(
+    'job route selects the next eligible step and only unambiguous sources',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 930);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final selection = <(String, Map<String, dynamic>)>[];
+      Future<void> open({
+        Map<String, dynamic> balances = const {},
+        Map<String, dynamic> workflow = const {},
+        WorkspaceContext? access,
+        String status = 'Running',
+      }) async {
+        final current = {
+          ...job,
+          'status': status,
+          'balances': {
+            'fabric_kg': '0.000',
+            'subcontract_kg': '0.000',
+            'yarn_kg': '0.000',
+            'unbilled_kg': '0.000',
+            ...balances,
+          },
+          'workflow': {
+            'units': '0',
+            'open_subcontract': false,
+            'remaining_lines': ['P1'],
+            ...workflow,
+          },
+        };
+        final source = KnittingSnapshot.fromJson({
+          'version': 1,
+          'company': 'Demo',
+          'jobs': [current],
+        });
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: WorkspaceTheme.theme,
+            home: Scaffold(
+              body: KnittingWorkbench(
+                snapshot: source,
+                page: 'Jobs',
+                selected: current,
+                query: '',
+                onQuery: (_) {},
+                onJob: (_) {},
+                onBack: () {},
+                onAction: (a, {initial = const {}}) async =>
+                    selection.add((a.id, initial)),
+                onSource: (_, _) async {},
+                workspace: access ?? w,
+                onFind: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+
+      final next = find.byKey(const ValueKey('next-job-action'));
+      Future<void> choose(String id, Map<String, dynamic> initial) async {
+        await Scrollable.ensureVisible(tester.element(next), alignment: .5);
+        await tester.pumpAndSettle();
+        await tester.tap(next);
+        expect(selection.last.$1, id);
+        expect(selection.last.$2, initial);
+      }
+
+      await open();
+      await choose('receive_yarn', {
+        'material_owner': 'Customer',
+        'party': 'Sample Mills',
+      });
+      await open(
+        balances: {'yarn_kg': '9.125'},
+        workflow: {'only_lot': 'SOURCE-A'},
+      );
+      await choose('produce', {
+        'programme_line': 'P1',
+        'inputs': [
+          {'lot': 'SOURCE-A'},
+        ],
+      });
+      const mixed = {
+        'inspection': {'count': 2, 'only': null},
+        'released': {'count': 1, 'only': 'READY-A'},
+        'remaining_lines': [],
+      };
+      await open(workflow: mixed);
+      await choose('quality', {});
+      await open(
+        workflow: mixed,
+        access: WorkspaceContext.fromJson({
+          'company': 'Demo',
+          'knitting_enabled': true,
+          'capabilities': ['jobs', 'delivery'],
+        }),
+      );
+      await choose('deliver', {
+        'rolls': ['READY-A'],
+      });
+      await open(
+        workflow: {
+          'remaining_lines': [],
+          'released': {'count': 2, 'only': null},
+        },
+      );
+      await choose('deliver', {});
+      await open(
+        balances: {'unbilled_kg': '1.025', 'yarn_kg': '0.750'},
+        workflow: {'remaining_lines': [], 'only_delivery': 'PARTIALLY-BILLED'},
+      );
+      await choose('invoice', {
+        'deliveries': ['PARTIALLY-BILLED'],
+      });
+      await open(
+        balances: {'yarn_kg': '0.750'},
+        workflow: {'remaining_lines': [], 'only_lot': 'SOURCE-A'},
+      );
+      await choose('return_yarn', {'lot': 'SOURCE-A'});
+      await open(
+        workflow: {
+          'remaining_lines': [],
+          'held': {'count': 1, 'only': 'HELD-A'},
+        },
+      );
+      await choose('quality', {'roll': 'HELD-A'});
+      await open(
+        workflow: {
+          'remaining_lines': [],
+          'units': '0',
+          'open_subcontract': true,
+        },
+      );
+      expect(next, findsNothing);
+      expect(find.text('Subcontract work is open'), findsOneWidget);
+      await open(workflow: {'remaining_lines': [], 'units': '2'});
+      await choose('adjust_yarn', {'quantity_kg': '0'});
+      await open(workflow: {'remaining_lines': []});
+      await choose('close_job', {});
+      await open(status: 'Completed');
+      expect(next, findsNothing);
+      expect(find.text('Job complete'), findsOneWidget);
+      await open(
+        workflow: {
+          'inspection': {'count': 1, 'only': 'PRIVATE-ROLL'},
+        },
+        access: WorkspaceContext.fromJson({
+          'company': 'Demo',
+          'knitting_enabled': true,
+          'capabilities': ['jobs'],
+        }),
+      );
+      expect(next, findsNothing);
+      expect(find.textContaining('Waiting for a colleague'), findsOneWidget);
+      expect(find.text('PRIVATE-ROLL'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'opened job carries its version and single QC source into the real entry',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 980);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = TestKnitApi();
+      addTearDown(api.close);
+      api.publishContext(w);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          home: KnittingScreen(
+            api: api,
+            workspace: w,
+            onContextChanged: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OLD-JOB'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('next-job-action')));
+      await tester.pumpAndSettle();
+      final form = tester.widget<KnittingCommandForm>(
+        find.byType(KnittingCommandForm),
+      );
+      expect(form.action.id, 'quality');
+      expect(form.job?['name'], 'OLD-JOB');
+      expect(form.job?['modified'], '2026-11-13 10:12:00.123456');
+      expect(form.initial, {'roll': 'ROLL-A'});
+      expect(api.writes, 0);
+      expect(find.text('Review entry'), findsOneWidget);
+      expect(find.text('Confirm & post'), findsNothing);
+    },
+  );
+
+  testWidgets('Done opens the new job after recovery of an uncertain save', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = _NewJobApi();
+    addTearDown(api.close);
+    final mill = WorkspaceContext.fromJson({
+      'company': 'Demo',
+      'knitting_enabled': true,
+      'setup_state': 'Active',
+      'capabilities': ['jobs', 'new_job', 'materials'],
+    });
+    api.publishContext(mill);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: WorkspaceTheme.theme,
+        home: KnittingScreen(
+          api: api,
+          workspace: mill,
+          onContextChanged: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New job'));
+    await tester.pumpAndSettle();
+    final pick = find
+        .ancestor(
+          of: find.text('Customer').first,
+          matching: find.byType(InkWell),
+        )
+        .first;
+    await tester.tap(pick);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Synthetic customer'));
+    await tester.pumpAndSettle();
+    Future<void> enter(Finder field, String value) async {
+      await Scrollable.ensureVisible(tester.element(field), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.enterText(field, value);
+    }
+
+    final target = find.widgetWithText(TextFormField, 'Target · kg');
+    await enter(target.first, '20');
+    final add = find.text('Add fabric programme');
+    await Scrollable.ensureVisible(tester.element(add), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await enter(find.widgetWithText(TextFormField, 'Fabric'), 'Rib');
+    await enter(target.last, '20');
+    await tester.tap(find.text('Review entry'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm & post'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Check save status'));
+    await tester.pumpAndSettle();
+    expect(api.writes, 1);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(api.readJobs, [null, 'JOB-CREATED']);
+    expect(find.text('JOB-CREATED'), findsOneWidget);
+    expect(find.text('Receive yarn for the job'), findsOneWidget);
+    expect(find.byKey(const ValueKey('next-job-action')), findsOneWidget);
+  });
+
+  testWidgets(
     'access refresh retains allowed draft fields and removes private inputs',
     (tester) async {
       final api = TestKnitApi();
@@ -365,6 +633,7 @@ class TestKnitApi extends ErpApi {
           ? [
               {
                 'name': 'OLD-JOB',
+                'modified': '2026-11-13 10:12:00.123456',
                 'customer': 'Demo customer',
                 'status': 'Running',
                 'target_kg': '88.000',
@@ -418,5 +687,55 @@ class TestKnitApi extends ErpApi {
   ) async => {
     'event': 'CONFIRMED-EVENT',
     'data': {'job': 'OLD-JOB'},
+  };
+}
+
+class _NewJobApi extends TestKnitApi {
+  final readJobs = <String?>[];
+  @override
+  Future<Map<String, dynamic>> knittingLookup(
+    String company,
+    String entity,
+    String query, {
+    int start = 0,
+    String? job,
+  }) async => {
+    'rows': [
+      {'name': 'CUSTOMER-X', 'title': 'Synthetic customer'},
+    ],
+    'has_more': false,
+  };
+  @override
+  Future<KnittingSnapshot> knittingSnapshot(
+    String company, {
+    String? job,
+  }) async {
+    readJobs.add(job);
+    return KnittingSnapshot(company, {
+      'jobs': [
+        if (job == 'JOB-CREATED')
+          {
+            'name': job,
+            'customer': 'Synthetic customer',
+            'status': 'Running',
+            'material_mode': 'Customer',
+            'target_kg': '20.000',
+            'programme': [
+              {'id': 'P1', 'fabric': 'Rib', 'target_kg': '20.000'},
+            ],
+            'balances': {'yarn_kg': '0.000'},
+          },
+      ],
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> knittingCommandStatus(
+    String company,
+    String requestId,
+  ) async => {
+    'event': 'EVENT-CREATED',
+    'action': 'create_job',
+    'data': {'job': 'JOB-CREATED'},
   };
 }

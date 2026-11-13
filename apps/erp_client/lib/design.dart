@@ -3,12 +3,12 @@ import 'package:intl/intl.dart';
 import 'erp_models.dart';
 
 abstract final class WorkspaceTheme {
-  static const canvas = Color(0xFFE7E8E4),
+  static const canvas = Color(0xFFE8E8E5),
       surface = Color(0xFFF4F4F0),
-      charcoal = Color(0xFF191B19);
-  static const ink = Color(0xFF20231F),
-      muted = Color(0xFF686E66),
-      border = Color(0xFFC7CBC3);
+      charcoal = Color(0xFF1C1C1C);
+  static const ink = Color(0xFF222322),
+      muted = Color(0xFF646563),
+      border = Color(0xFFCCCDCA);
   static const peach = Color(0xFFE99A70),
       palePeach = Color(0xFFF4D7C3),
       light = Color(0xFFF8F8F3);
@@ -121,7 +121,7 @@ abstract final class WorkspaceTheme {
       dividerColor: border,
     ),
     dataTableTheme: const DataTableThemeData(
-      headingRowColor: WidgetStatePropertyAll(palePeach),
+      headingRowColor: WidgetStatePropertyAll(Color(0xFFE5E5E1)),
       dataRowMinHeight: 48,
       headingTextStyle: TextStyle(
         fontFamily: 'Manrope',
