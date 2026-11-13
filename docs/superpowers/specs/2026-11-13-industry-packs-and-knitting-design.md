@@ -6,7 +6,7 @@ ERP Workspace remains one general ERP product with a native Flutter interface an
 
 The customer asked for a familiar business workflow, not a copy of Fashion Suite's interface or an ERP replacement inside our ERP. Preserve useful terms such as job, yarn inward, roll, dia, shift and DC. Design task-oriented screens in our charcoal, off-white and peach visual language. Improve the shared screens as well as knitting screens so quality does not stop at the overview.
 
-This is a proposed design for review. Product implementation has not started. The user has requested the feature set and accepted a visual preview; neither the preview nor this document is evidence of implemented knitting behavior. AI remains deferred.
+The user approved this design on 13 November 2026 and directed implementation to start and continue without another approval round. They requested better aesthetics and purposeful professional motion. Remove ornamental entrance staggers and card-lifting effects from the implementation; motion should explain selection, navigation, queue changes and confirmed actions. Neither the preview nor this document is evidence of implemented knitting behavior. AI remains deferred.
 
 ## Evidence and limits
 
@@ -244,4 +244,4 @@ Builder proposals in this document include company-level enablement, capability/
 
 Customer-specific formulas, active integration providers and exact migration balances remain unverified. Build selectable, versioned policies and synthetic acceptance cases; do not infer these values from the production account. The mixed-input charging model, estimation, processing and unknown-route dispositions above are explicit builder proposals for product approval. A real customer pilot cannot be certified until the required policies and formats are confirmed against an authorised test copy or signed examples.
 
-Independent builder check completed on 13 November 2026. The review raised unknown-route release scope, mixed-material ownership/billing, and estimation/processing/private-job semantics. These were resolved as explicit proposals in this design and acceptance cases A25 to A28; the follow-up review reported nothing important left. Product design approval: pending.
+Independent builder check completed on 13 November 2026. The review raised unknown-route release scope, mixed-material ownership/billing, and estimation/processing/private-job semantics. These were resolved as explicit proposals in this design and acceptance cases A25 to A28; the follow-up review reported nothing important left. Product design approved by the user on 13 November 2026 with the motion refinement above.
