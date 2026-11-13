@@ -115,6 +115,7 @@ def command_status(company, request_id):
 
 
 @frappe.whitelist()
+@permissions.snapshot_link_checks()
 def snapshot(company, job=None):
     permissions.require(company, "jobs", history=True)
     finance = "financial_read" in permissions.capabilities()
@@ -216,6 +217,8 @@ def lookup(company, entity, query="", start=0, job=None):
         "Customer": ("Customer", ["name", "customer_name as title"], {"disabled": 0}),
         "Supplier": ("Supplier", ["name", "supplier_name as title"], {"disabled": 0}),
         "Item": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0}),
+        "StockKgItem": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0, "is_stock_item": 1, "stock_uom": "Kg"}),
+        "ServiceItem": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0, "is_stock_item": 0}),
         "Warehouse": ("Warehouse", ["name"], {"is_group": 0}),
         "User": ("User", ["name", "full_name as title"], {"enabled": 1}),
         "Employee": ("Employee", ["name", "employee_name as title"], {"status": "Active"}),
@@ -243,7 +246,10 @@ def lookup(company, entity, query="", start=0, job=None):
         if entity == "Job":
             row.programme = domain.json_value(row.programme, [])
             row.balances = domain.balances(row.name)
-    return {"rows": rows[:50], "has_more": len(rows) > 50, "start": int(start)}
+    result = {"rows": rows[:50], "has_more": len(rows) > 50, "start": int(start)}
+    if entity == "Customer":
+        result["can_create"] = bool(frappe.has_permission("Customer", "create"))
+    return result
 
 
 @frappe.whitelist()

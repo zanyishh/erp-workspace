@@ -157,19 +157,23 @@ TextStyle displayStyle(double size, {Color color = WorkspaceTheme.ink}) =>
       letterSpacing: .2,
     );
 String tally(int? value) => value?.toString() ?? '—';
-String money(num? amount, String currency) => amount == null
-    ? '—'
-    : NumberFormat.currency(
-        locale: currency == 'INR' ? 'en_IN' : 'en_US',
-        decimalDigits: 0,
-        symbol: switch (currency) {
-          'INR' => '₹',
-          'USD' => '\$',
-          'EUR' => '€',
-          'GBP' => '£',
-          _ => '$currency ',
-        },
-      ).format(amount);
+String money(num? amount, String currency) {
+  if (amount == null) return '—';
+  // Keep the currency code for currencies that share a symbol, such as CAD.
+  return NumberFormat.currency(
+    name: currency,
+    locale: currency == 'INR' ? 'en_IN' : 'en_US',
+    decimalDigits: amount % 1 == 0 ? 0 : null,
+    symbol: switch (currency) {
+      'INR' => '₹',
+      'USD' => r'$',
+      'EUR' => '€',
+      'GBP' => '£',
+      _ => '$currency ',
+    },
+  ).format(amount);
+}
+
 IconData moduleIcon(ErpModule m) => switch (m) {
   ErpModule.accounts => Icons.account_balance_wallet_outlined,
   ErpModule.selling => Icons.storefront_outlined,

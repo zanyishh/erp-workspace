@@ -1,3 +1,4 @@
+import 'ui/record_icon.dart';
 import 'ui/workspace_art.dart';
 import 'ui/access_gate.dart';
 import 'dart:convert';
@@ -39,11 +40,19 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
   String? _error;
   String _filterKey = '';
 
-  Map<String, dynamic> _filters(NativeSchema schema) => {
-    for (final f in schema.fields.where((f) => !f.layout && !f.hidden))
-      if (_values![f.name] != null && _values![f.name] != '')
-        f.name: f.parse(_values![f.name]),
-  };
+  Map<String, dynamic> _filters(NativeSchema schema) {
+    final defaults = _defaults;
+    final visible = schema.visibleFields(_values!).toSet();
+    final filters = <String, dynamic>{};
+    for (final f in schema.fields.where((f) => !f.layout)) {
+      // An inactive dependent filter returns to its server-defined default.
+      final value = visible.contains(f) ? _values![f.name] : defaults[f.name];
+      if (value != null && value != '') filters[f.name] = f.parse(value);
+    }
+    return filters;
+  }
+
+  Map<String, dynamic> _defaults = {};
   void _run(NativeSchema schema) {
     final invalid = schema.validate(_values!);
     if (invalid.isNotEmpty) {
@@ -95,6 +104,9 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
     api: widget.api,
     revalidate: () async {
       _result = null;
+      _queued = false;
+      _errors = {};
+      _error = null;
       final fresh = widget.api.reportDefinition(
         widget.name,
         company: widget.company,
@@ -108,7 +120,7 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            WorkspaceArt(recordArt(widget.name), width: 42, height: 32),
+            RecordIcon(recordSymbol(widget.name, report: true)),
             const SizedBox(width: 8),
             Flexible(child: Display(widget.name.toUpperCase(), size: 26)),
           ],
@@ -134,9 +146,8 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
           }
           final definition = state.data!;
           final schema = NativeSchema.fromJson(definition);
-          _values ??= objectMap(
-            jsonDecode(jsonEncode(definition['defaults'] ?? {})),
-          );
+          _defaults = objectMap(definition['defaults'] ?? <String, dynamic>{});
+          _values ??= objectMap(jsonDecode(jsonEncode(_defaults)));
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -245,7 +256,8 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
                             spacing: 12,
                             children: [
                               Display('${report.rows.length} ROWS', size: 25),
-                              if (enabled(definition['can_export']))
+                              if (enabled(definition['can_export']) &&
+                                  report.columns.isNotEmpty)
                                 TextButton.icon(
                                   onPressed: report.rows.isEmpty
                                       ? null
@@ -274,7 +286,8 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
                                   icon: const Icon(Icons.save_alt, size: 18),
                                   label: const Text('Export CSV'),
                                 ),
-                              if (enabled(definition['can_export']))
+                              if (enabled(definition['can_export']) &&
+                                  report.columns.isNotEmpty)
                                 TextButton.icon(
                                   onPressed: report.rows.isEmpty
                                       ? null
@@ -330,6 +343,13 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
                                       'No rows match these filters.',
                                       textAlign: TextAlign.center,
                                     ),
+                                  ),
+                                )
+                              : report.columns.isEmpty
+                              ? const Panel(
+                                  border: true,
+                                  child: Text(
+                                    'This report has no visible columns.',
                                   ),
                                 )
                               : NativeReportTable(

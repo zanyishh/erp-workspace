@@ -7,6 +7,7 @@ import 'file_actions.dart';
 import 'design.dart';
 import 'document_editor.dart';
 import 'erp_api.dart';
+import 'erp_models.dart';
 import 'knitting_forms.dart';
 import 'knitting_models.dart';
 import 'knitting_reports.dart';
@@ -27,16 +28,58 @@ class KnittingScreen extends StatefulWidget {
     this.onAccount,
     this.onRecords,
     this.onGeneral,
+    this.onBusinessModule,
   });
   final ErpApi api;
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onContextChanged;
   final VoidCallback? onCompany, onAccount, onRecords, onGeneral;
+  final ValueChanged<ErpModule>? onBusinessModule;
   @override
   State<KnittingScreen> createState() => _KnittingScreenState();
 }
 
+typedef _MillLocation = ({
+  String page,
+  String? job,
+  String query,
+  String? filter,
+});
+
 class _KnittingScreenState extends State<KnittingScreen> {
+  final _history = <_MillLocation>[];
+  final _searchField = TextEditingController();
+  bool _drawerOpen = false;
+  _MillLocation get _location => (
+    page: page,
+    job: selected?['name'] as String?,
+    query: search,
+    filter: queueFilter,
+  );
+
+  void _remember() {
+    // A drawer destination is a peer. Back on repeated visits should never loop
+    // through an unbounded list of identical workspaces.
+    final current = _location;
+    _history.removeWhere(
+      (row) => row.page == current.page && row.job == current.job,
+    );
+    _history.add(current);
+  }
+
+  void _resetNavigation() {
+    _history.clear();
+    _searchField.clear();
+    search = '';
+    queueFilter = null;
+  }
+
+  @override
+  void dispose() {
+    _searchField.dispose();
+    super.dispose();
+  }
+
   late WorkspaceContext workspace = widget.workspace;
   bool setupDirty = false;
   late Future<KnittingSnapshot> future = widget.api.knittingSnapshot(
@@ -56,8 +99,8 @@ class _KnittingScreenState extends State<KnittingScreen> {
         !workspace.destinations.contains(page)) {
       selected = null;
       page = workspace.destinations.firstOrNull ?? 'Jobs';
-      search = '';
-      queueFilter = null;
+      _resetNavigation();
+      setupDirty = false;
       future = widget.api.knittingSnapshot(
         workspace.company!,
         job: selected?['name'] as String?,
@@ -76,8 +119,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
       workspace = fresh;
       if (!fresh.destinations.contains(page)) {
         selected = null;
-        search = '';
-        queueFilter = null;
+        _resetNavigation();
         page = fresh.destinations.firstOrNull ?? 'Jobs';
       }
     });
@@ -98,41 +140,54 @@ class _KnittingScreenState extends State<KnittingScreen> {
       workspace = fresh;
       selected = null;
       setupDirty = false;
-      queueFilter = null;
+      _resetNavigation();
       page = fresh.destinations.firstOrNull ?? 'Setup';
       if (fresh.enabled) future = widget.api.knittingSnapshot(fresh.company!);
     });
   }
 
+  Future<bool> _canLeave() async {
+    if (page != 'Setup' || !setupDirty) return true;
+    return await _confirmDiscardSetup(context) && mounted;
+  }
+
+  Future<void> _back() async {
+    if (!await _canLeave() || !mounted || _history.isEmpty) return;
+    setState(() {
+      final previous = _history.removeLast();
+      if (previous.job != selected?['name']) {
+        selected = previous.job == null ? null : {'name': previous.job};
+        future = widget.api.knittingSnapshot(
+          workspace.company!,
+          job: previous.job,
+        );
+      }
+      page = previous.page;
+      search = previous.query;
+      _searchField.text = search;
+      queueFilter = previous.filter;
+      setupDirty = false;
+    });
+  }
+
   Future<void> destination(String value, {String? filter}) async {
     if (!workspace.destinations.contains(value)) return;
-    if (page == 'Setup' && setupDirty) {
-      final discard = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          title: const Text('Discard setup changes?'),
-          content: const Text('Your changes have not been applied.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: const Text('Keep editing'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('Discard changes'),
-            ),
-          ],
-        ),
-      );
-      if (discard != true || !mounted) return;
+    final showRegister = value == 'Overview' || value == 'Jobs';
+    if (page == value &&
+        _location.filter == filter &&
+        (!showRegister || selected == null)) {
+      return;
     }
+    if (!await _canLeave() || !mounted) return;
     setState(() {
-      if (selected != null && (value == 'Overview' || value == 'Jobs')) {
+      if (page != value || (showRegister && selected != null)) _remember();
+      if (selected != null && showRegister) {
         selected = null;
         future = widget.api.knittingSnapshot(workspace.company!);
       }
       page = value;
       search = '';
+      _searchField.clear();
       queueFilter = filter;
       setupDirty = false;
     });
@@ -163,7 +218,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
         .where(
           (a) =>
               a.id == id &&
-              workspace.allows(a.capability) &&
+              a.availableIn(workspace) &&
               (id != 'receive_yarn' || a.needsJob == (selected != null)) &&
               (id != 'create_job' || workspace.state == 'Active'),
         )
@@ -173,17 +228,20 @@ class _KnittingScreenState extends State<KnittingScreen> {
   Future<void> action(
     KnitAction spec, {
     Map<String, dynamic> initial = const {},
+    Map<String, dynamic>? sourceJob,
   }) async {
     final company = workspace.company;
+    final origin = workspace;
+    final source = sourceJob ?? selected;
     final access = widget.api.accessRevision;
     final receipt = await Navigator.push(
       context,
       MaterialPageRoute<Map<String, dynamic>>(
         builder: (_) => KnittingCommandForm(
           api: widget.api,
-          workspace: workspace,
+          workspace: origin,
           action: spec,
-          job: spec.needsJob ? selected : null,
+          job: spec.needsJob ? source : null,
           initial: initial,
         ),
       ),
@@ -203,7 +261,61 @@ class _KnittingScreenState extends State<KnittingScreen> {
     }
   }
 
+  Future<void> openRoll(KnitAction spec, Map<String, dynamic> roll) async {
+    final company = workspace.company!;
+    final access = widget.api.accessRevision;
+    final jobName = roll['job'] as String;
+    final route = ModalRoute.of(context);
+    final originalPage = page;
+    try {
+      final source = await widget.api.knittingSnapshot(company, job: jobName);
+      if (!mounted ||
+          workspace.company != company ||
+          page != originalPage ||
+          route?.isCurrent == false ||
+          widget.api.accessRevision != access ||
+          !widget.api.accessReady) {
+        return;
+      }
+      final job = source
+          .rows('jobs')
+          .where((j) => j['name'] == jobName)
+          .firstOrNull;
+      if (job == null || job['status'] != 'Running') {
+        throw const ErpException(
+          'This job is no longer available for new entries. Refresh the queue.',
+        );
+      }
+      final current = source
+          .rows('rolls')
+          .where((r) => r['name'] == roll['name'])
+          .firstOrNull;
+      if (current == null || current['state'] != roll['state']) {
+        throw const ErpException(
+          'The roll changed after this queue loaded. Refresh the queue to see its current state.',
+        );
+      }
+      await action(
+        spec,
+        sourceJob: job,
+        initial: spec.id == 'deliver'
+            ? {
+                'rolls': [roll['name']],
+              }
+            : {'roll': roll['name']},
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   void openJob(Map<String, dynamic> job) => setState(() {
+    _remember();
+    _searchField.clear();
     selected = job;
     page = 'Jobs';
     search = '';
@@ -298,156 +410,168 @@ class _KnittingScreenState extends State<KnittingScreen> {
     api: widget.api,
     revalidate: () async {
       selected = null;
+      _resetNavigation();
+      setupDirty = false;
       page = workspace.destinations.firstOrNull ?? 'Jobs';
-      queueFilter = null;
       final fresh = _reload();
       setState(() {
         future = fresh;
       });
       await fresh;
     },
-    child: KnittingWorkspaceLayout(
-      workspace: workspace,
-      page: page,
-      jobDetail: page == 'Jobs' && selected != null,
-      onDestination: destination,
-      onCompany: setupDirty ? null : widget.onCompany,
-      onAccount: setupDirty ? null : widget.onAccount,
-      onRecords: setupDirty ? null : widget.onRecords,
-      onGeneral: setupDirty ? null : widget.onGeneral,
-      actions: [
-        if (page == 'Delivery' && workspace.allows('delivery'))
-          OutlinedButton.icon(
-            onPressed: printDelivery,
-            icon: const Icon(Icons.print_outlined, size: 18),
-            label: const Text('Delivery challan'),
-          ),
-        if (page == 'Production' || page == 'Quality')
-          OutlinedButton.icon(
-            onPressed: printLabel,
-            icon: const Icon(Icons.print_outlined, size: 18),
-            label: const Text('Roll label'),
-          ),
-        OutlinedButton.icon(
-          onPressed: refresh,
-          icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('Refresh'),
-        ),
-        if (primary != null)
-          FilledButton.icon(
-            onPressed: () => action(primary!),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(primary!.title),
-          ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: page == 'Reports'
-                ? KnittingReports(
-                    api: widget.api,
-                    company: workspace.company!,
-                    financialRead: workspace.allows('financial_read'),
-                    job: selected?['name'] as String?,
-                  )
-                : page == 'Setup'
-                ? _Setup(
-                    api: widget.api,
-                    workspace: workspace,
-                    onSaved: changedContext,
-                    onDirty: (value) {
-                      if (mounted && value != setupDirty) {
-                        setState(() => setupDirty = value);
-                      }
-                    },
-                  )
-                : FutureBuilder<KnittingSnapshot>(
-                    future: future,
-                    builder: (context, state) {
-                      if (state.connectionState != ConnectionState.done) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            semanticsLabel: "Loading knitting workspace",
-                          ),
-                        );
-                      }
-                      if (state.hasError) {
-                        return MessagePanel(
-                          title: 'COULD NOT LOAD KNITTING',
-                          message: state.error.toString(),
-                          action: refresh,
-                        );
-                      }
-                      if (!state.hasData) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            semanticsLabel: 'Loading knitting records',
-                          ),
-                        );
-                      }
-                      final snap = state.data!;
-                      if (snap.company != workspace.company) {
-                        return const SizedBox.shrink();
-                      }
-                      if (selected != null) {
-                        final matches = snap
-                            .rows('jobs')
-                            .where((j) => j['name'] == selected!['name']);
-                        selected = matches.firstOrNull;
-                      }
-                      if (page == 'Overview') {
-                        return MillOverview(
-                          api: widget.api,
-                          snapshot: snap,
-                          workspace: workspace,
-                          onDestination: destination,
-                          onJob: openJob,
-                        );
-                      }
-                      return KnittingWorkbench(
-                        key: ValueKey(page),
-                        queueFilter: queueFilter,
-                        onFilter: (value) =>
-                            setState(() => queueFilter = value),
-                        snapshot: snap,
-                        page: page,
-                        selected: selected,
-                        query: search,
-                        onQuery: (v) => setState(() => search = v),
-                        onJob: openJob,
-                        onBack: () => setState(() {
-                          selected = null;
-                          page = 'Jobs';
-                          future = widget.api.knittingSnapshot(
-                            workspace.company!,
-                          );
-                        }),
-                        onAction: action,
-                        primaryAction: primary,
-                        onSource: source,
-                        workspace: workspace,
-                        onFind: () async {
-                          final company = workspace.company!;
-                          final access = widget.api.accessRevision;
-                          final row = await pickKnitRecord(
-                            context,
-                            widget.api,
-                            company,
-                            'Job',
-                          );
-                          if (row != null &&
-                              mounted &&
-                              workspace.company == company &&
-                              access == widget.api.accessRevision) {
-                            openJob(row);
-                          }
-                        },
-                      );
-                    },
-                  ),
-          ),
+    child: PopScope(
+      canPop: _history.isEmpty || _drawerOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_drawerOpen && _history.isNotEmpty) _back();
+      },
+      child: KnittingWorkspaceLayout(
+        onDrawerChanged: (open) => setState(() => _drawerOpen = open),
+        onBack: _history.isEmpty ? null : _back,
+        backLabel: _history.isEmpty
+            ? null
+            : (_history.last.page == 'Jobs' && _history.last.job != null
+                  ? 'Back to job details'
+                  : 'Back to ${_history.last.page.toLowerCase()}'),
+        workspace: workspace,
+        page: page,
+        jobDetail: page == 'Jobs' && selected != null,
+        onDestination: destination,
+        onCompany: setupDirty ? null : widget.onCompany,
+        onAccount: setupDirty ? null : widget.onAccount,
+        onRecords: setupDirty ? null : widget.onRecords,
+        onGeneral: setupDirty ? null : widget.onGeneral,
+        onBusinessModule: setupDirty ? null : widget.onBusinessModule,
+        actions: [
+          if (page == 'Delivery' && workspace.allows('delivery'))
+            OutlinedButton.icon(
+              onPressed: printDelivery,
+              icon: const Icon(Icons.print_outlined, size: 18),
+              label: const Text('Delivery challan'),
+            ),
+          if (page == 'Production' || page == 'Quality')
+            OutlinedButton.icon(
+              onPressed: printLabel,
+              icon: const Icon(Icons.print_outlined, size: 18),
+              label: const Text('Roll label'),
+            ),
+          if (page != 'Reports' && page != 'Setup')
+            OutlinedButton.icon(
+              onPressed: refresh,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Refresh'),
+            ),
+          if (primary != null)
+            FilledButton.icon(
+              onPressed: () => action(primary!),
+              icon: Icon(primary!.icon, size: 18),
+              label: Text(primary!.title),
+            ),
         ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: page == 'Reports'
+                  ? KnittingReports(
+                      api: widget.api,
+                      company: workspace.company!,
+                      financialRead: workspace.allows('financial_read'),
+                      job: selected?['name'] as String?,
+                    )
+                  : page == 'Setup'
+                  ? _Setup(
+                      api: widget.api,
+                      workspace: workspace,
+                      parentHandlesBack: _history.isNotEmpty,
+                      onSaved: changedContext,
+                      onDirty: (value) {
+                        if (mounted && value != setupDirty) {
+                          setState(() => setupDirty = value);
+                        }
+                      },
+                    )
+                  : FutureBuilder<KnittingSnapshot>(
+                      future: future,
+                      builder: (context, state) {
+                        if (state.connectionState != ConnectionState.done) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              semanticsLabel: "Loading knitting workspace",
+                            ),
+                          );
+                        }
+                        if (state.hasError) {
+                          return MessagePanel(
+                            title: 'COULD NOT LOAD KNITTING',
+                            message: state.error.toString(),
+                            action: refresh,
+                          );
+                        }
+                        if (!state.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              semanticsLabel: 'Loading knitting records',
+                            ),
+                          );
+                        }
+                        final snap = state.data!;
+                        if (snap.company != workspace.company) {
+                          return const SizedBox.shrink();
+                        }
+                        if (selected != null) {
+                          final matches = snap
+                              .rows('jobs')
+                              .where((j) => j['name'] == selected!['name']);
+                          selected = matches.firstOrNull;
+                        }
+                        if (page == 'Overview') {
+                          return MillOverview(
+                            api: widget.api,
+                            snapshot: snap,
+                            workspace: workspace,
+                            onDestination: destination,
+                            onJob: openJob,
+                          );
+                        }
+                        return KnittingWorkbench(
+                          key: ValueKey(page),
+                          queueFilter: queueFilter,
+                          onFilter: (value) =>
+                              setState(() => queueFilter = value),
+                          snapshot: snap,
+                          page: page,
+                          selected: selected,
+                          query: search,
+                          searchField: _searchField,
+                          onQuery: (v) => setState(() => search = v),
+                          onJob: openJob,
+                          onAction: action,
+                          onRoll: openRoll,
+                          primaryAction: primary,
+                          onSource: source,
+                          workspace: workspace,
+                          onFind: () async {
+                            final company = workspace.company!;
+                            final access = widget.api.accessRevision;
+                            final row = await pickKnitRecord(
+                              context,
+                              widget.api,
+                              company,
+                              'Job',
+                            );
+                            if (row != null &&
+                                mounted &&
+                                workspace.company == company &&
+                                access == widget.api.accessRevision) {
+                              openJob(row);
+                            }
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -462,24 +586,27 @@ class KnittingWorkbench extends StatelessWidget {
     required this.query,
     required this.onQuery,
     required this.onJob,
-    required this.onBack,
     required this.onAction,
     required this.onSource,
     required this.workspace,
     required this.onFind,
+    this.searchField,
     this.primaryAction,
     this.queueFilter,
     this.onFilter,
+    this.onRoll,
   });
   final KnitAction? primaryAction;
   final KnittingSnapshot snapshot;
   final String page, query;
   final String? queueFilter;
   final ValueChanged<String?>? onFilter;
+  final Future<void> Function(KnitAction, Map<String, dynamic>)? onRoll;
   final Map<String, dynamic>? selected;
   final ValueChanged<String> onQuery;
   final ValueChanged<Map<String, dynamic>> onJob;
-  final VoidCallback onBack, onFind;
+  final VoidCallback onFind;
+  final TextEditingController? searchField;
   final Future<void> Function(KnitAction, {Map<String, dynamic> initial})
   onAction;
   final Future<void> Function(String, String) onSource;
@@ -489,6 +616,13 @@ class KnittingWorkbench extends StatelessWidget {
       .where(
         (r) =>
             (selected == null ||
+                const {
+                  'masters',
+                  'machines',
+                  'components',
+                  'holidays',
+                  'rates',
+                }.contains(key) ||
                 r['job'] == selected!['name'] ||
                 key == 'lots' &&
                     (r['allocations'] as List? ?? []).any(
@@ -504,7 +638,10 @@ class KnittingWorkbench extends StatelessWidget {
                     ? r['status'] == queueFilter
                     : (key == 'rolls' || key == 'plans') &&
                           r['state'] == queueFilter)) &&
-            r.values.join(' ').toLowerCase().contains(query.toLowerCase()),
+            r.values
+                .join(' ')
+                .toLowerCase()
+                .contains(query.trim().toLowerCase()),
       )
       .toList();
   @override
@@ -517,7 +654,7 @@ class KnittingWorkbench extends StatelessWidget {
         ? _jobSteps(record, snapshot, workspace)
         : const <_JobStep>[];
     final actions = knitActions.where((a) {
-      if (!workspace.allows(a.capability) || a == primaryAction) return false;
+      if (!a.availableIn(workspace) || a == primaryAction) return false;
       if (a.capability == 'new_job' && workspace.state != 'Active') {
         return false;
       }
@@ -549,7 +686,7 @@ class KnittingWorkbench extends StatelessWidget {
       'transfer_fabric',
     }.contains(a.id);
     Widget menuItem(KnitAction a) => MenuItemButton(
-      leadingIcon: Icon(_icon(a.group), size: 17),
+      leadingIcon: Icon(a.icon, size: 17),
       onPressed: () => onAction(
         a,
         initial:
@@ -585,12 +722,6 @@ class KnittingWorkbench extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (record != null) ...[
-          TextButton.icon(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back, size: 16),
-            label: const Text('All jobs'),
-            style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-          ),
           if (jobPage)
             _JobWorkflow(record, steps, workspace, onAction)
           else
@@ -667,6 +798,7 @@ class KnittingWorkbench extends StatelessWidget {
               Expanded(
                 child: TextField(
                   key: ValueKey('$page-${record?['name']}'),
+                  controller: searchField,
                   decoration: InputDecoration(
                     labelText: page == 'Jobs'
                         ? 'Filter loaded jobs'
@@ -749,7 +881,11 @@ class KnittingWorkbench extends StatelessWidget {
               showOutput: workspace.allows('production'),
               caption:
                   '${jobs.length} of ${snapshot.rows('jobs').length} recent jobs',
-              empty: 'No jobs match this view.',
+              empty: query.trim().isNotEmpty || queueFilter != null
+                  ? 'No jobs match this view. Change the search or status filter.'
+                  : workspace.allows('new_job') && workspace.state == 'Active'
+                  ? 'No jobs yet. Choose New job to enter a customer and fabric programme.'
+                  : 'Jobs appear here when a programme is recorded for this company.',
             ),
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
         ],
@@ -766,6 +902,37 @@ class KnittingWorkbench extends StatelessWidget {
     _ => Icons.arrow_forward,
   };
   List<Widget> _sections() {
+    Widget rollRow(Map<String, dynamic> r) {
+      final action =
+          page == 'Quality' &&
+              const {
+                'Awaiting QC',
+                'On Hold',
+                'Rework',
+                'Rejected',
+                'Released',
+              }.contains(r['state'])
+          ? 'quality'
+          : page == 'Delivery' && r['state'] == 'Released'
+          ? 'deliver'
+          : null;
+      final spec = knitActions.where((a) => a.id == action).firstOrNull;
+      final actionable =
+          spec != null &&
+          spec.availableIn(workspace) &&
+          selected?['status'] != 'Completed' &&
+          onRoll != null &&
+          r['job'] is String;
+      return _row(
+        r['name'].toString(),
+        '${r['job']} · ${r['machine'] ?? 'Manual'} · ${r['state']}',
+        '${r['weight_kg']} kg',
+        onTap: actionable ? () => onRoll!(spec, r) : null,
+        actionLabel: spec?.title,
+        actionIcon: spec?.icon,
+      );
+    }
+
     return [
       if (page == 'Yarn')
         _section(
@@ -794,23 +961,11 @@ class KnittingWorkbench extends StatelessWidget {
               .toList(),
         ),
       if (['Production', 'Quality', 'Delivery'].contains(page))
-        _section(
-          'ROLLS & QUALITY',
-          rows('rolls')
-              .map(
-                (r) => _row(
-                  r['name'].toString(),
-                  '${r['job']} · ${r['machine'] ?? 'Manual'} · ${r['state']}',
-                  '${r['weight_kg']} kg',
-                ),
-              )
-              .toList(),
-        ),
+        _section('ROLLS & QUALITY', rows('rolls').map(rollRow).toList()),
       if (page == 'Factory') ...[
         _section(
           'INDUSTRY MASTERS',
-          snapshot
-              .rows('masters')
+          rows('masters')
               .map(
                 (r) => _row(
                   r['title'].toString(),
@@ -822,8 +977,7 @@ class KnittingWorkbench extends StatelessWidget {
         ),
         _section(
           'MACHINES',
-          snapshot
-              .rows('machines')
+          rows('machines')
               .map(
                 (r) => _row(
                   r['title'].toString(),
@@ -835,8 +989,7 @@ class KnittingWorkbench extends StatelessWidget {
         ),
         _section(
           'COMPONENT LIFE',
-          snapshot
-              .rows('components')
+          rows('components')
               .map(
                 (r) => _row(
                   '${r['component_type']} · ${r['machine']}',
@@ -866,8 +1019,7 @@ class KnittingWorkbench extends StatelessWidget {
         ),
         _section(
           'FACTORY CALENDAR',
-          snapshot
-              .rows('holidays')
+          rows('holidays')
               .map(
                 (r) => _row(
                   r['date'].toString(),
@@ -903,8 +1055,7 @@ class KnittingWorkbench extends StatelessWidget {
       if (page == 'Billing')
         _section(
           'AGREED RATES',
-          snapshot
-              .rows('rates')
+          rows('rates')
               .map(
                 (r) => _row(
                   '${r['customer']} · ${r['fabric']}',
@@ -927,37 +1078,56 @@ class KnittingWorkbench extends StatelessWidget {
     return '${a.isEmpty ? '0.000' : a.first['quantity_kg']} kg · ${a.isEmpty ? '0' : a.first['units'] ?? '0'} units allocated';
   }
 
-  Widget _section(String title, List<Widget> children, {ArtObject? art}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: Panel(
-          border: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _section(
+    String title,
+    List<Widget> children, {
+    ArtObject? art,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: Panel(
+      border: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  if (art != null) ...[
-                    WorkspaceArt(art, width: 48, height: 36),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(child: Display(title, size: 25)),
-                ],
-              ),
-              const SizedBox(height: 14),
-              if (children.isEmpty)
-                _empty('Nothing recorded here yet.')
-              else
-                ...children,
+              if (art != null) ...[
+                WorkspaceArt(art, width: 48, height: 36),
+                const SizedBox(width: 8),
+              ],
+              Expanded(child: Display(title, size: 25)),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 14),
+          if (children.isEmpty)
+            _empty(
+              query.trim().isNotEmpty || queueFilter != null
+                  ? 'No records match the current filter.'
+                  : switch (title) {
+                      'YARN LOTS' =>
+                        'Yarn lots appear after a material receipt.',
+                      'MACHINE QUEUE' =>
+                        'Machine allocations appear here after a programme is scheduled.',
+                      'ROLLS & QUALITY' =>
+                        'Recording production or receiving subcontract fabric creates rolls for inspection.',
+                      'Posted activity' =>
+                        'Confirmed entries appear here with their source records.',
+                      _ => 'Nothing recorded here yet.',
+                    },
+            )
+          else
+            ...children,
+        ],
+      ),
+    ),
+  );
   Widget _row(
     String title,
     String detail,
     String amount, {
     VoidCallback? onTap,
+    String? actionLabel,
+    IconData? actionIcon,
   }) => InkWell(
     onTap: onTap,
     borderRadius: BorderRadius.circular(12),
@@ -981,7 +1151,19 @@ class KnittingWorkbench extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(amount),
+                  Wrap(
+                    spacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(amount),
+                      if (onTap != null)
+                        Icon(
+                          actionIcon ?? Icons.open_in_new,
+                          size: 16,
+                          semanticLabel: actionLabel ?? 'Open source document',
+                        ),
+                    ],
+                  ),
                 ],
               )
             : Row(
@@ -1009,9 +1191,13 @@ class KnittingWorkbench extends StatelessWidget {
                   const SizedBox(width: 16),
                   Text(amount),
                   if (onTap != null)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 12),
-                      child: Icon(Icons.open_in_new, size: 16),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Icon(
+                        actionIcon ?? Icons.open_in_new,
+                        size: 16,
+                        semanticLabel: actionLabel ?? 'Open source document',
+                      ),
                     ),
                 ],
               ),
@@ -1077,17 +1263,40 @@ class _IndustrySetupScreenState extends State<IndustrySetupScreen> {
   );
 }
 
+Future<bool> _confirmDiscardSetup(BuildContext context) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text("Discard setup changes?"),
+          content: const Text("Your changes have not been applied."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text("Keep editing"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text("Discard changes"),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
 class _Setup extends StatefulWidget {
   const _Setup({
     required this.api,
     required this.workspace,
     required this.onSaved,
     this.onDirty,
+    this.parentHandlesBack = false,
   });
   final ErpApi api;
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onSaved;
   final ValueChanged<bool>? onDirty;
+  final bool parentHandlesBack;
   @override
   State<_Setup> createState() => _SetupState();
 }
@@ -1104,23 +1313,7 @@ class _SetupState extends State<_Setup> {
   }
 
   Future<void> leaveSetup() async {
-    final discard = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text("Discard setup changes?"),
-        content: const Text("Your changes have not been applied."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text("Keep editing"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text("Discard changes"),
-          ),
-        ],
-      ),
-    );
+    final discard = await _confirmDiscardSetup(context);
     if (discard == true && mounted) {
       setState(() => dirty = false);
       widget.onDirty?.call(false);
@@ -1223,9 +1416,9 @@ class _SetupState extends State<_Setup> {
           : const Center(child: CircularProgressIndicator());
     }
     return PopScope(
-      canPop: !dirty,
+      canPop: widget.parentHandlesBack || !dirty,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) leaveSetup();
+        if (!didPop && !widget.parentHandlesBack) leaveSetup();
       },
       child: ListView(
         children: [

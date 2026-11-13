@@ -114,5 +114,17 @@
       640
     ],
     "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/assembly-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original general manufacturing assembly robot matched to the purchasing trolley",
+    "source_sha256": "14fa6b2ed8b6716acfa5e014b772087d58f4482da427b86ccb776dc8bf60bfa6",
+    "sha256": "d6b4d48d9da5111908468d1428d2eb983f97f5c095214449c0db5a54e2da9f29",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
   }
 ]

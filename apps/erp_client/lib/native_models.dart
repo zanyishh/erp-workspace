@@ -89,6 +89,7 @@ class NativeField {
 class NativeSchema {
   NativeSchema.fromJson(Map<String, dynamic> json)
     : doctype = json['doctype'] as String,
+      promptName = json['autoname']?.toString().toLowerCase() == 'prompt',
       fields = (json['fields'] as List)
           .map((f) => NativeField.fromJson(objectMap(f)))
           .toList(),
@@ -109,12 +110,26 @@ class NativeSchema {
   final List<NativeField> fields;
   final Map<String, NativeSchema> children;
   final Map<String, dynamic> permissions;
-  final bool single, submittable, preparable, partyDefaults, itemDefaults;
+  final bool single,
+      submittable,
+      preparable,
+      partyDefaults,
+      itemDefaults,
+      promptName;
+  static final _documentName = NativeField.fromJson({
+    'fieldname': '__newname',
+    'fieldtype': 'Data',
+    'label': 'Document name',
+    'reqd': 1,
+  });
+  bool _needsName(Map<String, dynamic> data) =>
+      promptName && (enabled(data['__islocal']) || data['name'] == null);
 
   Iterable<NativeField> visibleFields(
     Map<String, dynamic> data, {
     Map<String, dynamic> parent = const {},
   }) sync* {
+    if (_needsName(data)) yield _documentName;
     bool tabHidden = false, sectionHidden = false;
     for (final f in fields) {
       final visible = f.visible(data, parent);
@@ -166,6 +181,8 @@ class NativeSchema {
 
   Map<String, dynamic> payload(Map<String, dynamic> data) => {
     'doctype': doctype,
+    if (_needsName(data) && data['__newname'] != null)
+      '__newname': data['__newname'],
     if (data['__native_origin'] != null)
       '__native_origin': data['__native_origin'],
     if (data['name'] != null) 'name': data['name'],

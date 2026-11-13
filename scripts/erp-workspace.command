@@ -8,7 +8,7 @@ APP_PATH="$PWD/apps/erp_client/build/macos/Build/Products/Release/ERP Workspace.
 mkdir -p .local/runtime
 ERP_CLIENT_FINGERPRINT="$(python3 scripts/app-fingerprint.py client)"
 if [[ ! -f .local/runtime/client-fingerprint ]] || [[ "$(cat .local/runtime/client-fingerprint)" != "$ERP_CLIENT_FINGERPRINT" ]] || [[ ! -d "$APP_PATH" ]] || ! codesign --verify --deep --strict "$APP_PATH" 2>/dev/null; then
-  (cd apps/erp_client && flutter build macos --release)
+  (cd apps/erp_client && flutter build macos --release --dart-define=ERP_SERVER=http://localhost:8081)
   python3 scripts/app-fingerprint.py client > .local/runtime/client-fingerprint
 fi
 codesign --verify --deep --strict "$APP_PATH"

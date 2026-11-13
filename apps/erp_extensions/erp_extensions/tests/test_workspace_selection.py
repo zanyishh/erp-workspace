@@ -21,6 +21,29 @@ class WorkspaceSelectionTests(unittest.TestCase):
         frappe.clear_cache(user="Administrator")
         frappe.destroy()
 
+    def test_factory_actions_respect_underlying_core_permissions(self):
+        company = "ERP Native Verification"
+        staff = frappe.get_doc({"doctype": "User", "email": "factory-access-" + frappe.generate_hash(length=8) + "@example.invalid",
+            "first_name": "Factory worker", "user_type": "System User", "send_welcome_email": 0,
+            "roles": [{"role": name} for name in ("Knitting Manager", "Accounts User", "Stock User", "Sales User")]}).insert()
+        frappe.set_user(staff.name)
+        original = workspace.context(company)
+        self.assertIn("factory", original["capabilities"])
+        self.assertIn("Sales Order", original["readable_records"])
+        self.assertIn("Item", original["readable_records"])
+        blocked = original["unavailable_knitting_actions"]
+        self.assertIn("create_machine", blocked)
+        self.assertIn("create_subcontract", blocked)
+        self.assertIn("create_yarn_order", blocked)
+        self.assertNotIn("subcontract_bill", blocked)
+        frappe.set_user("Administrator")
+        staff.add_roles("Manufacturing User", "Purchase User")
+        frappe.clear_cache(user=staff.name)
+        frappe.set_user(staff.name)
+        enabled = workspace.context(company)
+        self.assertFalse(set(enabled["unavailable_knitting_actions"]) & {"create_machine", "create_subcontract", "create_yarn_order"})
+        self.assertNotEqual(original["access_fingerprint"], enabled["access_fingerprint"])
+
     def test_selection_is_remembered_only_while_permitted(self):
         selected = "ERP Native Verification"
         other = "ERP Knitting Verification"
@@ -33,3 +56,14 @@ class WorkspaceSelectionTests(unittest.TestCase):
             self.assertEqual(workspace.context()["company"], other)
             with self.assertRaises(frappe.PermissionError):
                 workspace.select_company(selected)
+
+    def test_signed_in_user_without_company_read_gets_an_empty_workspace(self):
+        user = frappe.get_doc({"doctype": "User", "email": "no-company-" + frappe.generate_hash(length=8) + "@example.invalid",
+                               "first_name": "Unassigned worker", "user_type": "Website User", "send_welcome_email": 0}).insert()
+        frappe.set_user(user.name)
+        self.assertFalse(frappe.has_permission("Company", "read"))
+        context = workspace.context()
+        self.assertIsNone(context["company"])
+        self.assertEqual(context["companies"], [])
+        with self.assertRaises(frappe.PermissionError):
+            workspace.context("ERP Native Verification")

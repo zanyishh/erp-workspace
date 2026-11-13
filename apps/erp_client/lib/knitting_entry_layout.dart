@@ -15,6 +15,8 @@ String _entityFor(String kind) => switch (kind) {
 };
 
 String _entityLabel(String entity) => switch (entity) {
+  'StockKgItem' => 'stock item measured in kg',
+  'ServiceItem' => 'non-stock item',
   'ClosingJob' => 'running job',
   'ReleasedRoll' => 'released roll',
   'LabelRoll' => 'roll',
@@ -195,11 +197,7 @@ class _EntryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final narrow = MediaQuery.sizeOf(context).width < 850;
-    final stage = confirmed
-        ? 'Posted'
-        : review
-        ? 'Review'
-        : 'Entry';
+
     return Scaffold(
       backgroundColor: _sheet,
       appBar: AppBar(
@@ -208,7 +206,7 @@ class _EntryPage extends StatelessWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.grid_view_outlined, size: 16),
+            Icon(action.icon, size: 20),
             const SizedBox(width: 9),
             Flexible(
               child: Text(
@@ -292,41 +290,9 @@ class _EntryPage extends StatelessWidget {
                     child: Center(
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1250),
-                        child: Row(
-                          children: [
-                            if (MediaQuery.sizeOf(context).width >= 460) ...[
-                              Icon(
-                                confirmed
-                                    ? Icons.check_circle_outline
-                                    : review
-                                    ? Icons.fact_check_outlined
-                                    : Icons.edit_outlined,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              AnimatedSwitcher(
-                                duration: workspaceMotion(context),
-                                transitionBuilder: (child, animation) =>
-                                    FadeTransition(
-                                      opacity: animation,
-                                      child: child,
-                                    ),
-                                child: Text(
-                                  stage,
-                                  key: ValueKey(stage),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: footer,
-                              ),
-                            ),
-                          ],
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: footer,
                         ),
                       ),
                     ),
@@ -404,43 +370,79 @@ class _EntryPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(5, 18, 5, 8),
               child: title,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                for (final (i, label) in ['Entry', 'Review', 'Posted'].indexed)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: i == 2 ? 0 : 5),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AnimatedContainer(
-                            duration: workspaceMotion(context),
-                            height: 3,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(2),
-                              color: i <= stage
-                                  ? WorkspaceTheme.peach
-                                  : const Color(0xFF545454),
-                            ),
+          ],
+          const SizedBox(height: 12),
+          Semantics(
+            liveRegion: true,
+            label: [
+              'Entry, step 1 of 3',
+              'Review, step 2 of 3',
+              'Posted, step 3 of 3',
+            ][stage],
+            child: ExcludeSemantics(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      for (final (i, label) in [
+                        'Entry',
+                        'Review',
+                        'Posted',
+                      ].indexed)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                [
+                                  Icons.edit_outlined,
+                                  Icons.fact_check_outlined,
+                                  Icons.check_circle_outline,
+                                ][i],
+                                size: 15,
+                                color: i <= stage
+                                    ? WorkspaceTheme.palePeach
+                                    : const Color(0xFFBFBEBA),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: i == stage
+                                        ? FontWeight.w700
+                                        : FontWeight.w400,
+                                    color: i <= stage
+                                        ? Colors.white
+                                        : const Color(0xFFBFBEBA),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 5),
-                          Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: i == stage
-                                  ? Colors.white
-                                  : const Color(0xFFBBBBB9),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(end: (stage + 1) / 3),
+                    curve: Curves.easeOutCubic,
+                    duration: workspaceMotion(context),
+                    builder: (_, value, _) => LinearProgressIndicator(
+                      key: const ValueKey('entry-stage-progress'),
+                      value: value,
+                      color: confirmed
+                          ? const Color(0xFFB7DFC2)
+                          : WorkspaceTheme.peach,
+                      backgroundColor: const Color(0xFF565959),
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -493,23 +495,36 @@ class _EntrySection extends StatelessWidget {
         children: [
           Row(
             children: [
-              WorkspaceArt(
-                switch (title) {
-                  'Fabric programme' || 'Quantities' => ArtObject.fabric,
-                  'Source & destination' ||
-                  'Dispatch details' => ArtObject.dispatch,
-                  'Material ownership' ||
-                  'Yarn & ownership' ||
-                  'Yarn inputs' => ArtObject.yarn,
-                  'Machine & programme' ||
-                  'Factory details' ||
-                  'Timing' => ArtObject.machine,
-                  'Inspection' => ArtObject.inspection,
-                  'Job brief' || 'Estimate details' => ArtObject.sales,
-                  _ => ArtObject.invoice,
-                },
-                width: 49,
-                height: 33,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: WorkspaceTheme.palePeach,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  switch (title) {
+                    'Fabric programme' ||
+                    'Production entries' => Icons.layers_outlined,
+                    'Quantities' => Icons.scale_outlined,
+                    'Source & destination' => Icons.alt_route_rounded,
+                    'Dispatch details' => Icons.local_shipping_outlined,
+                    'Material ownership' ||
+                    'Yarn & ownership' => Icons.person_outline,
+                    'Yarn inputs' => Icons.move_to_inbox_outlined,
+                    'Machine & programme' ||
+                    'Factory details' => Icons.precision_manufacturing_outlined,
+                    'Timing' => Icons.schedule_outlined,
+                    'Inspection' => Icons.fact_check_outlined,
+                    'Job brief' || 'Job details' => Icons.assignment_outlined,
+                    'Estimate details' => Icons.calculate_outlined,
+                    'Pricing' || 'Commercial details' => Icons.sell_outlined,
+                    'Notes & instructions' => Icons.notes_rounded,
+                    _ => Icons.list_alt_outlined,
+                  },
+                  size: 19,
+                  color: WorkspaceTheme.ink,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(child: Text(title, style: displayStyle(24))),
@@ -585,7 +600,7 @@ List<KnitField> _childFields(String kind, bool finance) => kind == 'entries'
         KnitField(
           'fabric_item',
           'Fabric stock item',
-          kind: 'Item',
+          kind: 'StockKgItem',
           optional: true,
         ),
         KnitField(
@@ -609,7 +624,7 @@ List<KnitField> _childFields(String kind, bool finance) => kind == 'entries'
           KnitField(
             'charge_item',
             'Separate owned material charge item',
-            kind: 'Item',
+            kind: 'ServiceItem',
             optional: true,
             finance: true,
           ),

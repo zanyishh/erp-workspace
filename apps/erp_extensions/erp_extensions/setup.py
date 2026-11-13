@@ -21,6 +21,9 @@ def configure_test_site():
     settings.save()
     # The renderer must reach this site through the internal test gateway for assets.
     from frappe.installer import update_site_config
+    from erp_extensions.onboarding import install
+    install()
+    update_site_config("native_owner_signup", 1)
     update_site_config("host_name", "http://native-test-frontend:8080")
     frappe.conf.host_name = "http://native-test-frontend:8080"
     frappe.db.commit()

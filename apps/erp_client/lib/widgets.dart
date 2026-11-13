@@ -282,39 +282,63 @@ class StatusChip extends StatelessWidget {
   const StatusChip(this.label, {super.key, this.dark = false});
   final String label;
   final bool dark;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(
-      border: Border.all(
-        color: dark ? const Color(0xFF51564E) : WorkspaceTheme.border,
+  Widget build(BuildContext context) {
+    final (icon, tone) = switch (label.toLowerCase()) {
+      'submitted' ||
+      'completed' ||
+      'paid' ||
+      'saved' ||
+      'released' => (Icons.check_circle_outline, const Color(0xFF2E634F)),
+      'cancelled' ||
+      'overdue' ||
+      'rejected' ||
+      'disabled' => (Icons.block_outlined, const Color(0xFF8E4137)),
+      'unsaved changes' ||
+      'draft' ||
+      'new' => (Icons.edit_outlined, const Color(0xFF76582C)),
+      'to deliver' || 'to deliver and bill' => (
+        Icons.local_shipping_outlined,
+        const Color(0xFF355D72),
       ),
-      borderRadius: BorderRadius.circular(30),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 4,
-          height: 4,
-          decoration: BoxDecoration(
-            color: dark ? WorkspaceTheme.palePeach : WorkspaceTheme.muted,
-            shape: BoxShape.circle,
-          ),
+      'unpaid' ||
+      'to bill' ||
+      'partly paid' => (Icons.schedule_outlined, const Color(0xFF8A542E)),
+      'running' ||
+      'in process' ||
+      'active' => (Icons.play_circle_outline, const Color(0xFF35685F)),
+      _ => (Icons.label_outline_rounded, WorkspaceTheme.muted),
+    };
+    final color = dark ? WorkspaceTheme.light : tone;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: dark ? Colors.transparent : tone.withValues(alpha: .07),
+        border: Border.all(
+          color: dark ? const Color(0xFF666B64) : tone.withValues(alpha: .25),
         ),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: dark ? WorkspaceTheme.light : WorkspaceTheme.muted,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ExcludeSemantics(child: Icon(icon, size: 13, color: color)),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class MessagePanel extends StatelessWidget {

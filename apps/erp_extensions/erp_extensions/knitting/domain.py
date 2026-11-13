@@ -1,7 +1,8 @@
 """Knitting domain records and quantity invariants; no accounting mathematics in clients."""
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from collections.abc import Mapping
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+import erpnext
 import frappe
 from frappe.utils import now_datetime
 
@@ -243,15 +244,20 @@ def programme(job, line):
 
 
 def line_pricing(company, customer, lines, fallback="0", overrides=None):
+    if overrides is not None and not isinstance(overrides, Mapping):
+        frappe.throw("Enter agreed prices by programme line.")
     config = settings(company)
     result = {}
     for line in lines:
+        if overrides and line["id"] in overrides:
+            result[line["id"]] = money(decimal(overrides[line["id"]], precision=2))
+            continue
         filters = {"company": company, "customer": customer, "fabric": line.get("fabric", ""),
                    "effective_from": ["<=", frappe.utils.today()]}
         if config.get("rate_lookup") == "FabricCountGauge":
             filters.update(yarn_count=line.get("yarn_count", ""), gauge=line.get("gauge", ""))
         found = current_rows("Knitting Rate", filters=filters, fields=["rate"], order_by="effective_from desc, creation desc", limit=1)
-        value = (overrides or {}).get(line["id"], found[0].rate if found else fallback)
+        value = found[0].rate if found else fallback
         result[line["id"]] = money(decimal(value, precision=2))
     return result
 
@@ -337,8 +343,13 @@ def receive_yarn(event, data, job):
         from .procurement import receive_order
         voucher = receive_order(event, data, quantity, godown)
     elif owner == "Owned":
-        voucher = posting.stock(event, "Material Receipt", [{"item_code": item.name, "qty": quantity, "t_warehouse": godown,
-                  "basic_rate": decimal(data.get("valuation_rate"), positive=True, precision=2)}])
+        row = {"item_code": item.name, "qty": quantity, "t_warehouse": godown,
+               "basic_rate": decimal(data.get("valuation_rate"), positive=True, precision=2)}
+        if erpnext.is_perpetual_inventory_enabled(event.company):
+            row["expense_account"] = frappe.get_cached_value("Company", event.company, "stock_received_but_not_billed")
+            if not row["expense_account"]:
+                frappe.throw("Set the company's Stock Received But Not Billed account before receiving owned yarn.")
+        voucher = posting.stock(event, "Material Receipt", [row])
     ledger(event, lot, quantity, job.name if job else None, voucher=voucher, units=units)
     return {"lot": lot.name, "quantity_kg": kg(quantity), "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
 
@@ -423,8 +434,14 @@ def revise_job(event, data, job):
         job.programme = frappe.as_json(lines)
     if "rate" in data or data.get("refresh_rates") or "programme" in data or "pricing" in data:
         lines = json_value(job.programme, [])
-        override = data.get("pricing") or ({p["id"]: money(job.rate) for p in lines} if "rate" in data else None)
-        job.pricing = frappe.as_json(line_pricing(event.company, job.customer, lines, job.rate or "0", override))
+        agreed = json_value(job.pricing, {}) if not data.get("refresh_rates") else {}
+        if "rate" in data:
+            agreed = {line["id"]: money(job.rate) for line in lines}
+        if "pricing" in data:
+            if not isinstance(data["pricing"], Mapping):
+                frappe.throw("Enter agreed prices by programme line.")
+            agreed.update(data["pricing"])
+        job.pricing = frappe.as_json(line_pricing(event.company, job.customer, lines, job.rate or "0", agreed))
     job.revision += 1
     job.save()
     return {"job": job.name, "revision": job.revision, "previous": before, "reason": data["reason"]}
@@ -939,6 +956,8 @@ def produce_bulk(event, data, job):
 def adjust_yarn(event, data, job):
     from . import posting
     lot = reference("Knitting Material Lot", data.get("lot"), event.company)
+    if job and lot.material_owner == "Customer" and lot.party != job.fabric_owner:
+        frappe.throw("Adjust customer yarn only against the material owner's job.")
     quantity = decimal(data.get("quantity_kg"), signed=True)
     units = decimal(data.get("units", 0), signed=True, precision=0)
     if not (quantity or units) or not str(data.get("reason", "")).strip():
@@ -984,10 +1003,17 @@ def transfer_fabric(event, data, job):
     existing = sum((Decimal(r.weight_kg) for r in current_rows("Knitting Roll", filters={"job": target.name, "programme_line": line["id"], "state": ["not in", ["Split", "Cancelled"]]}, fields=["weight_kg"])), ZERO)
     if existing + quantity > decimal(line["target_kg"]):
         frappe.throw("Transferred fabric exceeds the destination programme balance.")
+    target_item = line.get("fabric_item") or settings(event.company).get("fabric_item")
+    text_fields = ("fabric", "colour", "dia", "gauge", "knit_type", "yarn_count", "finish_dia", "finish_gsm",
+                   "brand", "construct", "organic", "regenagri")
     previous = []
     for roll in rolls:
         spec = json_value(roll.specification, {})
-        if roll.job != job.name or roll.state in ("Delivered", "Split", "Cancelled") or any(str(spec.get(k) or "").casefold() != str(line.get(k) or "").casefold() for k in ("fabric", "colour", "dia", "gauge", "knit_type")):
+        different_spec = any(str(spec.get(k) or "").strip().casefold() != str(line.get(k) or "").strip().casefold() for k in text_fields)
+        different_measurements = any([decimal(v) for v in spec.get(k, [])] != [decimal(v) for v in line.get(k, [])]
+                                     for k in ("gsm", "ll"))
+        if (roll.job != job.name or roll.state in ("Delivered", "Split", "Cancelled") or different_spec
+                or different_measurements or roll.fabric_item != target_item):
             frappe.throw("Transfer matching undelivered fabric only; a transfer cannot alter its physical specification.")
         previous.append({"roll": roll.name, "job": job.name, "programme_line": roll.programme_line, "state": roll.state, "job_revision": roll.job_revision})
         roll.job, roll.programme_line, roll.job_revision, roll.state = target.name, line["id"], target.revision, "Awaiting QC"

@@ -34,7 +34,6 @@ void main() {
               query: '',
               onQuery: (_) {},
               onJob: (job) => opened = job,
-              onBack: () {},
               onFind: () {},
               onAction: (_, {initial = const {}}) async {},
               onSource: (_, _) async {},

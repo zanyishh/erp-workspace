@@ -1,7 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/erp_models.dart';
+import 'package:erp_client/design.dart';
 
 void main() {
+  test('record amounts retain currency precision, including credits', () {
+    expect(money(4400.49, 'INR'), '₹4,400.49');
+    expect(money(-8.75, 'USD'), r'-$8.75');
+    expect(money(0.125, 'KWD'), contains('0.125'));
+    expect(money(null, 'INR'), '—');
+  });
   test('sales scale keeps returns and positive totals inside the chart', () {
     final scale = SalesScale([-1000, 500]);
     expect(scale.fraction(-1000), 0);

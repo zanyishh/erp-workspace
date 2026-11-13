@@ -1,3 +1,4 @@
+import 'ui/record_icon.dart';
 import 'ui/workspace_art.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -18,12 +19,15 @@ class ModuleBrowser extends StatefulWidget {
     required this.onRecord,
     required this.onCreate,
     required this.onBrowseAll,
+    this.onShowAll,
   });
   final ErpModule module;
   final String company, currency;
   final RecordLoader loader;
   final ValueChanged<ErpRecord> onRecord;
-  final VoidCallback onCreate, onBrowseAll;
+  final VoidCallback? onCreate;
+  final VoidCallback onBrowseAll;
+  final VoidCallback? onShowAll;
   @override
   State<ModuleBrowser> createState() => _ModuleBrowserState();
 }
@@ -83,10 +87,9 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        WorkspaceArt(
-                          moduleArt(widget.module),
-                          width: 62,
-                          height: 42,
+                        RecordHeaderMark(
+                          widget.module.doctype,
+                          tone: moduleMark(widget.module.label).$2,
                         ),
                         const SizedBox(width: 10),
                         Flexible(
@@ -152,16 +155,28 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                   label: 'Refresh records',
                   onPressed: () => _reload(),
                 ),
-                const SizedBox(width: 4),
-                Pill(
-                  compact
-                      ? 'New'
-                      : 'New ${widget.module.doctype.toLowerCase()}',
-                  icon: Icons.add,
-                  onPressed: widget.onCreate,
-                ),
+                if (widget.onCreate != null) ...[
+                  const SizedBox(width: 4),
+                  Pill(
+                    compact
+                        ? 'New'
+                        : 'New ${widget.module.doctype.toLowerCase()}',
+                    icon: Icons.add,
+                    onPressed: widget.onCreate,
+                  ),
+                ],
               ],
             ),
+            if (widget.onShowAll != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  avatar: const Icon(Icons.filter_alt_outlined, size: 16),
+                  label: const Text('Unpaid invoices'),
+                  deleteButtonTooltipMessage: 'Show all invoices',
+                  onDeleted: widget.onShowAll,
+                ),
+              ),
             const SizedBox(height: 14),
             Expanded(
               child: FutureBuilder<List<ErpRecord>>(
@@ -191,19 +206,32 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                       action: () => _reload(reset: true),
                     );
                   }
+                  if (rows.isEmpty &&
+                      widget.onShowAll != null &&
+                      _search.text.trim().isEmpty) {
+                    return MessagePanel(
+                      title: 'No unpaid invoices',
+                      message:
+                          'No posted invoices in this period have a balance due.',
+                      action: widget.onShowAll,
+                      label: 'Show all invoices',
+                    );
+                  }
                   if (rows.isEmpty) {
                     return MessagePanel(
                       title: _search.text.trim().isEmpty
-                          ? 'A FRESH START'
+                          ? 'NO RECORDS'
                           : 'NO MATCHES',
                       message: _search.text.trim().isEmpty
-                          ? 'No ${widget.module.doctype.toLowerCase()} records in this view yet. Create your first record here.'
+                          ? 'No ${widget.module.doctype.toLowerCase()} records in this view.'
                           : 'Try a different name or document number.',
                       label: _search.text.trim().isEmpty
-                          ? 'Create record'
+                          ? widget.onCreate == null
+                                ? 'Refresh'
+                                : 'Create record'
                           : 'Clear search',
                       action: _search.text.trim().isEmpty
-                          ? widget.onCreate
+                          ? widget.onCreate ?? () => _reload()
                           : () {
                               _search.clear();
                               _reload(reset: true);
@@ -337,10 +365,15 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
     },
   );
   Widget _record(ErpRecord record, bool compact) {
-    final detail = record.amount == null
+    final detail = widget.module.amountField == null
         ? record.data['modified']?.toString().split(' ').first ?? '—'
+        : record.amount == null
+        ? '—'
         : widget.module == ErpModule.manufacturing
-        ? '${record.amount!.toString().replaceFirst(RegExp(r'\.0$'), '')} units'
+        ? [
+            record.amount!.toString().replaceFirst(RegExp(r'\.0$'), ''),
+            if (record.data['stock_uom'] != null) record.data['stock_uom'],
+          ].join(' ')
         : money(record.amount!, record.currency ?? widget.currency);
     return Material(
       color: Colors.transparent,

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'erp_api.dart' show ErpException;
 
 /// Fixed-point kilograms. Never round a business input on the client.
 class Kg implements Comparable<Kg> {
@@ -46,7 +47,15 @@ class KnittingSnapshot {
   bool get financialRead => data['financial_read'] == true;
 }
 
-enum CommandState { editing, posting, uncertain, checking, confirmed }
+enum CommandState {
+  editing,
+  posting,
+  rejected,
+  uncertain,
+  checking,
+  confirmed,
+  stale,
+}
 
 class KnittingDraft {
   KnittingDraft(this.action, Map<String, dynamic> values, {String? requestId})
@@ -68,7 +77,11 @@ class KnittingDraft {
       state = CommandState.confirmed;
     } catch (e) {
       error = e.toString();
-      state = CommandState.uncertain;
+      state = switch (e) {
+        ErpException(staleDocument: true) => CommandState.stale,
+        ErpException(validationRejected: true) => CommandState.rejected,
+        _ => CommandState.uncertain,
+      };
     }
   }
 

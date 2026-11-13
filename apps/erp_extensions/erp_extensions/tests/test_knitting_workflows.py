@@ -1,5 +1,6 @@
 """Cross-command corrections against the isolated site's real stock and accounts."""
 from decimal import Decimal
+from unittest.mock import patch
 
 import frappe
 from erp_extensions.knitting import domain
@@ -20,6 +21,112 @@ class WorkflowTests(base.KnittingTests):
         rows = frappe.db.sql("""select account, sum(debit-credit) from `tabGL Entry`
             where company=%s and voucher_no in %s and is_cancelled=0 group by account""", (base.COMPANY, tuple(vouchers)))
         self.assertTrue(all(balance == 0 for _, balance in rows), rows)
+
+    def test_specification_revision_preserves_agreed_prices_until_explicit_repricing(self):
+        self.fixtures()
+        original, = frappe.parse_json(frappe.db.get_value("Knitting Job", self.job, "programme"))
+        lines = [dict(original, target_kg="44"), dict(original, id="P2", target_kg="44")]
+        self.post("revise_job", programme=lines, pricing={"P1": "112", "P2": "126"}, reason="Agreed rates")
+        self.call("create_rate", {"customer": self.customer, "fabric": original["fabric"], "rate": "150", "effective_from": "2026-01-01"})
+        self.post("revise_job", programme=[dict(line, colour="Blue") for line in lines], reason="Confirm colour")
+
+        def prices():
+            return frappe.parse_json(frappe.db.get_value("Knitting Job", self.job, "pricing"))
+
+        self.assertEqual(prices(), {"P1": "112.00", "P2": "126.00"})
+        self.post("revise_job", pricing={"P2": "131"}, reason="Amend only second line")
+        self.assertEqual(prices(), {"P1": "112.00", "P2": "131.00"})
+        self.post("revise_job", refresh_rates=True, reason="Accept current rate schedule")
+        self.assertEqual(prices(), {"P1": "150.00", "P2": "150.00"})
+
+    def test_adjusting_customer_yarn_cannot_place_it_on_an_owned_job(self):
+        self.fixtures(mode="Owned")
+        receipt = self.call("receive_yarn", {"party": self.customer, "item": self.items["yarn"],
+            "warehouse": self.warehouse, "quantity_kg": "8", "units": 2, "material_owner": "Customer"})
+        lot = receipt["data"]["lot"]
+        with self.assertRaises(frappe.ValidationError):
+            self.post("adjust_yarn", lot=lot, quantity_kg="2", units=1, reason="Count reconciliation")
+        self.assertEqual((domain.lot_balance(lot), domain.lot_balance(lot, self.job)), (8, 0))
+
+    def test_fabric_transfer_checks_weight_and_loop_specifications_before_reassignment(self):
+        self.fixtures()
+        roll = self.produce(self.receive())[0]
+        line, = frappe.parse_json(frappe.db.get_value("Knitting Job", self.job, "programme"))
+        target = self.call("create_job", {"customer": self.customer, "target_kg": "88", "programme": [dict(line, gsm=[220], ll=["3.1"])]})["data"]["job"]
+        with self.assertRaises(frappe.ValidationError):
+            self.post("transfer_fabric", target_job=target, target_modified=str(frappe.db.get_value("Knitting Job", target, "modified")),
+                      target_programme_line="P1", rolls=[roll], reason="Reassign required fabric")
+        self.assertEqual(frappe.db.get_value("Knitting Roll", roll, "job"), self.job)
+
+    def test_job_purchase_order_cannot_be_received_outside_its_job(self):
+        self.fixtures(mode="Owned")
+        order = self.post("create_yarn_order", supplier=self.supplier(), item=self.items["yarn"], quantity_kg="8", rate="5")
+        payload = dict(item=self.items["yarn"], warehouse=self.warehouse, material_owner="Owned",
+                       quantity_kg="8", purchase_order=order["data"]["purchase_order"])
+        with self.assertRaises(frappe.ValidationError):
+            self.call("receive_yarn", payload)
+        self.post("receive_yarn", **payload)
+        self.assertEqual(self.stock("yarn"), 8)
+
+    def test_manual_owned_receipt_and_partial_supplier_bills_clear_goods_received_account(self):
+        self.fixtures(mode="Owned")
+        receipt = self.post("receive_yarn", item=self.items["yarn"], material_owner="Owned", warehouse=self.warehouse,
+                            quantity_kg="10", valuation_rate="12")
+        supplier = self.supplier()
+        clearing = frappe.get_cached_value("Company", base.COMPANY, "stock_received_but_not_billed")
+        vouchers = [receipt["data"]["voucher"]]
+
+        def clearing_balance():
+            return frappe.db.sql("""select coalesce(sum(credit-debit),0) from `tabGL Entry`
+                where company=%s and account=%s and voucher_no in %s and is_cancelled=0""",
+                (base.COMPANY, clearing, tuple(vouchers)))[0][0]
+
+        self.assertEqual(clearing_balance(), 120)
+        partial = self.post("bill_yarn", receipt=receipt["event"], supplier=supplier, quantity_kg="4")
+        vouchers.append(partial["data"]["voucher"])
+        self.assertEqual(clearing_balance(), 72)
+        final = self.post("bill_yarn", receipt=receipt["event"], supplier=supplier)
+        vouchers.append(final["data"]["voucher"])
+        self.assertEqual(clearing_balance(), 0)
+        self.assertEqual(self.stock("yarn"), 10)
+        self.cancel(final, job=self.job)
+        self.assertEqual(clearing_balance(), 72)
+
+    def test_unbilled_legacy_manual_receipt_clears_its_original_difference_account(self):
+        from erp_extensions.knitting import posting
+        self.fixtures(mode="Owned")
+        original_stock = posting.stock
+        adjustment = frappe.get_cached_value("Company", base.COMPANY, "stock_adjustment_account")
+
+        def legacy_stock(event, purpose, rows):
+            return original_stock(event, purpose, [{**r, "expense_account": adjustment} for r in rows])
+
+        with patch.object(posting, "stock", side_effect=legacy_stock):
+            receipt = self.post("receive_yarn", item=self.items["yarn"], material_owner="Owned", warehouse=self.warehouse,
+                                quantity_kg="10", valuation_rate="12")
+        bill = self.post("bill_yarn", receipt=receipt["event"], supplier=self.supplier())
+        amount = frappe.db.get_value("GL Entry", {"company": base.COMPANY, "account": adjustment,
+            "voucher_no": bill["data"]["invoice"], "is_cancelled": 0}, "debit")
+        self.assertEqual(amount, 120)
+
+    def test_pack_closing_retains_unbilled_manual_receipts_after_yarn_is_consumed(self):
+        self.fixtures(mode="Owned")
+        receipt = self.post("receive_yarn", item=self.items["yarn"], material_owner="Owned",
+                            warehouse=self.warehouse, quantity_kg="90", valuation_rate="10")
+        rolls = self.produce(receipt["data"]["lot"])
+        self.release(rolls)
+        delivery = self.post("deliver", rolls=rolls)
+        self.post("invoice", deliveries=[delivery["event"]])
+        supplier = self.supplier()
+        self.post("bill_yarn", receipt=receipt["event"], supplier=supplier, quantity_kg="20")
+        self.post("close_job")
+        self.workspace().configure(base.COMPANY, {"state": "Closing"})
+        with self.assertRaises(frappe.ValidationError):
+            self.workspace().configure(base.COMPANY, {"state": "Inactive"})
+        self.post("reopen_job", reason="Settle the remaining supplier invoice")
+        self.post("bill_yarn", receipt=receipt["event"], supplier=supplier)
+        self.post("close_job")
+        self.assertEqual(self.workspace().configure(base.COMPANY, {"state": "Inactive"})["setup_state"], "Inactive")
 
     def test_owned_credit_return_redelivery_rebill_and_complete_unwind(self):
         self.fixtures(mode="Owned", target="88.000")

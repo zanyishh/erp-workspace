@@ -105,13 +105,13 @@ def install():
         frappe.db.delete("Version", {"ref_doctype": name})
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
     create_custom_fields({name: [
-        field("knitting_event", "Link", "Knitting Event", read_only=1, no_copy=1),
-        field("knitting_job", "Link", "Knitting Job", read_only=1, no_copy=1),
+        field("knitting_event", "Link", "Knitting Event", depends_on="knitting_event", read_only=1, no_copy=1),
+        field("knitting_job", "Link", "Knitting Job", depends_on="knitting_job", read_only=1, no_copy=1),
     ] for name in ("Stock Entry", "Delivery Note", "Sales Invoice", "Purchase Invoice", "Purchase Order", "Purchase Receipt", "Quotation")})
-    create_custom_fields({"Purchase Invoice Item": [field("knitting_receipt", "Link", "Knitting Event", read_only=1, no_copy=1)]})
-    create_custom_fields({"Sales Invoice Item": [field("knitting_delivery", "Link", "Knitting Event", read_only=1, no_copy=1)]})
-    create_custom_fields({"Quotation": [field("knitting_programme", "JSON", read_only=1),
-        field("knitting_material_mode", "Select", "Customer\nOwned", read_only=1)]})
+    create_custom_fields({"Purchase Invoice Item": [field("knitting_receipt", "Link", "Knitting Event", depends_on="knitting_receipt", read_only=1, no_copy=1)]})
+    create_custom_fields({"Sales Invoice Item": [field("knitting_delivery", "Link", "Knitting Event", depends_on="knitting_delivery", read_only=1, no_copy=1)]})
+    create_custom_fields({"Quotation": [field("knitting_programme", "JSON", depends_on="knitting_programme", read_only=1),
+        field("knitting_material_mode", "Select", "Customer\nOwned", depends_on="knitting_material_mode", read_only=1)]})
     frappe.clear_cache()
     # Frappe's global cache reset leaves the request's expanded document hooks intact.
     frappe.local.doc_events_hooks = None

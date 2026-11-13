@@ -1,4 +1,4 @@
-import 'ui/workspace_art.dart';
+import 'ui/record_icon.dart';
 import 'ui/access_gate.dart';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -86,7 +86,10 @@ class _NativeTreeScreenState extends State<NativeTreeScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            WorkspaceArt(recordArt(widget.type.name), width: 42, height: 32),
+            RecordIcon(
+              recordSymbol(widget.type.name, tree: true),
+              tone: moduleMark(widget.type.module).$2,
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Display(

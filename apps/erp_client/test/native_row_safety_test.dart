@@ -84,6 +84,43 @@ Future<void> showScalar(
 }
 
 void main() {
+  testWidgets('a failed row defaults request can be retried in place', (
+    tester,
+  ) async {
+    var attempts = 0;
+    final data = <String, dynamic>{'rows': []};
+    await showRows(
+      tester,
+      data,
+      onNewRow: (_, _) async {
+        if (++attempts == 1) throw StateError('Connection interrupted');
+        return {'item_code': 'RECOVERED'};
+      },
+    );
+    await tester.tap(find.text('Add row'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Retry loading row'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect((data['rows'] as List).single['item_code'], 'RECOVERED');
+    expect(attempts, 2);
+  });
+
+  testWidgets(
+    'the date picker opens for manually typed years outside its range',
+    (tester) async {
+      await showScalar(tester, 'Date', '2600-01-01', (_) {});
+      await tester.tap(find.byTooltip('Choose Scheduled'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('2600-01-01'), findsOneWidget);
+    },
+  );
+
   testWidgets('rapid Add clicks open only one row draft', (tester) async {
     final pending = <Completer<Map<String, dynamic>>>[];
     final data = <String, dynamic>{'rows': <Map<String, dynamic>>[]};

@@ -76,12 +76,14 @@ def roll_states(company, events, f):
     if not names:
         return []
     rows = frappe.get_all("Knitting Roll", filters={"company": company, "production": ["in", names]},
-        fields=["name", "job", "programme_line", "weight_kg", "machine", "produced_at", "production", "parent_roll", "job_revision"])
+        fields=["name", "job", "programme_line", "weight_kg", "machine", "operator", "shift", "produced_at", "production", "parent_roll", "job_revision", "specification"])
     states = {r.name: "Awaiting QC" for r in rows}
     origins = {e.name: e for e in events}
     for row in rows:
         row.job = origins[row.production].job
-        row.programme_line = d.json_value(frappe.db.get_value("Knitting Roll", row.name, "specification"), {}).get("id", row.programme_line)
+        spec = d.json_value(row.pop("specification"), {})
+        row.programme_line = spec.get("id", row.programme_line)
+        row.update({key: spec.get(key) for key in ("fabric", "dia", "gauge")})
     # Children are historical only from their split event onward.
     splits = {child: e for e in events if e.kind == "split_roll" for child in e.result.get("rolls", [])}
     for row in rows:
@@ -192,14 +194,11 @@ def run(company, report, value=None, *, paged=True):
             totals[key] = totals.get(key, d.ZERO) + Decimal(entry.quantity_kg)
             unit_totals[key] = unit_totals.get(key, d.ZERO) + Decimal(entry.units or "0")
         rows = [{**dict(zip(dimensions, key)), "quantity_kg": d.kg(q), "units": str(unit_totals[key])} for key, q in totals.items() if q or unit_totals[key]]
-        summary["quantity_kg"] = d.kg(sum(totals.values(), d.ZERO))
-        summary["units"] = str(sum(unit_totals.values(), d.ZERO))
     elif report in ("rolls", "fabric"):
-        columns = ["name", "job", "programme_line", "weight_kg", "state", "machine", "produced_at", "job_revision", "parent_roll"]
+        columns = ["name", "job", "programme_line", "weight_kg", "state", "machine", "operator", "shift", "fabric", "dia", "gauge", "produced_at", "job_revision", "parent_roll"]
         rows = roll_states(company, history, {**f, "mode": "as_of"} if report == "fabric" else f)
         if report == "fabric":
             rows = [r for r in rows if r["state"] not in ("Delivered", "Split", "Cancelled")]
-        summary["quantity_kg"] = d.kg(sum((Decimal(r["weight_kg"]) for r in rows if r["state"] != "Split"), d.ZERO))
     elif report in ("production", "stoppage", "planning", "quality"):
         kinds = {"production": ("produce", "produce_bulk", "subcontract_receive"), "stoppage": ("stoppage",), "planning": ("plan",), "quality": ("quality",)}[report]
         columns = {"production": ["event", "job", "occurred_at", "machine", "quantity_kg", "consumed_kg", "loss_kg"],
@@ -217,9 +216,6 @@ def run(company, report, value=None, *, paged=True):
                     rows.append(row)
         if report == "planning" and f["mode"] == "as_of":
             rows = list({r["plan"]: r for r in rows}.values())
-        if report == "production":
-            summary["quantity_kg"] = d.kg(sum((Decimal(r["quantity_kg"]) for r in rows), d.ZERO))
-            summary["loss_kg"] = d.kg(sum((Decimal(r["loss_kg"]) for r in rows), d.ZERO))
     elif report == "subcontract":
         columns = ["subcontract", "job", "supplier", "ordered_kg", "issued_kg", "received_kg", "returned_kg", "custody_kg", "billed_kg"]
         for event in history:
@@ -253,7 +249,6 @@ def run(company, report, value=None, *, paged=True):
     elif report == 'breakage':
         columns = ['event', 'job', 'component', 'component_type', 'machine', 'operator', 'employee', 'gauge', 'dia', 'fabric', 'quantity', 'reason', 'occurred_at']
         rows = [{**e.result, 'event': e.name, 'occurred_at': e.occurred_at} for e in events if e.kind == 'component_breakage']
-        summary['quantity'] = str(sum((Decimal(r['quantity']) for r in rows), d.ZERO))
     elif report == "activity":
         columns = ["event", "job", "kind", "reverses", "operator", "occurred_at", "machine", "programme_line", "quantity_kg", "loss_kg"]
         rows = [{"event": e.name, "job": e.job, "kind": e.kind, "operator": e.actor, "occurred_at": e.occurred_at,
@@ -261,7 +256,6 @@ def run(company, report, value=None, *, paged=True):
             "quantity_kg": e.result.get("quantity_kg"), "loss_kg": e.result.get("loss_kg")} for e in events]
     else:
         columns = ["event", "job", "invoice", "posting_date", "currency", "quantity_kg", "net_amount", "tax_amount", "grand_total", "outstanding"]
-        cost = d.ZERO
         cost_kinds = {"produce", "produce_bulk", "subcontract_receive", "subcontract_bill", "deliver", "return_fabric"}
         cost_sources = {e.reverses or e.name for e in events if e.kind in cost_kinds}
         # A later cancellation also affects how ERPNext currently stores historical GL rows.
@@ -277,10 +271,12 @@ def run(company, report, value=None, *, paged=True):
                     "grand_total": d.money(sign * doc.base_grand_total), "outstanding": d.money(doc.outstanding_amount * doc.conversion_rate if doc.docstatus == 1 else 0)})
             if event.kind in cost_kinds:
                 vouchers = event.result.get("vouchers", []) or ([event.result] if event.result.get("voucher") else [])
+                batches = {entry["voucher"]: entry for entry in event.result.get("entries", []) if entry.get("voucher")}
                 for voucher in vouchers:
-                    cost += sign * voucher_expense(company, voucher, source_corrections.get(event.reverses or event.name))
-        net = sum((Decimal(r["net_amount"]) for r in rows), d.ZERO)
-        summary = {"net_amount": d.money(net), "posted_cost": d.money(cost), "margin_before_overhead": d.money(net - cost)}
+                    batch = batches.get(voucher["voucher"], {})
+                    cost = sign * voucher_expense(company, voucher, source_corrections.get(event.reverses or event.name))
+                    rows.append({"event": event.name, "job": event.job, "_posted_cost": cost,
+                        **{key: batch[key] for key in ("machine", "shift", "programme_line") if key in batch}})
     dimensions = ("customer", "machine", "operator", "employee", "gauge", "shift", "day", "hour", "fabric", "dia", "programme_line", "kind")
     group = f.get("group_by")
     if group and group not in dimensions:
@@ -303,9 +299,27 @@ def run(company, report, value=None, *, paged=True):
                 if spec:
                     spec = d.json_value(spec, {})
                     row.update({key: spec.get(key) for key in ("fabric", "dia", "gauge")})
-    for key in ("customer", "machine", "operator", "shift", "fabric", "dia", "kind"):
+    for key in ("customer", "machine", "operator", "employee", "gauge", "shift", "fabric", "dia", "kind"):
         if f.get(key):
             rows = [row for row in rows if str(row.get(key) or "") == str(f[key])]
+    # Summaries describe all matching source rows regardless of grouping or page.
+    if report in ("rolls", "fabric"):
+        summary["quantity_kg"] = d.kg(sum((Decimal(row["weight_kg"]) for row in rows if row["state"] != "Split"), d.ZERO))
+    elif report == "breakage":
+        summary["quantity"] = str(sum((Decimal(row["quantity"]) for row in rows), d.ZERO))
+    elif report == "production":
+        summary = {key: d.kg(sum((Decimal(row.get(key) or 0) for row in rows), d.ZERO)) for key in ("quantity_kg", "loss_kg")}
+    elif report == "yarn":
+        summary["quantity_kg"] = d.kg(sum((Decimal(row["quantity_kg"]) for row in rows), d.ZERO))
+        summary["units"] = str(sum((Decimal(row["units"]) for row in rows), d.ZERO))
+    elif report in ("shortages", "changes", "unplanned"):
+        summary["records"] = len(rows)
+    elif report in FINANCIAL:
+        # Cost vouchers participate in the same filters but do not appear as invoices.
+        cost = sum((row["_posted_cost"] for row in rows if "_posted_cost" in row), d.ZERO)
+        rows = [row for row in rows if "_posted_cost" not in row]
+        net = sum((Decimal(row["net_amount"]) for row in rows), d.ZERO)
+        summary = {"net_amount": d.money(net), "posted_cost": d.money(cost), "margin_before_overhead": d.money(net - cost)}
     if report in ("production", "activity", "planning", "stoppage", "quality"):
         columns = list(dict.fromkeys([*columns, "customer", "operator", "shift", "fabric", "dia", "programme_line"]))
     if group:
@@ -316,12 +330,11 @@ def run(company, report, value=None, *, paged=True):
             entry = grouped.setdefault(key, {group: key, "records": 0, **{n: d.ZERO for n in numeric}})
             entry["records"] += 1
             for key in numeric:
+                if report == "rolls" and key == "weight_kg" and row["state"] == "Split":
+                    continue
                 entry[key] += Decimal(str(row.get(key) or 0))
         rows = [{**row, **{key: d.kg(row[key]) if key.endswith("_kg") else str(row[key]) if key in ('quantity', 'units') else d.money(row[key]) for key in numeric}} for row in grouped.values()]
         columns = [group, "records", *numeric]
-    if report == "production":
-        summary = {"quantity_kg": d.kg(sum((Decimal(row.get("quantity_kg") or 0) for row in rows), d.ZERO)),
-                   "loss_kg": d.kg(sum((Decimal(row.get("loss_kg") or 0) for row in rows), d.ZERO))}
     # Only declared output columns can cross the permission boundary.
     rows = [{key: row.get(key) for key in columns} for row in rows]
     rows.sort(key=lambda r: tuple(str(r.get(k) or "") for k in columns[:2]))

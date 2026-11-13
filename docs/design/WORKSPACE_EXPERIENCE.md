@@ -74,6 +74,8 @@ Test at 390, 834 and 1440 logical pixels and large text, with mouse/keyboard and
 
 ## Preview and acceptance
 
+Company setup follows the selected workspace on both wide and narrow screens. Use the assembly workstation for ordinary Work Orders and the circular textile machine for knitting. Register and editor headers share their business object's illustration or record symbol.
+
 The browser preview is a disposable design presentation with synthetic data. Its tabs let the user inspect connected pages and representative motion. It cannot prove Flutter rendering, accessibility semantics, backend posting or production performance. Carry accepted choices into real shared Flutter components and verify the native app independently.
 
 Acceptance requires a screenshot/state matrix for the existing core surfaces and the new industry screens, plus interactions: navigate, filter, open detail, edit a child row, handle a server error, retain a draft through recovery, review/post and see the resulting ledger. There must be no dead decorative primary action, clipped table, unreadable label, focus loss or mismatched control style in the agreed screens. Each shipped metric and action uses real connected data and a tested route.

@@ -1,3 +1,4 @@
+import 'ui/record_icon.dart';
 import 'ui/workspace_art.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -232,11 +233,7 @@ class _DocumentFieldsState extends State<DocumentFields> {
                         Expanded(
                           child: Row(
                             children: [
-                              WorkspaceArt(
-                                recordArt(field.options),
-                                width: 41,
-                                height: 28,
-                              ),
+                              RecordIcon(recordSymbol(field.options), size: 30),
                               const SizedBox(width: 7),
                               Flexible(
                                 child: Display(
@@ -285,6 +282,7 @@ class _DocumentFieldsState extends State<DocumentFields> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        subtitle: _rowErrors(field, i),
                         onTap: _tableBusy ? null : () => _row(field, i),
                         trailing: canEdit
                             ? IconButton(
@@ -315,6 +313,18 @@ class _DocumentFieldsState extends State<DocumentFields> {
       );
     },
   );
+
+  Widget? _rowErrors(NativeField field, int index) {
+    final errors = widget.errors.entries
+        .where((entry) => entry.key.startsWith('${field.name}.$index.'))
+        .map((entry) => entry.value);
+    return errors.isEmpty
+        ? null
+        : Text(
+            errors.join('\n'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          );
+  }
 }
 
 class _NativeRowDialog extends StatefulWidget {
@@ -367,12 +377,17 @@ class _NativeRowDialogState extends State<_NativeRowDialog> {
         : objectMap(jsonDecode(jsonEncode(widget.initial)));
     _initialValues = jsonEncode(_values);
     if (widget.initial == null && widget.onNewRow != null) {
-      _busy = true;
       _loadNewRow();
     }
   }
 
   Future<void> _loadNewRow() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _initialLoadFailed = false;
+      _loadError = null;
+    });
     try {
       final values = await widget.onNewRow!(widget.parent, widget.field);
       if (mounted) {
@@ -496,6 +511,15 @@ class _NativeRowDialogState extends State<_NativeRowDialog> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(_loadError!),
+                ),
+              if (_initialLoadFailed)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _loadNewRow,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry loading row'),
+                  ),
                 ),
               DocumentFields(
                 schema: widget.schema,
@@ -668,11 +692,17 @@ class _NativeScalarFieldState extends State<NativeScalarField> {
   Future<void> _chooseDate() async {
     final previous = _text.text.trim();
     final parsed = DateTime.tryParse(previous) ?? DateTime.now();
+    final first = DateTime(1800);
+    final last = DateTime(2200, 12, 31);
     final picked = await showDatePicker(
       context: context,
-      initialDate: parsed,
-      firstDate: DateTime(1800),
-      lastDate: DateTime(2200),
+      initialDate: parsed.isBefore(first)
+          ? first
+          : parsed.isAfter(last)
+          ? last
+          : parsed,
+      firstDate: first,
+      lastDate: last,
     );
     if (picked == null || !mounted) return;
     final time =

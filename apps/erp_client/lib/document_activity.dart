@@ -74,6 +74,7 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
 
   Future<void> _assign() async {
     String? selected;
+    var query = '';
     var future = widget.api.searchLinks('User', '');
     selected = await showDialog<String>(
       context: context,
@@ -88,7 +89,8 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                 TextField(
                   autofocus: true,
                   decoration: const InputDecoration(labelText: 'Search users'),
-                  onChanged: (query) => update(() {
+                  onChanged: (value) => update(() {
+                    query = value;
                     future = widget.api.searchLinks('User', query);
                   }),
                 ),
@@ -97,9 +99,20 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                   child: FutureBuilder<List<Map<String, dynamic>>>(
                     future: future,
                     builder: (c, state) {
-                      if (state.hasError) return Text(state.error.toString());
-                      if (!state.hasData) {
+                      if (state.connectionState != ConnectionState.done) {
                         return const Center(child: CircularProgressIndicator());
+                      }
+                      if (state.hasError) {
+                        return MessagePanel(
+                          title: 'Could not load users',
+                          message: state.error.toString(),
+                          action: () => update(() {
+                            future = widget.api.searchLinks('User', query);
+                          }),
+                        );
+                      }
+                      if (state.data!.isEmpty) {
+                        return const Center(child: Text('No matching users.'));
                       }
                       return ListView(
                         children: [
@@ -334,7 +347,8 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                               contentPadding: EdgeInsets.zero,
                               title: Text(user['owner'].toString()),
                               trailing: IconButton(
-                                tooltip: 'Remove assignment',
+                                tooltip:
+                                    'Remove assignment for ${user['owner']}',
                                 onPressed: _busy
                                     ? null
                                     : () => _act(
@@ -365,6 +379,7 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                             controller: _comment,
                             minLines: 2,
                             maxLines: 5,
+                            maxLength: 10000,
                             enabled: !_busy,
                             decoration: const InputDecoration(
                               labelText: 'Write a comment',
@@ -372,18 +387,21 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                           ),
                           Align(
                             alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => _act(() async {
-                                      await widget.api.comment(
-                                        widget.type,
-                                        widget.name,
-                                        _comment.text,
-                                      );
-                                      _comment.clear();
-                                    }),
-                              child: const Text('Add comment'),
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _comment,
+                              builder: (_, value, _) => TextButton(
+                                onPressed: _busy || value.text.trim().isEmpty
+                                    ? null
+                                    : () => _act(() async {
+                                        await widget.api.comment(
+                                          widget.type,
+                                          widget.name,
+                                          value.text.trim(),
+                                        );
+                                        if (mounted) _comment.clear();
+                                      }),
+                                child: const Text('Add comment'),
+                              ),
                             ),
                           ),
                           for (final comment in (data['comments'] as List).map(

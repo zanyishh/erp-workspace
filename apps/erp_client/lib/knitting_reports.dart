@@ -33,7 +33,8 @@ class _KnittingReportsState extends State<KnittingReports> {
   String kind = '';
   int start = 0;
   String? error;
-  bool exporting = false;
+  bool exporting = false, showFilters = false;
+  late Map<String, dynamic> appliedFilters;
   final from = TextEditingController(
     text:
         '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-01',
@@ -71,8 +72,11 @@ class _KnittingReportsState extends State<KnittingReports> {
     if (group.isNotEmpty) 'group_by': group,
     if (report == 'activity' && kind.isNotEmpty) 'kind': kind,
   };
-  Future<Map<String, dynamic>> load() =>
-      widget.api.knittingReport(widget.company, report, filters);
+  Future<Map<String, dynamic>> load() {
+    appliedFilters = filters;
+    return widget.api.knittingReport(widget.company, report, appliedFilters);
+  }
+
   @override
   void dispose() {
     from.dispose();
@@ -104,13 +108,14 @@ class _KnittingReportsState extends State<KnittingReports> {
       error = null;
     });
     try {
-      final f = Map<String, dynamic>.from(filters);
+      final f = Map<String, dynamic>.from(appliedFilters);
       if (kind == 'roll_label') {
         final row = await pickKnitRecord(
           context,
           widget.api,
           widget.company,
           'LabelRoll',
+          job: widget.job,
         );
         if (row == null) return;
         f['roll'] = row['name'];
@@ -166,395 +171,389 @@ class _KnittingReportsState extends State<KnittingReports> {
       });
       await fresh;
     },
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
+    child: LayoutBuilder(
+      builder: (context, bounds) {
+        final compact = bounds.maxWidth < 650 || bounds.maxHeight < 590;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: 260,
-              child: DropdownButtonFormField<String>(
-                key: ValueKey('report-$financialRead'),
-                isExpanded: true,
-                initialValue: report,
-                decoration: const InputDecoration(labelText: 'Report'),
-                items: [
-                  for (final e in labels.entries)
-                    if (financialRead || !['billing', 'margin'].contains(e.key))
-                      DropdownMenuItem(value: e.key, child: Text(e.value)),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    report = v!;
-                    start = 0;
-                    future = load();
-                  });
-                },
-              ),
-            ),
-            SizedBox(
-              width: 170,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: mode,
-                decoration: const InputDecoration(labelText: 'Time basis'),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'as_of',
-                    child: Text('As of end date'),
+            if (compact)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => showFilters = !showFilters),
+                  icon: Icon(
+                    showFilters ? Icons.arrow_back : Icons.tune,
+                    size: 18,
                   ),
-                  DropdownMenuItem(
-                    value: 'period',
-                    child: Text('Period movement'),
-                  ),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    mode = v!;
-                    start = 0;
-                    future = load();
-                  });
-                },
-              ),
-            ),
-            if (mode == 'period')
-              SizedBox(
-                width: 180,
-                child: TextField(
-                  controller: from,
-                  decoration: const InputDecoration(
-                    labelText: 'From · YYYY-MM-DD',
+                  label: Text(
+                    showFilters ? 'Back to results' : 'Report options',
                   ),
                 ),
               ),
-            SizedBox(
-              width: 180,
-              child: TextField(
-                controller: to,
-                decoration: const InputDecoration(
-                  labelText: 'Through · YYYY-MM-DD',
+            if (compact && showFilters)
+              Expanded(
+                child: ListView(
+                  children: [_controls(), const Divider(), _providers()],
+                ),
+              )
+            else ...[
+              if (!compact) _controls(),
+              if (compact) Text(labels[report]!, style: displayStyle(22)),
+              const SizedBox(height: 12),
+              if (error != null)
+                Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              Expanded(child: _results()),
+              if (!compact) ...[const Divider(), _providers()],
+            ],
+          ],
+        );
+      },
+    ),
+  );
+
+  Widget _controls() => Wrap(
+    spacing: 12,
+    runSpacing: 12,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      SizedBox(
+        width: 260,
+        child: DropdownButtonFormField<String>(
+          key: ValueKey('report-$financialRead'),
+          isExpanded: true,
+          initialValue: report,
+          decoration: const InputDecoration(labelText: 'Report'),
+          items: [
+            for (final e in labels.entries)
+              if (financialRead || !['billing', 'margin'].contains(e.key))
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+          ],
+          onChanged: (v) {
+            setState(() {
+              report = v!;
+              start = 0;
+              future = load();
+            });
+          },
+        ),
+      ),
+      SizedBox(
+        width: 170,
+        child: DropdownButtonFormField<String>(
+          isExpanded: true,
+          initialValue: mode,
+          decoration: const InputDecoration(labelText: 'Time basis'),
+          items: const [
+            DropdownMenuItem(value: 'as_of', child: Text('As of end date')),
+            DropdownMenuItem(value: 'period', child: Text('Period movement')),
+          ],
+          onChanged: (v) {
+            setState(() {
+              mode = v!;
+              start = 0;
+              future = load();
+            });
+          },
+        ),
+      ),
+      if (mode == 'period')
+        SizedBox(
+          width: 180,
+          child: TextField(
+            controller: from,
+            decoration: const InputDecoration(labelText: 'From · YYYY-MM-DD'),
+          ),
+        ),
+      SizedBox(
+        width: 180,
+        child: TextField(
+          controller: to,
+          decoration: const InputDecoration(labelText: 'Through · YYYY-MM-DD'),
+        ),
+      ),
+      SizedBox(
+        width: 200,
+        child: DropdownButtonFormField<String>(
+          isExpanded: true,
+          initialValue: group,
+          decoration: const InputDecoration(labelText: 'Group records'),
+          items: [
+            for (final key in [
+              '',
+              'customer',
+              'machine',
+              'operator',
+              'employee',
+              'gauge',
+              'shift',
+              'day',
+              'hour',
+              'fabric',
+              'dia',
+              'programme_line',
+              'kind',
+            ])
+              DropdownMenuItem(
+                value: key,
+                child: Text(
+                  key.isEmpty ? 'Individual records' : key.replaceAll('_', ' '),
                 ),
               ),
-            ),
-            SizedBox(
-              width: 200,
-              child: DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: group,
-                decoration: const InputDecoration(labelText: 'Group records'),
-                items: [
-                  for (final key in [
-                    '',
-                    'customer',
-                    'machine',
-                    'operator',
-                    'employee',
-                    'gauge',
-                    'shift',
-                    'day',
-                    'hour',
-                    'fabric',
-                    'dia',
-                    'programme_line',
-                    'kind',
-                  ])
-                    DropdownMenuItem(
-                      value: key,
-                      child: Text(
-                        key.isEmpty
-                            ? 'Individual records'
-                            : key.replaceAll('_', ' '),
-                      ),
-                    ),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    group = v!;
-                    start = 0;
-                    future = load();
-                  });
-                },
-              ),
-            ),
-            if (report == 'activity')
-              SizedBox(
-                width: 240,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  initialValue: kind,
-                  decoration: const InputDecoration(labelText: 'Action'),
-                  items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('All actions'),
-                    ),
-                    for (final action in {
-                      for (final a in knitActions) a.id: a,
-                    }.values)
-                      DropdownMenuItem(
-                        value: action.id,
-                        child: Text(
-                          action.title,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (v) => setState(() {
-                    kind = v!;
-                    start = 0;
-                    future = load();
-                  }),
+          ],
+          onChanged: (v) {
+            setState(() {
+              group = v!;
+              start = 0;
+              future = load();
+            });
+          },
+        ),
+      ),
+      if (report == 'activity')
+        SizedBox(
+          width: 240,
+          child: DropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: kind,
+            decoration: const InputDecoration(labelText: 'Action'),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('All actions')),
+              for (final action in {
+                for (final a in knitActions) a.id: a,
+              }.values)
+                DropdownMenuItem(
+                  value: action.id,
+                  child: Text(action.title, overflow: TextOverflow.ellipsis),
                 ),
-              ),
-            FilledButton(
-              onPressed: () {
-                start = 0;
-                refresh();
-              },
-              child: const Text('Run report'),
-            ),
-            PopupMenuButton<String>(
-              enabled: !exporting,
-              onSelected: export,
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'csv', child: Text('Save CSV')),
-                const PopupMenuItem(value: 'pdf', child: Text('Preview PDF')),
-                const PopupMenuItem(
-                  value: 'roll_label',
-                  child: Text('Print roll label'),
-                ),
-                if (financialRead) ...const [
-                  PopupMenuItem(
-                    value: 'gst_review',
-                    child: Text('GST review JSON'),
-                  ),
-                  PopupMenuItem(
-                    value: 'tally_review',
-                    child: Text('Tally review XML'),
-                  ),
-                ],
-              ],
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Text(exporting ? 'Preparing file…' : 'Export / print ▾'),
-              ),
+            ],
+            onChanged: (v) => setState(() {
+              kind = v!;
+              start = 0;
+              future = load();
+            }),
+          ),
+        ),
+      FilledButton.icon(
+        onPressed: () {
+          start = 0;
+          showFilters = false;
+          refresh();
+        },
+        icon: const Icon(Icons.play_arrow_outlined, size: 18),
+        label: const Text('Run report'),
+      ),
+      PopupMenuButton<String>(
+        enabled: !exporting,
+        onSelected: export,
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'csv', child: Text('Save CSV')),
+          const PopupMenuItem(value: 'pdf', child: Text('Preview PDF')),
+          const PopupMenuItem(
+            value: 'roll_label',
+            child: Text('Print roll label'),
+          ),
+          if (financialRead) ...const [
+            PopupMenuItem(value: 'gst_review', child: Text('GST review JSON')),
+            PopupMenuItem(
+              value: 'tally_review',
+              child: Text('Tally review XML'),
             ),
           ],
+        ],
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Text(exporting ? 'Preparing file…' : 'Export / print ▾'),
         ),
-        const SizedBox(height: 12),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              error!,
-              style: const TextStyle(color: Color(0xFFA23F38)),
+      ),
+    ],
+  );
+  Widget _providers() => Wrap(
+    spacing: 12,
+    runSpacing: 8,
+    children: [
+      for (final name in ['E-Invoice', 'E-Way Bill', 'Payment gateway'])
+        ActionChip(
+          label: Text('$name · Not configured'),
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: Text('$name is not configured'),
+              content: const Text(
+                'Choose a provider and test credentials in a separate setup step. This version has no connected submission or payment provider. Review exports can be saved locally.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('Close'),
+                ),
+              ],
             ),
           ),
-        Expanded(
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: future,
-            builder: (context, state) {
-              if (state.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (state.hasError) {
-                return MessagePanel(
-                  title: 'REPORT COULD NOT LOAD',
-                  message: state.error.toString(),
-                  action: refresh,
-                );
-              }
-              if (!state.hasData) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    semanticsLabel: 'Loading report',
-                  ),
-                );
-              }
-              final r = state.data!,
-                  cols = List<Map<String, dynamic>>.from(
-                    (r['columns'] as List).map(
-                      (c) => Map<String, dynamic>.from(c),
-                    ),
-                  ),
-                  rows = List<Map<String, dynamic>>.from(
-                    (r['rows'] as List).map(
-                      (c) => Map<String, dynamic>.from(c),
-                    ),
-                  );
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        ),
+    ],
+  );
+  Widget _results() => FutureBuilder<Map<String, dynamic>>(
+    future: future,
+    builder: (context, state) {
+      if (state.connectionState != ConnectionState.done) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (state.hasError) {
+        return MessagePanel(
+          title: 'REPORT COULD NOT LOAD',
+          message: state.error.toString(),
+          action: refresh,
+        );
+      }
+      if (!state.hasData) {
+        return const Center(
+          child: CircularProgressIndicator(semanticsLabel: 'Loading report'),
+        );
+      }
+      final r = state.data!,
+          cols = List<Map<String, dynamic>>.from(
+            (r['columns'] as List).map((c) => Map<String, dynamic>.from(c)),
+          ),
+          rows = List<Map<String, dynamic>>.from(
+            (r['rows'] as List).map((c) => Map<String, dynamic>.from(c)),
+          );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              '${r['row_count']} records · ${r['mode']} · Through ${r['to_date']}\n${r['basis']}',
+              style: const TextStyle(fontSize: 11, color: WorkspaceTheme.muted),
+            ),
+          ),
+          if ((r['summary'] as Map).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Wrap(
+                spacing: 20,
+                runSpacing: 10,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      '${r['row_count']} records · ${r['mode']} · Through ${r['to_date']}\n${r['basis']}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: WorkspaceTheme.muted,
-                      ),
+                  for (final e in (r['summary'] as Map).entries)
+                    Text(
+                      '${e.key.toString().replaceAll('_', ' ')}: ${e.value}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  if ((r['summary'] as Map).isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Wrap(
-                        spacing: 20,
-                        runSpacing: 10,
+                ],
+              ),
+            ),
+          Expanded(
+            child: rows.isEmpty
+                ? const MessagePanel(
+                    title: 'NO MATCHING RECORDS',
+                    message:
+                        'Change the dates, job or report to see matching activity.',
+                  )
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: cols.length * 165.0,
+                      child: Column(
                         children: [
-                          for (final e in (r['summary'] as Map).entries)
-                            Text(
-                              '${e.key.toString().replaceAll('_', ' ')}: ${e.value}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  Expanded(
-                    child: rows.isEmpty
-                        ? const MessagePanel(
-                            title: 'NO MATCHING RECORDS',
-                            message:
-                                'Change the dates, job or report to see matching activity.',
-                          )
-                        : SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: SizedBox(
-                              width: cols.length * 165.0,
-                              child: Column(
-                                children: [
-                                  Container(
-                                    color: const Color(0xFFE5E5E1),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        for (final c in cols)
-                                          SizedBox(
-                                            width: 165,
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                  ),
-                                              child: ColumnCaption(
-                                                c['label'] as String,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: ListView.builder(
-                                      itemCount: rows.length,
-                                      itemBuilder: (_, i) => Container(
-                                        decoration: BoxDecoration(
-                                          color: i.isEven
-                                              ? WorkspaceTheme.surface
-                                              : null,
-                                          border: const Border(
-                                            bottom: BorderSide(
-                                              color: WorkspaceTheme.border,
-                                              width: .5,
-                                            ),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            for (final c in cols)
-                                              SizedBox(
-                                                width: 165,
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 16,
-                                                      ),
-                                                  child: _cell(
-                                                    c['key'] as String,
-                                                    rows[i][c['key']],
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
+                          Container(
+                            color: const Color(0xFFE5E5E1),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Row(
+                              children: [
+                                for (final c in cols)
+                                  SizedBox(
+                                    width: 165,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: ColumnCaption(
+                                        c['label'] as String,
                                       ),
                                     ),
                                   ),
-                                ],
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: rows.length,
+                              itemBuilder: (_, i) => Container(
+                                decoration: BoxDecoration(
+                                  color: i.isEven
+                                      ? WorkspaceTheme.surface
+                                      : null,
+                                  border: const Border(
+                                    bottom: BorderSide(
+                                      color: WorkspaceTheme.border,
+                                      width: .5,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (final c in cols)
+                                      SizedBox(
+                                        width: 165,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 16,
+                                          ),
+                                          child: _cell(
+                                            c['key'] as String,
+                                            rows[i][c['key']],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: start > 0
-                            ? () {
-                                start -= 100;
-                                refresh();
-                              }
-                            : null,
-                        child: const Text('Previous'),
+                        ],
                       ),
-                      Text(
-                        '${r['start']}–${(r['start'] as int) + rows.length} of ${r['row_count']}',
-                      ),
-                      TextButton(
-                        onPressed: r['has_more'] == true
-                            ? () {
-                                start += 100;
-                                refresh();
-                              }
-                            : null,
-                        child: const Text('Next'),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        const Divider(),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            for (final name in ['E-Invoice', 'E-Way Bill', 'Payment gateway'])
-              ActionChip(
-                label: Text('$name · Not configured'),
-                onPressed: () => showDialog<void>(
-                  context: context,
-                  builder: (c) => AlertDialog(
-                    title: Text('$name is not configured'),
-                    content: const Text(
-                      'Choose a provider and test credentials in a separate setup step. This version has no connected submission or payment provider. Review exports can be saved locally.',
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(c),
-                        child: const Text('Close'),
-                      ),
-                    ],
                   ),
-                ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: start > 0
+                    ? () {
+                        start -= 100;
+                        refresh();
+                      }
+                    : null,
+                child: const Text('Previous'),
               ),
-          ],
-        ),
-      ],
-    ),
+              Text(
+                rows.isEmpty
+                    ? '0 of ${r['row_count']}'
+                    : '${(r['start'] as int) + 1}–${(r['start'] as int) + rows.length} of ${r['row_count']}',
+              ),
+              TextButton(
+                onPressed: r['has_more'] == true
+                    ? () {
+                        start += 100;
+                        refresh();
+                      }
+                    : null,
+                child: const Text('Next'),
+              ),
+            ],
+          ),
+        ],
+      );
+    },
   );
+
   Widget _cell(String key, dynamic value) {
     final type = switch (key) {
       'job' => 'Knitting Job',

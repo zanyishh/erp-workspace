@@ -40,6 +40,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final submit = find.widgetWithText(TextButton, 'Add comment');
+      expect(tester.widget<TextButton>(submit).onPressed, isNull);
+      await tester.enterText(find.byType(TextField), '   ');
+      await tester.pump();
+      expect(tester.widget<TextButton>(submit).onPressed, isNull);
       await tester.enterText(find.byType(TextField), 'Native review comment');
       await tester.ensureVisible(find.text('Add comment'));
       await tester.tap(find.text('Add comment'));

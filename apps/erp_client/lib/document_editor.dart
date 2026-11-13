@@ -1,4 +1,5 @@
-import 'ui/workspace_art.dart';
+import 'ui/record_icon.dart';
+import 'ui/workspace_ui.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -18,17 +19,19 @@ class DocumentEditor extends StatefulWidget {
     this.company,
     this.initial,
     this.treeParent,
+    this.onCreated,
   });
   final ErpApi api;
   final String doctype;
   final String? name, company, treeParent;
   final NativeDocument? initial;
+  final ValueChanged<NativeDocument>? onCreated;
   @override
   State<DocumentEditor> createState() => _DocumentEditorState();
 }
 
 class _DocumentEditorState extends State<DocumentEditor> {
-  final _form = GlobalKey<_NativeDocumentFormState>();
+  var _form = GlobalKey<_NativeDocumentFormState>();
   bool _freshAccess = false;
   late Future<(NativeSchema, NativeDocument)> _future = _load();
   Future<NativeDocument> _document() {
@@ -65,6 +68,18 @@ class _DocumentEditorState extends State<DocumentEditor> {
     return (results[0] as NativeSchema, results[1] as NativeDocument);
   }
 
+  Future<void> _reloadLatest() async {
+    _freshAccess = true;
+    final revision = widget.api.accessRevision;
+    final fresh = _load();
+    await fresh;
+    if (!mounted || revision != widget.api.accessRevision) return;
+    setState(() {
+      _form = GlobalKey<_NativeDocumentFormState>();
+      _future = fresh;
+    });
+  }
+
   @override
   Widget build(BuildContext context) => AccessGate(
     api: widget.api,
@@ -88,6 +103,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
             key: _form,
             schema: schema,
             initial: doc,
+            onReload: _reloadLatest,
             onActivity: (values) => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -117,10 +133,24 @@ class _DocumentEditorState extends State<DocumentEditor> {
                     ),
                   ),
                 );
+                // The linked voucher may have settled or fulfilled this record.
+                if (mounted) await _reloadLatest();
               }
             },
-            onSave: (values, action) =>
-                widget.api.saveNative(schema, values, action: action),
+            onSave: (values, action) async {
+              final saved = await widget.api.saveNative(
+                schema,
+                values,
+                action: action,
+              );
+              if (mounted &&
+                  widget.onCreated != null &&
+                  !saved.isNew &&
+                  (values['name'] == null || enabled(values['__islocal']))) {
+                widget.onCreated!(saved);
+              }
+              return saved;
+            },
             onPartyDefaults: schema.partyDefaults
                 ? (values) => widget.api.partyDefaultsNative(schema, values)
                 : null,
@@ -178,7 +208,9 @@ class NativeDocumentForm extends StatefulWidget {
     this.onTransition,
     this.onActivity,
     this.onRelated,
+    this.onReload,
   });
+  final Future<void> Function()? onReload;
   final Future<void> Function(Map<String, dynamic>, String)? onRelated;
   final ValueChanged<Map<String, dynamic>>? onActivity;
   final NativeSchema schema;
@@ -210,6 +242,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
   Map<String, String> _errors = {};
   bool _busy = false, _dirty = false, _leaving = false;
   String? _error, _notice;
+  bool _stale = false;
   int _revision = 0;
 
   @override
@@ -233,6 +266,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
       _base = _doc.data;
       _dirty = jsonEncode(fresh) != jsonEncode(_base);
       _errors = {};
+      _stale = false;
       _error = null;
       _revision++;
       _notice = _dirty
@@ -333,9 +367,13 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
         context: context,
         builder: (c) => AlertDialog(
           title: Text('$action ${widget.schema.doctype}?'),
-          content: const Text(
-            'ERPNext will check permissions and apply the business rules for this action.',
-          ),
+          content: Text(switch (action) {
+            'Submit' =>
+              'Submit ${_doc.data['name']}? Changes after submission may require a cancellation or amendment.',
+            'Cancel' =>
+              'Cancel ${_doc.data['name']} and reverse its postings? Linked documents can prevent cancellation.',
+            _ => 'Apply "$action" to ${_doc.data['name']}?',
+          }),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c, false),
@@ -367,6 +405,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
       if (!mounted) return;
       setState(() {
         _doc = result;
+        _stale = false;
         _data = result.editCopy();
         _revision++;
         _dirty = prepare || party;
@@ -379,6 +418,45 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
             ? 'Saved successfully'
             : '$action completed';
       });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _stale = e is ErpException && e.staleDocument;
+          _error = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _reloadConflict() async {
+    if (_busy) return;
+    if (_dirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Reload the latest version?'),
+          content: const Text(
+            'Your unsaved edits will be replaced by the current server values.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Keep editing'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Discard and reload'),
+            ),
+          ],
+        ),
+      );
+      if (discard != true || !mounted) return;
+    }
+    setState(() => _busy = true);
+    try {
+      await widget.onReload!();
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -454,10 +532,9 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
         appBar: AppBar(
           title: Row(
             children: [
-              WorkspaceArt(
-                recordArt(widget.schema.doctype),
-                width: 50,
-                height: 37,
+              RecordHeaderMark(
+                widget.schema.doctype,
+                settings: widget.schema.single,
               ),
               const SizedBox(width: 8),
               Flexible(
@@ -635,9 +712,55 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                       if (_notice != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            _notice!,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Row(
+                              children: [
+                                TweenAnimationBuilder<double>(
+                                  key: ValueKey(_revision),
+                                  tween: Tween(
+                                    begin:
+                                        MediaQuery.disableAnimationsOf(context)
+                                        ? 1.0
+                                        : .55,
+                                    end: 1,
+                                  ),
+                                  curve: Curves.easeOutCubic,
+                                  duration: workspaceMotion(context),
+                                  builder: (_, scale, child) => Transform.scale(
+                                    scale: scale,
+                                    child: child,
+                                  ),
+                                  child: Icon(
+                                    _dirty
+                                        ? Icons.info_outline
+                                        : Icons.check_circle_outline,
+                                    size: 21,
+                                    color: _dirty
+                                        ? WorkspaceTheme.ink
+                                        : const Color(0xFF2E634F),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _notice!,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if (_stale && !_doc.isNew && widget.onReload != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _busy ? null : _reloadConflict,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reload latest version'),
                           ),
                         ),
                       const SizedBox(height: 18),
@@ -656,6 +779,10 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                           onChanged: () => setState(() {
                             _dirty = true;
                             _notice = null;
+                            if (_errors.isNotEmpty) {
+                              _errors = widget.schema.validate(_data);
+                              if (_errors.isEmpty) _error = null;
+                            }
                           }),
                         ),
                       ),

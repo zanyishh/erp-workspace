@@ -1,5 +1,6 @@
 """Yarn procurement retains the original PO, receipt, invoice and stock controllers."""
 from decimal import Decimal
+import erpnext
 import frappe
 from frappe.utils import today
 from . import domain as d, posting
@@ -32,6 +33,8 @@ def receive_order(event, data, quantity, warehouse):
     source = d.reference("Knitting Event", order.knitting_event, event.company) if order.knitting_event else None
     if not source or source.kind != "create_yarn_order":
         frappe.throw("Choose an original reviewed yarn purchase order.")
+    if source.job and source.job != event.job:
+        frappe.throw("Receive this job-specific purchase order against its original job.")
     if quantity > Decimal(str(order.items[0].qty)) - Decimal(str(order.items[0].received_qty or 0)):
         frappe.throw("Receipt exceeds the purchase order's remaining quantity.")
     from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt
@@ -41,6 +44,16 @@ def receive_order(event, data, quantity, warehouse):
     doc.items[0].qty, doc.items[0].received_qty, doc.items[0].warehouse = quantity, quantity, warehouse
     doc.knitting_event, doc.knitting_job = event.name, event.job
     return posting.submit(doc)
+
+
+def billed_receipt_quantities(company):
+    quantities = {}
+    for row in d.current_rows("Knitting Event", filters={"company": company, "kind": "bill_yarn", "cancelled": 0}, fields=["result"]):
+        value = d.json_value(row.result, {})
+        if value.get("receipt"):
+            receipt = value["receipt"]
+            quantities[receipt] = quantities.get(receipt, d.ZERO) + Decimal(value["quantity_kg"])
+    return quantities
 
 
 def bill(event, data, job):
@@ -54,7 +67,7 @@ def bill(event, data, job):
     payload = d.json_value(source.payload, {})
     if payload.get("material_owner") != "Owned":
         frappe.throw("Customer-custody receipts cannot create a supplier yarn bill.")
-    billed = sum((Decimal(d.json_value(e.result, {}).get("quantity_kg", "0")) for e in d.current_rows("Knitting Event", filters={"company": event.company, "kind": "bill_yarn", "cancelled": 0}, fields=["result"]) if d.json_value(e.result, {}).get("receipt") == source.name), d.ZERO)
+    billed = billed_receipt_quantities(event.company).get(source.name, d.ZERO)
     qty = d.decimal(data.get("quantity_kg", Decimal(value["quantity_kg"]) - billed), positive=True)
     if qty + billed > Decimal(value["quantity_kg"]):
         frappe.throw("The bill exceeds this receipt's unbilled quantity.")
@@ -72,12 +85,24 @@ def bill(event, data, job):
         doc = frappe.get_doc({"doctype": "Purchase Invoice", "company": event.company, "supplier": supplier.name,
             "items": [{"item_code": receipt.items[0].item_code, "qty": qty, "rate": receipt.items[0].basic_rate,
                 "expense_account": posting.common(event)[1]["expense_account"]}]})
+        if erpnext.is_perpetual_inventory_enabled(event.company):
+            doc.flags.knitting_receipt_account = receipt.items[0].expense_account
     doc.update_stock, doc.knitting_event, doc.knitting_job = 0, event.name, source.job
     for row in doc.items:
         row.knitting_receipt = source.name
     posting.submit(doc)
     return {"receipt": source.name, "invoice": doc.name, "quantity_kg": d.kg(qty), "amount": d.money(doc.grand_total),
         "voucher": doc.name, "voucher_type": doc.doctype}
+
+
+def clear_manual_receipt_account(doc, method=None):
+    # ERPNext defaults stock-only supplier bills to the company's current receipt clearing account.
+    # Earlier manual receipts can carry another difference account which this invoice must clear.
+    account = doc.flags.get("knitting_receipt_account")
+    if account and frappe.flags.get("knitting_service_write") and doc.items[0].expense_account != account:
+        doc.items[0].expense_account = account
+        doc.validate_expense_account()
+        doc.set_against_expense_account()
 
 
 ACTIONS = {"create_yarn_order": ("billing", create_order), "bill_yarn": ("billing", bill)}

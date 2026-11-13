@@ -1,4 +1,3 @@
-import 'ui/workspace_art.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +10,7 @@ import 'erp_models.dart';
 import 'module_browser.dart';
 import 'overview.dart';
 import 'sign_in.dart';
+import 'team_access.dart';
 import 'session_recovery.dart';
 import 'widgets.dart';
 import 'workspace_picker.dart';
@@ -60,8 +60,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   ReportingPeriod _period = ReportingPeriod.month;
   ErpModule? _module;
   bool _generalInMill = false;
+  bool _unpaidOnly = false;
   bool get _atMill => _workspace?.enabled == true && !_generalInMill;
-  ErpSnapshot? _lastData;
   int _revision = 0;
   WorkspaceContext? _workspace;
   @override
@@ -70,15 +70,21 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     super.dispose();
   }
 
-  Future<void> _signIn(String server, String username, String password) async {
-    final api = widget.connect(Uri.parse(server));
+  ErpApi _connect() => widget.connect(ErpApi.serviceOrigin);
+
+  Future<void> _signIn(String username, String password) async {
+    final api = _connect();
     try {
-      await api.login(username, password);
+      await signInWithVerification(context, api, username, password);
       if (!mounted) {
         api.close();
         return;
       }
       final workspace = await api.workspaceContext();
+      if (!mounted) {
+        api.close();
+        return;
+      }
       api.onSessionExpired = () => _recoverSession(api);
       setState(() {
         _api = api;
@@ -100,36 +106,20 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       barrierDismissible: false,
       builder: (_) => SessionRecoveryDialog(api: api),
     );
-    if (restored == true) {
-      WorkspaceContext fresh;
-      try {
-        fresh = await api.workspaceContext(company: _workspace?.company);
-      } on ErpException {
-        fresh = await api.workspaceContext();
-      }
-      if (!mounted || !identical(_api, api)) return false;
-      setState(() {
-        if (_workspace?.company != fresh.company || !fresh.enabled) {
-          _generalInMill = false;
-        }
-        _workspace = fresh;
-        _lastData = null;
-        _module = null;
-        _revision++;
-        _snapshot = _overviewFor(api, fresh);
-      });
-      return true;
-    }
+    // AccessGate refreshes the selected company and each open route when the
+    // session is restored. Its retry screen keeps drafts open if that read fails.
+    if (restored == true) return mounted && identical(_api, api);
     if (mounted && identical(_api, api)) {
       api.onSessionExpired = null;
       api.close();
       setState(() {
         _api = null;
         _snapshot = null;
-        _lastData = null;
       });
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const WorkspaceShell()),
+        MaterialPageRoute<void>(
+          builder: (_) => WorkspaceShell(connect: widget.connect),
+        ),
         (_) => false,
       );
     }
@@ -145,7 +135,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         setState(() {
           _api = null;
           _snapshot = null;
-          _lastData = null;
         });
       }
       rethrow;
@@ -153,17 +142,18 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<ErpSnapshot>? _overviewFor(ErpApi api, WorkspaceContext workspace) =>
-      (workspace.enabled && !_generalInMill) || workspace.needsIndustrySelection
+      workspace.company == null ||
+          (workspace.enabled && !_generalInMill) ||
+          workspace.needsIndustrySelection
       ? null
       : _guard(api, api.snapshot(_period, selectedCompany: workspace.company));
 
-  void _applyCompany(WorkspaceContext value) {
+  void _applyCompany(WorkspaceContext value, {bool keepGeneral = false}) {
     final api = _api;
     if (!mounted || api == null) return;
     setState(() {
-      _generalInMill = false;
+      _generalInMill = keepGeneral && value.enabled;
       _workspace = value;
-      _lastData = null;
       _module = null;
       _revision++;
       _snapshot = _overviewFor(api, value);
@@ -190,7 +180,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     setState(() {
       _api = null;
       _snapshot = null;
-      _lastData = null;
       _module = null;
       _workspace = null;
     });
@@ -203,31 +192,96 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
   }
 
+  Future<void> _checkCompanyAccess() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      final workspace = await api.workspaceContext();
+      if (!mounted || !identical(api, _api)) return;
+      _applyCompany(workspace);
+      if (workspace.company == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Your account is still waiting for company access.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted && identical(api, _api)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  Future<WorkspaceContext> _currentCompany(ErpApi api) async {
+    try {
+      return await api.workspaceContext(company: _workspace?.company);
+    } on ErpException catch (error) {
+      if (!error.permissionDenied) rethrow;
+      return api.workspaceContext();
+    }
+  }
+
   Future<void> _company() async {
     final api = _api;
     if (api == null) return;
     try {
-      final fresh = await api.workspaceContext(company: _workspace?.company);
-      if (!mounted) return;
+      final fresh = await _currentCompany(api);
+      if (!mounted || !identical(_api, api)) return;
+      final keepGeneral =
+          !_atMill && _workspace?.needsIndustrySelection == false;
+      if (fresh.company != _workspace?.company) {
+        _applyCompany(fresh, keepGeneral: keepGeneral);
+      }
+      if (fresh.companies.isEmpty) return;
       final name = await showDialog<String>(
         context: context,
         builder: (c) => SimpleDialog(
-          title: const Text('Choose company'),
+          title: Row(
+            children: [
+              const Expanded(child: Text('Choose company')),
+              IconButton(
+                tooltip: 'Close company selector',
+                onPressed: () => Navigator.pop(c),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
           children: [
             for (final row in fresh.companies)
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(c, row['name'] as String),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(row['name'] as String),
+                child: Semantics(
+                  selected: row['name'] == fresh.company,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.business_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(row['name'] as String)),
+                        if (row['name'] == fresh.company)
+                          const Icon(Icons.check_rounded, size: 20),
+                      ],
+                    ),
+                  ),
                 ),
               ),
           ],
         ),
       );
-      if (name == null || !mounted) return;
+      if (name == null || !mounted || !identical(api, _api)) return;
+      if (name == fresh.company && name == _workspace?.company) {
+        // Reselecting the active company does not change the saved default.
+        // A late redundant selection would reset a module already opened.
+        return;
+      }
       final w = await api.selectCompany(name);
-      if (mounted && identical(api, _api)) _applyCompany(w);
+      if (mounted && identical(api, _api)) {
+        _applyCompany(w, keepGeneral: keepGeneral);
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -252,7 +306,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       ),
     );
     if (updated != null && mounted && identical(api, _api)) {
-      _applyCompany(updated);
+      _applyCompany(updated, keepGeneral: true);
     }
   }
 
@@ -281,14 +335,14 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
   }
 
-  void _showGeneral() {
+  void _showGeneral([ErpModule? module]) {
     final workspace = _workspace;
     final api = _api;
     if (workspace == null || api == null) return;
     setState(() {
       _generalInMill = true;
-      _module = null;
-      _lastData = null;
+      _unpaidOnly = false;
+      _module = module;
       _snapshot = _overviewFor(api, workspace);
     });
   }
@@ -296,13 +350,30 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   void _backToMill() => setState(() {
     _generalInMill = false;
     _module = null;
-    _lastData = null;
     _snapshot = null;
   });
 
-  void _select(ErpModule? module) => setState(() => _module = module);
-  void _moduleMenu() =>
-      showWorkspacePicker(context, _select, onAll: () => _catalog());
+  void _select(ErpModule? module, {bool unpaidOnly = false}) => setState(() {
+    _module = module;
+    _unpaidOnly = unpaidOnly && module == ErpModule.accounts;
+  });
+  Future<void> _moduleMenu() async {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+    ErpSnapshot? data;
+    try {
+      data = await snapshot;
+    } on ErpException {
+      // The catalogue remains independently available if the dashboard failed.
+    }
+    if (!mounted || _api == null || !identical(snapshot, _snapshot)) return;
+    await showWorkspacePicker(
+      context,
+      _select,
+      onAll: _catalog,
+      available: ErpModule.values.where((m) => data?.count(m) != null),
+    );
+  }
 
   Future<void> _edit(String doctype, {String? name}) async {
     final api = _api;
@@ -337,66 +408,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     if (mounted && identical(_api, api)) _refresh();
   }
 
-  void _newDocument() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: WorkspaceTheme.canvas,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (c) => SafeArea(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 570),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Display('Create a document', size: 32),
-                const SizedBox(height: 10),
-                const Text(
-                  'Choose a document to create in your workspace.',
-                  style: TextStyle(fontSize: 12, color: WorkspaceTheme.muted),
-                ),
-                const SizedBox(height: 14),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.apps),
-                        title: const Text('All record types'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          Navigator.pop(c);
-                          _catalog(create: true);
-                        },
-                      ),
-                      for (final m in ErpModule.values)
-                        ListTile(
-                          leading: WorkspaceArt(
-                            moduleArt(m),
-                            width: 52,
-                            height: 34,
-                          ),
-                          title: Text(m.doctype),
-                          trailing: const Icon(Icons.arrow_outward, size: 17),
-                          onTap: () {
-                            Navigator.pop(c);
-                            _edit(m.doctype);
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _settings() {
     showDialog<void>(
       context: context,
@@ -404,7 +415,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         backgroundColor: WorkspaceTheme.canvas,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -412,7 +423,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               children: [
                 Row(
                   children: [
-                    const Expanded(child: Display('YOUR WORKSPACE', size: 31)),
+                    const Expanded(
+                      child: Display('Account and settings', size: 31),
+                    ),
                     IconButton(
                       tooltip: 'Close settings',
                       onPressed: () => Navigator.pop(c),
@@ -429,14 +442,37 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  _api?.baseUri.toString() ?? '',
+                SelectableText(
+                  _workspace?.company ?? '',
                   style: const TextStyle(
                     fontSize: 12,
                     color: WorkspaceTheme.muted,
                   ),
                 ),
                 const SizedBox(height: 19),
+                if (_workspace?.canManageTeam == true &&
+                    _workspace?.company != null)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.group_add_outlined),
+                    title: const Text('Team access'),
+                    subtitle: const Text('Invite staff and manage invitations'),
+                    onTap: () {
+                      final api = _api!;
+                      final company = _workspace!.company!;
+                      Navigator.pop(c);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => TeamAccessScreen(
+                            api: api,
+                            company: company,
+                            knitting: _workspace!.enabled,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.open_in_new),
@@ -472,88 +508,59 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     );
   }
 
-  void _activity() {
-    final data = _lastData;
-    if (data == null) return;
-    showDialog<void>(
-      context: context,
-      builder: (c) => Dialog(
-        backgroundColor: WorkspaceTheme.canvas,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Padding(
-            padding: const EdgeInsets.all(23),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(child: Display('RECENT ACTIVITY', size: 29)),
-                    IconButton(
-                      tooltip: 'Close activity',
-                      onPressed: () => Navigator.pop(c),
-                      icon: const Icon(Icons.close, size: 18),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                if (data.activity.isEmpty)
-                  const Text(
-                    'No invoices in this period yet. Your latest changes will appear here.',
-                    style: TextStyle(color: WorkspaceTheme.muted, height: 1.6),
-                  ),
-                for (final r in data.activity)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.receipt_long_outlined),
-                    title: Text(r.title),
-                    subtitle: Text(r.name),
-                    trailing: Text(r.status),
-                    onTap: () {
-                      Navigator.pop(c);
-                      _edit(r.module.doctype, name: r.name);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final api = _api;
     if (api == null) {
-      return SignInScreen(onSignIn: _signIn, onLicenses: _licenses);
+      return SignInScreen(
+        connect: _connect,
+        onSignIn: _signIn,
+        onLicenses: _licenses,
+      );
     }
     return AccessGate(
       api: api,
       revalidate: () async {
-        WorkspaceContext fresh;
-        try {
-          fresh = await api.workspaceContext(company: _workspace?.company);
-        } on ErpException catch (e) {
-          if (!e.permissionDenied) rethrow;
-          fresh = await api.workspaceContext();
-        }
+        final fresh = await _currentCompany(api);
         if (!mounted || !identical(api, _api)) return;
-        if (_workspace?.company != fresh.company || !fresh.enabled) {
-          _generalInMill = false;
-        }
+        _generalInMill =
+            fresh.enabled &&
+            !_atMill &&
+            _workspace?.needsIndustrySelection == false;
         final snapshot = _overviewFor(api, fresh);
         setState(() {
           _workspace = fresh;
-          _lastData = null;
           _module = null;
           _revision++;
           _snapshot = snapshot;
         });
         await snapshot;
       },
-      child: _atMill
+      child: _workspace!.company == null
+          ? Scaffold(
+              appBar: AppBar(
+                title: const Text('ERP Workspace'),
+                actions: [
+                  TextButton.icon(
+                    onPressed: _signOut,
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign out'),
+                  ),
+                ],
+              ),
+              body: WorkspaceBackdrop(
+                child: Center(
+                  child: MessagePanel(
+                    title: 'No company assigned',
+                    message:
+                        'Ask your workspace manager to give ${api.account} access to a company. Once access is assigned, you can continue here.',
+                    action: _checkCompanyAccess,
+                    label: 'Check access',
+                  ),
+                ),
+              ),
+            )
+          : _atMill
           ? KnittingScreen(
               key: ValueKey(_workspace!.company),
               api: api,
@@ -573,6 +580,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               onCompany: _company,
               onRecords: _catalog,
               onGeneral: _showGeneral,
+              onBusinessModule: _showGeneral,
               onAccount: _settings,
             )
           : _workspace!.needsIndustrySelection
@@ -584,131 +592,166 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               onCompany: _company,
               onAccount: _settings,
             )
-          : CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-                    _moduleMenu,
-                const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
-                    _refresh,
+          : PopScope(
+              canPop: _module == null,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop && _module != null) _select(null);
               },
-              child: Focus(
-                autofocus: true,
-                child: Scaffold(
-                  body: SafeArea(
-                    child: FutureBuilder<ErpSnapshot>(
-                      future: _snapshot,
-                      builder: (context, state) {
-                        final data =
-                            state.connectionState == ConnectionState.done
-                            ? state.data
-                            : null;
-                        if (data != null) _lastData = data;
-                        return WorkspaceBackdrop(
-                          child: Column(
-                            children: [
-                              _header(),
-                              Expanded(
-                                child: KeyedSubtree(
-                                  key: ValueKey((
-                                    _workspace!.company,
-                                    api.accessRevision,
-                                    _period,
-                                    _revision,
-                                  )),
-                                  child: AnimatedSwitcher(
-                                    duration:
-                                        MediaQuery.disableAnimationsOf(context)
-                                        ? Duration.zero
-                                        : const Duration(milliseconds: 190),
-                                    switchInCurve: Curves.easeOutCubic,
-                                    transitionBuilder: (panel, anim) =>
-                                        FadeTransition(
-                                          opacity: anim,
-                                          child: SlideTransition(
-                                            position: anim.drive(
-                                              Tween(
-                                                begin: const Offset(.015, 0),
-                                                end: Offset.zero,
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+                      _moduleMenu,
+                  const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
+                      _refresh,
+                },
+                child: Focus(
+                  autofocus: true,
+                  child: Scaffold(
+                    body: SafeArea(
+                      child: FutureBuilder<ErpSnapshot>(
+                        future: _snapshot,
+                        builder: (context, state) {
+                          final module = _module;
+                          final unpaidOnly = _unpaidOnly;
+                          final period = _period;
+                          final data =
+                              state.connectionState == ConnectionState.done
+                              ? state.data
+                              : null;
+                          return WorkspaceBackdrop(
+                            child: Column(
+                              children: [
+                                _header(),
+                                Expanded(
+                                  child: KeyedSubtree(
+                                    key: ValueKey((
+                                      _workspace!.company,
+                                      api.accessRevision,
+                                      _period,
+                                      _revision,
+                                    )),
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          MediaQuery.disableAnimationsOf(
+                                            context,
+                                          )
+                                          ? Duration.zero
+                                          : const Duration(milliseconds: 190),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      transitionBuilder: (panel, anim) =>
+                                          FadeTransition(
+                                            opacity: anim,
+                                            child: SlideTransition(
+                                              position: anim.drive(
+                                                Tween(
+                                                  begin: const Offset(.015, 0),
+                                                  end: Offset.zero,
+                                                ),
                                               ),
+                                              child: panel,
                                             ),
-                                            child: panel,
                                           ),
-                                        ),
-                                    layoutBuilder: (current, previous) => Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        for (final panel in previous)
-                                          ExcludeFocus(
-                                            child: ExcludeSemantics(
-                                              child: IgnorePointer(
-                                                child: panel,
+                                      layoutBuilder: (current, previous) =>
+                                          Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              for (final panel in [
+                                                ...previous,
+                                                ?current,
+                                              ])
+                                                KeyedSubtree(
+                                                  key: panel.key,
+                                                  child: ExcludeFocus(
+                                                    excluding: panel != current,
+                                                    child: ExcludeSemantics(
+                                                      excluding:
+                                                          panel != current,
+                                                      child: IgnorePointer(
+                                                        ignoring:
+                                                            panel != current,
+                                                        child: panel,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                      child:
+                                          state.connectionState !=
+                                              ConnectionState.done
+                                          ? const Center(
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: WorkspaceTheme.ink,
                                               ),
+                                            )
+                                          : state.hasError
+                                          ? MessagePanel(
+                                              title:
+                                                  'Could not load this workspace',
+                                              message: state.error.toString(),
+                                              action: _refresh,
+                                            )
+                                          : module == null
+                                          ? OverviewScreen(
+                                              data: data!,
+                                              range: _period.range(
+                                                DateTime.now(),
+                                              ),
+                                              onRecord: (r) => _edit(
+                                                r.module.doctype,
+                                                name: r.name,
+                                              ),
+                                              onModule: _select,
+                                              onUnpaid: () => _select(
+                                                ErpModule.accounts,
+                                                unpaidOnly: true,
+                                              ),
+                                              onNew: () =>
+                                                  _catalog(create: true),
+                                            )
+                                          : ModuleBrowser(
+                                              key: ValueKey(
+                                                '${module.name}-${period.name}-$_revision-$unpaidOnly',
+                                              ),
+                                              module: module,
+                                              company: data!.company,
+                                              currency: data.currency,
+                                              onShowAll: unpaidOnly
+                                                  ? () => _select(
+                                                      ErpModule.accounts,
+                                                    )
+                                                  : null,
+                                              loader: (query, start) => _guard(
+                                                api,
+                                                api.records(
+                                                  module,
+                                                  company: data.company,
+                                                  period: period,
+                                                  query: query,
+                                                  start: start,
+                                                  unpaidOnly: unpaidOnly,
+                                                ),
+                                              ),
+                                              onRecord: (r) => _edit(
+                                                r.module.doctype,
+                                                name: r.name,
+                                              ),
+                                              onCreate:
+                                                  _workspace!.creatableRecords
+                                                      .contains(module.doctype)
+                                                  ? () => _edit(module.doctype)
+                                                  : null,
+                                              onBrowseAll: () => _catalog(),
                                             ),
-                                          ),
-                                        ?current,
-                                      ],
                                     ),
-                                    child:
-                                        state.connectionState !=
-                                            ConnectionState.done
-                                        ? const Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: WorkspaceTheme.ink,
-                                            ),
-                                          )
-                                        : state.hasError
-                                        ? MessagePanel(
-                                            title:
-                                                'Could not load this workspace',
-                                            message: state.error.toString(),
-                                            action: _refresh,
-                                          )
-                                        : _module == null
-                                        ? OverviewScreen(
-                                            data: data!,
-                                            range: _period.range(
-                                              DateTime.now(),
-                                            ),
-                                            onRecord: (r) => _edit(
-                                              r.module.doctype,
-                                              name: r.name,
-                                            ),
-                                            onModule: _select,
-                                            onNew: _newDocument,
-                                          )
-                                        : ModuleBrowser(
-                                            key: ValueKey(
-                                              '${_module!.name}-${_period.name}-$_revision',
-                                            ),
-                                            module: _module!,
-                                            company: data!.company,
-                                            currency: data.currency,
-                                            loader: (query, start) => _guard(
-                                              api,
-                                              api.records(
-                                                _module!,
-                                                company: data.company,
-                                                period: _period,
-                                                query: query,
-                                                start: start,
-                                              ),
-                                            ),
-                                            onRecord: (r) => _edit(
-                                              r.module.doctype,
-                                              name: r.name,
-                                            ),
-                                            onCreate: () =>
-                                                _edit(_module!.doctype),
-                                            onBrowseAll: () => _catalog(),
-                                          ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -732,7 +775,10 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       );
       final navigation = TextButton.icon(
         onPressed: _moduleMenu,
-        icon: const Icon(Icons.grid_view_rounded, size: 17),
+        icon: Icon(
+          _module == null ? Icons.grid_view_rounded : moduleIcon(_module!),
+          size: 17,
+        ),
         label: Text(
           _module?.label ?? 'Workspaces',
           overflow: TextOverflow.ellipsis,
@@ -747,10 +793,6 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
             value: _refresh,
             child: const Text('Refresh workspace'),
           ),
-          PopupMenuItem(
-            value: _activity,
-            child: const Text('Recent invoice activity'),
-          ),
           if (_workspace?.canConfigure == true)
             PopupMenuItem(
               value: _industrySetup,
@@ -760,11 +802,12 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
             value: _settings,
             child: const Text('Account and settings'),
           ),
-          PopupMenuItem(
-            value: _licenses,
-            child: const Text('Open source licenses'),
-          ),
         ],
+      );
+      final overviewBack = IconButton(
+        tooltip: 'Back to business overview',
+        icon: const BackButtonIcon(),
+        onPressed: () => _select(null),
       );
       final brand = TextButton.icon(
         onPressed: () => _select(null),
@@ -773,8 +816,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       );
       final back = TextButton.icon(
         onPressed: _backToMill,
-        icon: const Icon(Icons.keyboard_return, size: 16),
-        label: const Text('Back to mill'),
+        icon: const Icon(Icons.factory_outlined, size: 18),
+        label: const Text('Knitting workspace'),
       );
       final catalog = TextButton.icon(
         onPressed: _catalog,
@@ -795,6 +838,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                   children: [
                     Row(
                       children: [
+                        if (_module != null) overviewBack,
                         Flexible(child: brand),
                         Expanded(
                           child: Align(
@@ -809,7 +853,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          if (_generalInMill) back,
+                          if (_generalInMill && _module == null) back,
                           navigation,
                           catalog,
                           _periodPicker(),
@@ -820,10 +864,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                 )
               : Row(
                   children: [
+                    if (_module != null) overviewBack,
                     brand,
                     const SizedBox(width: 10),
                     const SizedBox(height: 18, child: VerticalDivider()),
-                    if (_generalInMill) back,
+                    if (_generalInMill && _module == null) back,
                     navigation,
                     catalog,
                     Expanded(

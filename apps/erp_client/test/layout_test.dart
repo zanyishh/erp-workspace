@@ -23,7 +23,11 @@ void main() {
           ).copyWith(textScaler: const TextScaler.linear(1.3)),
           child: child!,
         ),
-        home: SignInScreen(onSignIn: (_, _, _) async {}, onLicenses: () {}),
+        home: SignInScreen(
+          connect: () => throw UnimplementedError(),
+          onSignIn: (_, _) async {},
+          onLicenses: () {},
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -31,6 +35,77 @@ void main() {
     await tester.ensureVisible(find.text('Enter workspace'));
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'first sign-in asks only for credentials and identifies missing fields',
+    (tester) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          home: SignInScreen(
+            connect: () => throw UnimplementedError(),
+            onSignIn: (_, _) async {
+              calls++;
+            },
+            onLicenses: () {},
+          ),
+        ),
+      );
+      final fields = find.byType(TextField);
+      expect(fields, findsNWidgets(2));
+      expect(find.text('Create a company'), findsOneWidget);
+      expect(find.text('Join with invitation'), findsOneWidget);
+      await tester.ensureVisible(find.text('Enter workspace'));
+      await tester.tap(find.text('Enter workspace'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('address'), findsNothing);
+      expect(find.text('Enter your username.'), findsOneWidget);
+      expect(find.text('Enter your password.'), findsOneWidget);
+      expect(calls, 0);
+      await tester.enterText(fields.first, 'mill-worker');
+      await tester.enterText(fields.last, 'synthetic');
+      await tester.ensureVisible(find.text('Enter workspace'));
+      await tester.tap(find.text('Enter workspace'));
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+    },
+  );
+  testWidgets(
+    'a long company name leaves the primary action reachable at phone text scale',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 620);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var opened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (c, child) => MediaQuery(
+            data: MediaQuery.of(
+              c,
+            ).copyWith(textScaler: const TextScaler.linear(1.6)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: OverviewScreen(
+              data: const ErpSnapshot(
+                company:
+                    'South Coast Garments and Knitting Manufacturing Company',
+                currency: 'INR',
+              ),
+              onModule: (_) {},
+              onNew: () => opened = true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.text('New document')).left, lessThan(60));
+      await tester.tap(find.text('New document'));
+      expect(opened, isTrue);
+    },
+  );
   for (final width in [390.0, 834.0, 1440.0]) {
     testWidgets(
       'overview works at $width without overflow and opens the selected module',

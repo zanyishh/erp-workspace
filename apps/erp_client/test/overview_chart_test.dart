@@ -1,3 +1,4 @@
+import 'package:erp_client/ui/workspace_art.dart';
 import 'package:erp_client/design.dart';
 import 'package:erp_client/erp_models.dart';
 import 'package:erp_client/overview.dart';
@@ -48,6 +49,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.textContaining('Feb 3, 2026 · -₹6.25'), findsOneWidget);
+        final objects = tester
+            .widgetList<WorkspaceArt>(find.byType(WorkspaceArt))
+            .map((w) => w.object.name);
+        expect(objects, isNot(contains('machine')));
         final animation = find.descendant(
           of: find.byType(SalesChart),
           matching: find.byType(TweenAnimationBuilder<double>),

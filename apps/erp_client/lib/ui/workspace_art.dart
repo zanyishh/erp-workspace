@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../erp_models.dart';
 
 /// Original studio renders share a camera, lighting and palette. Pre-sized
 /// variants keep table headers from decoding full-width hero art.
 enum ArtObject {
   warehouse,
   purchasing,
+  assembly,
   sales,
   yarn,
   machine,
@@ -56,57 +56,6 @@ class WorkspaceArt extends StatelessWidget {
   );
 }
 
-ArtObject moduleArt(ErpModule module) => switch (module) {
-  ErpModule.accounts || ErpModule.projects => ArtObject.invoice,
-  ErpModule.stock || ErpModule.assets => ArtObject.warehouse,
-  ErpModule.buying => ArtObject.purchasing,
-  ErpModule.selling => ArtObject.sales,
-  ErpModule.manufacturing => ArtObject.machine,
-  ErpModule.quality => ArtObject.inspection,
-};
-
-ArtObject recordArt(String type) {
-  final name = type.toLowerCase();
-  if (name.contains('invoice') ||
-      name.contains('payment') ||
-      name.contains('account') ||
-      name.contains('ledger')) {
-    return ArtObject.invoice;
-  }
-  if (name.contains('quality') || name.contains('inspect')) {
-    return ArtObject.inspection;
-  }
-  if (name.contains('delivery') ||
-      name.contains('dispatch') ||
-      name.contains('ship')) {
-    return ArtObject.dispatch;
-  }
-  if (name.contains('purchase') || name.contains('supplier')) {
-    return ArtObject.purchasing;
-  }
-  if (name.contains('customer') ||
-      name.contains('sales') ||
-      name.contains('selling') ||
-      name.contains('quotation')) {
-    return ArtObject.sales;
-  }
-  if (name.contains('warehouse') ||
-      name.contains('stock') ||
-      name.contains('item') ||
-      name.contains('asset')) {
-    return ArtObject.warehouse;
-  }
-  if (name.contains('machine') ||
-      name.contains('manufactur') ||
-      name.contains('production') ||
-      name.contains('work order')) {
-    return ArtObject.machine;
-  }
-  if (name.contains('yarn') || name.contains('lot')) return ArtObject.yarn;
-  if (name.contains('fabric') || name.contains('roll')) return ArtObject.fabric;
-  return ArtObject.invoice;
-}
-
 /// A single compact symbol in each column header keeps repeated values quiet.
 class ColumnCaption extends StatelessWidget {
   const ColumnCaption(
@@ -121,7 +70,7 @@ class ColumnCaption extends StatelessWidget {
   final IconData? icon;
   final String? fieldtype;
   final bool alignEnd, dark;
-  IconData get symbol {
+  IconData? get symbol {
     final name = label.toLowerCase();
     if (fieldtype == 'Date' ||
         fieldtype == 'Datetime' ||
@@ -162,7 +111,7 @@ class ColumnCaption extends StatelessWidget {
       return Icons.warehouse_outlined;
     }
     if (fieldtype == 'Int' || fieldtype == 'Float') return Icons.numbers;
-    return Icons.description_outlined;
+    return null;
   }
 
   @override
@@ -172,14 +121,16 @@ class ColumnCaption extends StatelessWidget {
         ? MainAxisAlignment.end
         : MainAxisAlignment.start,
     children: [
-      ExcludeSemantics(
-        child: Icon(
-          icon ?? symbol,
-          size: 14,
-          color: dark ? const Color(0xFFDFDDDA) : const Color(0xFF58585A),
+      if (icon ?? symbol case final glyph?) ...[
+        ExcludeSemantics(
+          child: Icon(
+            glyph,
+            size: 14,
+            color: dark ? const Color(0xFFDFDDDA) : const Color(0xFF58585A),
+          ),
         ),
-      ),
-      const SizedBox(width: 5),
+        const SizedBox(width: 5),
+      ],
       Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
     ],
   );

@@ -13,12 +13,23 @@ class ErpException implements Exception {
     this.message, {
     this.sessionExpired = false,
     this.permissionDenied = false,
+    this.staleDocument = false,
+    this.validationRejected = false,
   });
   final String message;
   final bool sessionExpired;
   final bool permissionDenied;
+  final bool staleDocument;
+  final bool validationRejected;
   @override
   String toString() => message;
+}
+
+class LoginVerification implements Exception {
+  const LoginVerification(this.temporaryId, this.prompt);
+  final String temporaryId, prompt;
+  @override
+  String toString() => prompt;
 }
 
 class ErpApi {
@@ -26,6 +37,7 @@ class ErpApi {
   final Uri baseUri;
   final HttpClient _client = HttpClient();
   Cookie? _session;
+  bool _authenticatingInvite = false;
   String userName = 'Administrator';
   String account = 'Administrator';
   Future<bool> Function()? onSessionExpired;
@@ -52,6 +64,7 @@ class ErpApi {
         previous != null &&
         (previous.accessFingerprint != value.accessFingerprint ||
             previous.revision != value.revision ||
+            previous.canManageTeam != value.canManageTeam ||
             previous.capabilities.toString() != value.capabilities.toString());
     final notify =
         changed || !accessReady || previous == null && accessRevision > 0;
@@ -62,6 +75,27 @@ class ErpApi {
     if (value.company != null) _contexts[value.company!] = value;
     accessReady = true;
     if (notify) _accessChanged();
+  }
+
+  static Uri get serviceOrigin {
+    const configured = String.fromEnvironment('ERP_SERVER');
+    if (configured.isNotEmpty) {
+      try {
+        return validateServer(Uri.parse(configured));
+      } on FormatException {
+        throw const ErpException(
+          'This app could not connect to its configured service. Contact your workspace manager.',
+        );
+      }
+    }
+    if (const bool.fromEnvironment('dart.vm.product')) {
+      throw const ErpException(
+        'This app needs a configured workspace service. Contact your workspace manager.',
+      );
+    }
+    return Uri.parse(
+      Platform.isAndroid ? 'http://10.0.2.2:8081' : 'http://localhost:8081',
+    );
   }
 
   static Uri validateServer(Uri uri) {
@@ -78,18 +112,78 @@ class ErpApi {
         (uri.path.isNotEmpty && uri.path != '/') ||
         !(uri.scheme == 'https' || (uri.scheme == 'http' && loopback))) {
       throw const ErpException(
-        'Enter an HTTPS server address, or a local development address.',
+        'This app could not connect to its configured service. Contact your workspace manager.',
       );
     }
     return uri.replace(path: '', query: null, fragment: null);
   }
 
   Future<void> login(String username, String password) async {
+    _session = null;
     final result = await _request(
       '/api/method/login',
       form: {'usr': username, 'pwd': password},
     );
-    if (result['message'] != 'Logged In' ||
+    _finishLogin(username, result);
+  }
+
+  Future<void> verifyLogin(
+    String username,
+    LoginVerification challenge,
+    String code,
+  ) async {
+    final result = await _request(
+      '/api/method/login',
+      form: {'otp': code.trim(), 'tmp_id': challenge.temporaryId},
+    );
+    _finishLogin(username, result);
+  }
+
+  void _finishLogin(String username, Map<String, dynamic> result) {
+    if (result['message'] == 'Password Reset') {
+      _session = null;
+      throw const ErpException(
+        'Use the password reset link in your registered email, then sign in again.',
+      );
+    }
+    final portalLogin = result['message'] == 'No App';
+    if (portalLogin && !_authenticatingInvite) {
+      _session = null;
+      throw const ErpException(
+        'This website account can use the ERPNext portal. Ask your workspace manager for a system user account to open ERP Workspace.',
+      );
+    }
+    final verification = result['verification'];
+    if (verification is Map && result['message'] != 'Logged In') {
+      _session = null;
+      final method = verification['method'];
+      final id = result['tmp_id'];
+      if (id is! String ||
+          id.isEmpty ||
+          !{'Email', 'SMS', 'OTP App'}.contains(method)) {
+        throw const ErpException(
+          'Ask your workspace manager to help you sign in with this verification method.',
+        );
+      }
+      if (!enabled(verification['setup'])) {
+        throw ErpException(
+          method == 'OTP App'
+              ? 'Complete authenticator setup with your workspace manager, then sign in again.'
+              : 'ERPNext could not send the verification code. Contact your workspace manager, then sign in again.',
+        );
+      }
+      final instructions = verification['prompt'];
+      final prompt = instructions is String && instructions.trim().isNotEmpty
+          ? plainReportText(instructions).trim()
+          : switch (method) {
+              'Email' =>
+                'Enter the verification code sent to your registered email.',
+              'SMS' => 'Enter the verification code sent to your phone.',
+              _ => 'Enter the code from your authenticator app.',
+            };
+      throw LoginVerification(id, prompt);
+    }
+    if ((result['message'] != 'Logged In' && !portalLogin) ||
         _session == null ||
         _session!.value == 'Guest') {
       throw const ErpException('The username or password was not accepted.');
@@ -161,6 +255,16 @@ class ErpApi {
           expired = e.sessionExpired;
         }
       }
+      if (expired && path.endsWith('/login')) {
+        if (form?.containsKey('otp') == true) {
+          throw const ErpException(
+            'Check the verification code. If it has expired, go back and sign in again for a new code.',
+          );
+        }
+        throw const ErpException(
+          'Sign-in failed. Check your username and password and try again.',
+        );
+      }
       if (expired) await _expired(path, sessionAtStart);
       if (response.statusCode == 403) {
         if (!_refreshingAccess &&
@@ -187,9 +291,37 @@ class ErpApi {
         );
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (path.endsWith('/login') &&
+            decoded?['exc_type'] == 'ExpiredLoginException') {
+          throw const ErpException(
+            'This verification code has expired. Go back and sign in again for a new code.',
+          );
+        }
+        if (path.endsWith('/login') && response.statusCode == 429) {
+          throw const ErpException(
+            'Too many sign-in attempts. Wait a while, then try again.',
+          );
+        }
+        if (path.startsWith('/api/method/erp_extensions.onboarding.') &&
+            response.statusCode == 429) {
+          throw const ErpException(
+            'Too many attempts. Wait a while, then try again.',
+          );
+        }
+        if (decoded?['exc_type'] == 'TimestampMismatchError') {
+          throw const ErpException(
+            'Someone changed this document. Reload the latest version before saving.',
+            staleDocument: true,
+          );
+        }
         if ([400, 409, 417, 422].contains(response.statusCode)) {
           final message = _validationMessage(decoded);
-          if (message != null) throw ErpException(message);
+          if (message != null) {
+            throw ErpException(
+              message,
+              validationRejected: decoded?['exc_type'] == 'ValidationError',
+            );
+          }
         }
         throw const ErpException(
           'ERPNext could not load this view. Check your connection and try again.',
@@ -216,7 +348,7 @@ class ErpApi {
       );
     } on SocketException {
       throw const ErpException(
-        'Cannot reach ERPNext. Check the server address and that the local services are running.',
+        'Cannot reach your workspace. Check your internet connection and try again.',
       );
     } on TimeoutException {
       throw const ErpException(
@@ -327,6 +459,77 @@ class ErpApi {
       },
     );
     return objectMap(response['message']);
+  }
+
+  Future<void> registerOwner({
+    required String fullName,
+    required String email,
+    required String password,
+    required String company,
+    required String industry,
+  }) async {
+    await _industry('onboarding', 'register_owner', {
+      'full_name': fullName,
+      'email': email,
+      'password': password,
+      'company': company,
+      'industry': industry,
+    });
+  }
+
+  Future<void> redeemExistingInvitation(
+    String token,
+    Future<void> Function() authenticate,
+  ) async {
+    // A portal account must prove its identity before it can redeem a staff invitation.
+    _authenticatingInvite = true;
+    try {
+      await authenticate();
+      await acceptInvitation(token);
+    } finally {
+      _authenticatingInvite = false;
+      if (_session != null && _session!.value != 'Guest') {
+        try {
+          await signOut();
+        } on ErpException {
+          // Changing the Frappe user type can already have revoked this session.
+        }
+      }
+    }
+  }
+
+  Future<void> acceptInvitation(
+    String token, {
+    String? fullName,
+    String? email,
+    String? password,
+  }) async {
+    await _industry('onboarding', 'accept_invite', {
+      'token': token,
+      'full_name': fullName,
+      'email': email,
+      'password': password,
+    });
+  }
+
+  Future<Map<String, dynamic>> team(String company) =>
+      _industry('onboarding', 'team', {'company': company});
+
+  Future<Map<String, dynamic>> inviteMember(
+    String company,
+    String email,
+    String role,
+  ) => _industry('onboarding', 'invite_member', {
+    'company': company,
+    'email': email,
+    'role': role,
+  });
+
+  Future<void> revokeInvitation(String company, String name) async {
+    await _industry('onboarding', 'revoke_invite', {
+      'company': company,
+      'name': name,
+    });
   }
 
   Future<WorkspaceContext> workspaceContext({String? company}) async {
@@ -729,12 +932,19 @@ class ErpApi {
     String query = '',
     int start = 0,
     int limit = 50,
+    bool unpaidOnly = false,
   }) async {
     final search = query.trim();
     final rows = await _list(
       module.doctype,
       module.fields,
-      filters: module.filters(company, period.range(now ?? DateTime.now())),
+      filters: [
+        ...module.filters(company, period.range(now ?? DateTime.now())),
+        if (unpaidOnly && module == ErpModule.accounts) ...[
+          ['docstatus', '=', 1],
+          ['outstanding_amount', '>', 0],
+        ],
+      ],
       orderBy: 'modified desc',
       start: start,
       limit: limit,

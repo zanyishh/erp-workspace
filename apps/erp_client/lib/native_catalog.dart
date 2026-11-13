@@ -1,4 +1,5 @@
-import 'ui/workspace_art.dart';
+import 'ui/workspace_ui.dart';
+import 'ui/record_icon.dart';
 import 'ui/access_gate.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -116,9 +117,14 @@ class NativeCatalogView extends StatefulWidget {
 }
 
 class _NativeCatalogViewState extends State<NativeCatalogView> {
-  String _query = '';
+  final _search = TextEditingController();
   bool _reports = false;
   String _module = '';
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +139,7 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
           report['module']?.toString() ?? 'Other',
     }.toList()..sort();
     final module = modules.contains(_module) ? _module : '';
-    final query = _query.trim().toLowerCase();
+    final query = _search.text.trim().toLowerCase();
     bool matches(String name, String group) =>
         (module.isEmpty || module == group) &&
         '$name $group'.toLowerCase().contains(query);
@@ -148,7 +154,8 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
 
     return LayoutBuilder(
       builder: (context, box) {
-        final desktop = box.maxWidth >= 900;
+        final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final desktop = box.maxWidth >= 900 * textScale.clamp(1, 1.5);
         Widget moduleFilter() => PopupMenuButton<String>(
           tooltip: 'Filter by module',
           initialValue: module,
@@ -160,16 +167,25 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                 child: Text(name.isEmpty ? 'All modules' : name),
               ),
           ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.filter_list, size: 18),
-                const SizedBox(width: 8),
-                Flexible(child: Text(module.isEmpty ? 'All modules' : module)),
-                const Icon(Icons.arrow_drop_down),
-              ],
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.filter_list, size: 18),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      module.isEmpty ? 'All modules' : module,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
             ),
           ),
         );
@@ -205,10 +221,12 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                             segments: const [
                               ButtonSegment(
                                 value: false,
+                                icon: Icon(Icons.folder_open_outlined),
                                 label: Text('Records'),
                               ),
                               ButtonSegment(
                                 value: true,
+                                icon: Icon(Icons.bar_chart_outlined),
                                 label: Text('Reports'),
                               ),
                             ],
@@ -220,13 +238,21 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                     ),
                     const SizedBox(height: 16),
                     TextField(
+                      controller: _search,
                       decoration: InputDecoration(
                         hintText: _reports
                             ? 'Search reports or modules…'
                             : 'Search record types or modules…',
                         prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _search.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Clear search',
+                                onPressed: () => setState(_search.clear),
+                                icon: const Icon(Icons.close),
+                              ),
                       ),
-                      onChanged: (value) => setState(() => _query = value),
+                      onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -244,7 +270,13 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                 child: Padding(
                   padding: const EdgeInsets.all(30),
                   child: Text(
-                    _reports
+                    query.isEmpty && module.isEmpty
+                        ? widget.create
+                              ? 'Your account has no record types available to create.'
+                              : _reports
+                              ? 'No reports are available to your account.'
+                              : 'No record types are available to your account.'
+                        : _reports
                         ? 'No matching reports.'
                         : 'No matching record types.',
                     textAlign: TextAlign.center,
@@ -261,6 +293,15 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                   final name = type?.name ?? report!['name'] as String;
                   final group =
                       type?.module ?? report!['module']?.toString() ?? 'Other';
+                  final symbol = recordSymbol(
+                    name,
+                    report: _reports,
+                    settings: type?.single == true,
+                    tree: type?.tree == true,
+                  );
+                  final generic =
+                      symbol == Icons.description_outlined ||
+                      symbol == Icons.bar_chart_outlined;
                   return Material(
                     color: WorkspaceTheme.surface,
                     child: ListTile(
@@ -269,11 +310,12 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                       ),
                       minVerticalPadding: 6,
                       minTileHeight: module.isEmpty ? 60 : 50,
-                      leading: WorkspaceArt(
-                        recordArt('$group $name'),
-                        width: 46,
-                        height: 30,
-                      ),
+                      leading: generic
+                          ? _CatalogInitials(
+                              name: name,
+                              tone: moduleMark(group).$2,
+                            )
+                          : RecordIcon(symbol, tone: moduleMark(group).$2),
                       title: Text(
                         name,
                         style: const TextStyle(
@@ -326,34 +368,44 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
                               for (final name in ['', ...modules])
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 2),
-                                  child: Material(
-                                    color: module == name
-                                        ? WorkspaceTheme.palePeach
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: ListTile(
-                                      dense: true,
-                                      minTileHeight: 44,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
-                                      minVerticalPadding: 4,
-                                      selected: module == name,
-                                      textColor: WorkspaceTheme.light,
-                                      selectedColor: WorkspaceTheme.ink,
-                                      leading: WorkspaceArt(
-                                        recordArt(name),
-                                        width: 33,
-                                        height: 26,
+                                  child: AnimatedContainer(
+                                    duration: workspaceMotion(context),
+                                    curve: Curves.easeOutCubic,
+                                    decoration: BoxDecoration(
+                                      color: module == name
+                                          ? WorkspaceTheme.palePeach
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Material(
+                                      type: MaterialType.transparency,
+                                      child: ListTile(
+                                        dense: true,
+                                        minTileHeight: 44,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                            ),
+                                        minVerticalPadding: 4,
+                                        selected: module == name,
+                                        textColor: WorkspaceTheme.light,
+                                        selectedColor: WorkspaceTheme.ink,
+                                        leading: Icon(
+                                          moduleMark(name).$1,
+                                          size: 21,
+                                          color: module == name
+                                              ? WorkspaceTheme.ink
+                                              : WorkspaceTheme.light,
+                                        ),
+                                        minLeadingWidth: 33,
+                                        horizontalTitleGap: 8,
+                                        title: Text(
+                                          name.isEmpty ? 'All modules' : name,
+                                        ),
+                                        visualDensity: VisualDensity.standard,
+                                        onTap: () =>
+                                            setState(() => _module = name),
                                       ),
-                                      minLeadingWidth: 33,
-                                      horizontalTitleGap: 8,
-                                      title: Text(
-                                        name.isEmpty ? 'All modules' : name,
-                                      ),
-                                      onTap: () =>
-                                          setState(() => _module = name),
                                     ),
                                   ),
                                 ),
@@ -371,6 +423,47 @@ class _NativeCatalogViewState extends State<NativeCatalogView> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Site-defined record types have no supplied icon. Their initials keep the
+/// list aligned without filling the catalogue with identical document glyphs.
+class _CatalogInitials extends StatelessWidget {
+  const _CatalogInitials({required this.name, required this.tone});
+  final String name;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .take(2)
+        .map((word) => word.characters.first.toUpperCase())
+        .join();
+    return ExcludeSemantics(
+      child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: tone.withValues(alpha: .24)),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            initials,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: tone,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -393,12 +486,12 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
   late NativeType _type = widget.type;
   late Future<List<Map<String, dynamic>>> _future = _load();
   Timer? _debounce;
-  String _query = '';
+  final _search = TextEditingController();
   int _start = 0;
   Future<List<Map<String, dynamic>>> _load() => widget.api.nativeRecords(
     widget.type.name,
     company: widget.company,
-    query: _query,
+    query: _search.text.trim(),
     start: _start,
   );
   void _reload({bool reset = false}) {
@@ -406,6 +499,12 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
     setState(() {
       _future = _load();
     });
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _search.clear();
+    _reload(reset: true);
   }
 
   Future<void> _open([String? name]) async {
@@ -426,6 +525,7 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _search.dispose();
     super.dispose();
   }
 
@@ -510,12 +610,20 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
                   ),
                 ),
                 TextField(
+                  controller: _search,
                   decoration: InputDecoration(
                     hintText: 'Search ${widget.type.name.toLowerCase()}…',
                     prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: _clearSearch,
+                            icon: const Icon(Icons.close),
+                          ),
                   ),
-                  onChanged: (value) {
-                    _query = value;
+                  onChanged: (_) {
+                    setState(() {});
                     _debounce?.cancel();
                     _debounce = Timer(
                       const Duration(milliseconds: 350),
@@ -540,15 +648,32 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
                       }
                       final rows = state.data ?? [];
                       if (rows.isEmpty) {
+                        final filtered = _search.text.trim().isNotEmpty;
                         return MessagePanel(
-                          title: _start > 0 ? 'END OF LIST' : 'NO RECORDS',
+                          title: _start > 0
+                              ? 'END OF LIST'
+                              : filtered
+                              ? 'NO MATCHES'
+                              : 'NO RECORDS',
                           message: _start > 0
                               ? 'There are no more records in this view.'
-                              : _query.isNotEmpty
+                              : filtered
                               ? 'Try another name or document number.'
                               : 'No ${widget.type.name} records are available in this view.',
-                          label: _start > 0 ? 'Back to first page' : 'Refresh',
-                          action: () => _reload(reset: true),
+                          label: _start > 0
+                              ? 'Back to first page'
+                              : filtered
+                              ? 'Clear search'
+                              : _type.canCreate
+                              ? 'Create ${_type.name.toLowerCase()}'
+                              : 'Refresh',
+                          action: _start > 0
+                              ? () => _reload(reset: true)
+                              : filtered
+                              ? _clearSearch
+                              : _type.canCreate
+                              ? () => _open()
+                              : () => _reload(),
                         );
                       }
                       return Column(

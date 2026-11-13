@@ -5,6 +5,29 @@ import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/native_models.dart';
 
 void main() {
+  test(
+    'stale record responses are distinguishable from field validation',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final api = ErpApi(Uri.parse('http://127.0.0.1:${server.port}'));
+      addTearDown(() async {
+        api.close();
+        await server.close(force: true);
+      });
+      server.listen((request) async {
+        request.response.statusCode = 417;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write('{"exc_type":"TimestampMismatchError"}');
+        await request.response.close();
+      });
+      await expectLater(
+        api.nativeDocument('Sales Order', name: 'SO-1'),
+        throwsA(
+          isA<ErpException>().having((e) => e.staleDocument, 'stale', true),
+        ),
+      );
+    },
+  );
   late HttpServer server;
   late ErpApi api;
   setUp(() async {

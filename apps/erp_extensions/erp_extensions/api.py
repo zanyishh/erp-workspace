@@ -10,8 +10,10 @@ from pathlib import Path
 from collections.abc import Mapping
 
 import frappe
+from erp_extensions import team_scope
+from erp_extensions.onboarding import membership
 from frappe.permissions import get_doc_permissions
-from frappe.utils import cint, get_datetime
+from frappe.utils import cint, flt, get_datetime
 
 VERSION = 1
 LAYOUT = {"Section Break", "Column Break", "Tab Break", "Heading", "HTML", "Button", "Image"}
@@ -25,6 +27,8 @@ def _signed_in():
 
 def _meta(doctype, permission="read"):
     _signed_in()
+    if membership() and not team_scope.native_type_allowed(doctype, permission):
+        frappe.throw("This record type is unavailable in this workspace.", frappe.PermissionError)
     meta = frappe.get_meta(doctype)
     if meta.istable or not frappe.has_permission(doctype, permission):
         frappe.throw("This account cannot access this record type.", frappe.PermissionError)
@@ -101,16 +105,17 @@ def _schema(meta, parenttype=None):
 @frappe.whitelist()
 def catalog(company=None):
     _signed_in()
+    managed = membership()
     from erp_extensions.knitting.permissions import visible_type, is_pack
     types = []
     for dt in frappe.get_all("DocType", fields=["name", "module", "issingle", "is_submittable", "is_tree"],
         filters={"istable": 0}, order_by="module, name"):
-        if frappe.has_permission(dt.name, "read") and visible_type(dt.name, company):
-            types.append({**dt, "create": bool(not is_pack(dt.name) and frappe.has_permission(dt.name, "create"))})
+        if (not managed or team_scope.native_type_allowed(dt.name)) and frappe.has_permission(dt.name, "read") and visible_type(dt.name, company):
+            types.append({**dt, "create": bool(not is_pack(dt.name) and (not managed or team_scope.native_type_allowed(dt.name, 'create')) and frappe.has_permission(dt.name, "create"))})
     reports = []
     for row in frappe.get_all("Report", fields=["name", "module", "ref_doctype", "report_type"],
         filters={"disabled": 0}, order_by="module, name"):
-        if frappe.has_permission(row.ref_doctype, "report") and frappe.get_doc("Report", row.name).is_permitted():
+        if (not managed or row.name in team_scope.COMPANY_REPORTS) and frappe.has_permission(row.ref_doctype, "report") and frappe.get_doc("Report", row.name).is_permitted():
             reports.append(row)
     return {"version": VERSION, "site": frappe.local.site, "user": frappe.session.user, "types": types, "reports": reports}
 
@@ -143,6 +148,8 @@ def _result(doc):
     workflow = get_workflow_name(doc.doctype)
     transitions = get_transitions(doc) if workflow and not doc.is_new() and not guarded else []
     data = _native_identities(doc.copy_with_fieldlevel_read_permissions().as_dict(), doc.meta)
+    if doc.is_new() and doc.get("__newname"):
+        data["__newname"] = doc.get("__newname")
     if doc.is_new() and doc.flags.native_origin:
         data["__native_origin"] = doc.flags.native_origin
     return {"doc": data, "permissions": permissions, "related_actions":_related_actions(doc),
@@ -241,7 +248,13 @@ def _editable(value):
         doc = frappe.get_doc(meta.name, values.get("name") or meta.name)
         doc.check_permission("write")
         _check_version(doc, values.get("modified"))
+    if doc.is_new() and (meta.autoname or "").lower() == "prompt" and "__newname" in values:
+        name = values["__newname"]
+        if not isinstance(name, str) or not name.strip():
+            frappe.throw("Enter a document name.")
+        doc.set("__newname", name.strip())
     _apply(doc, values)
+    team_scope.check_links(doc)
     doc.check_permission("create" if doc.is_new() else "write")
     return doc
 
@@ -359,6 +372,8 @@ def tree_children(doctype, parent=None, company=None, start=0, limit=50):
 @frappe.whitelist()
 def search_link(doctype, query="", parent=None, field=None):
     _signed_in()
+    if membership():
+        return team_scope.search_link(doctype, query)
     from frappe.desk.search import search_link as search
     return search(doctype=doctype, txt=query, page_length=30, reference_doctype=parent)
 
@@ -376,6 +391,8 @@ def transition(doctype, name, action, modified=None):
 
 def _report(name):
     _signed_in()
+    if membership() and name not in team_scope.COMPANY_REPORTS:
+        frappe.throw("This report is unavailable in this workspace.", frappe.PermissionError)
     from frappe.desk.query_report import get_report_doc
     return get_report_doc(name)
 
@@ -416,6 +433,11 @@ def report_definition(name, company=None):
         definition["fields"] = [{"fieldname":"search","fieldtype":"Data","label":"Search document name"}]
         if frappe.get_meta(report.ref_doctype).has_field("company"):
             definition["fields"].append({"fieldname":"company","fieldtype":"Link","options":"Company","label":"Company"})
+    if member := membership():
+        if company and company != member.company:
+            frappe.throw('Choose your current company.', frappe.PermissionError)
+        company = member.company
+        definition['fields'] = [f for f in definition['fields'] if team_scope.report_field_allowed(f)]
     defaults = {}
     for field in definition["fields"]:
         field["conditions"] = _field_conditions(field)
@@ -476,12 +498,17 @@ def run_report(name, filters=None):
         return _builder_report(report, filters)
     from frappe.desk.query_report import run
     definition = report_definition(name)
+    if member := membership():
+        filters = team_scope.report_filters(name, filters, definition['fields'], member.company)
+        return run(name, filters=filters, js_filters=definition['fields'], ignore_prepared_report=True, are_default_filters=False)
     return run(name, filters=filters, js_filters=definition["fields"])
 
 
 @frappe.whitelist(methods=["POST"])
 def queue_report(name, filters=None):
     _report(name)
+    if membership():
+        frappe.throw('Run this company report directly in your workspace.', frappe.PermissionError)
     filters = frappe.parse_json(filters) if isinstance(filters,str) else filters or {}
     if not isinstance(filters, Mapping):
         frappe.throw("Report filters must be an object.")
@@ -547,6 +574,8 @@ def add_comment(doctype, name, content):
 @frappe.whitelist(methods=["POST"])
 def assign(doctype, name, user, description=""):
     _reference(doctype, name)
+    if membership() and (not membership(user) or membership(user).company != membership().company):
+        frappe.throw('Select a member of this team.', frappe.PermissionError)
     from frappe.share import validate_user_access
     from frappe.desk.form.assign_to import add
     validate_user_access(user, "Assigned To")
@@ -557,6 +586,8 @@ def assign(doctype, name, user, description=""):
 @frappe.whitelist(methods=["POST"])
 def unassign(doctype, name, user):
     _reference(doctype, name)
+    if membership() and (not membership(user) or membership(user).company != membership().company):
+        frappe.throw('Select a member of this team.', frappe.PermissionError)
     from frappe.desk.form.assign_to import remove
     remove(doctype, name, user)
     return {"removed":user}
@@ -728,8 +759,13 @@ def _related_actions(doc):
     if doc.is_new() or doc.meta.issingle:
         return []
     from erp_extensions.knitting.permissions import is_pack
+    invoice = doc.doctype in ("Sales Invoice", "Purchase Invoice")
+    can_pay = (cint(doc.docstatus) == 1
+               and ((invoice and flt(doc.get("outstanding_amount")) != 0)
+                    or doc.doctype in ("Sales Order", "Purchase Order"))
+               and frappe.has_permission("Payment Entry", "create"))
     if is_pack(doc.doctype) or doc.get("knitting_event") or doc.get("knitting_job"):
-        return ["Payment Entry"] if doc.doctype in ("Sales Invoice", "Purchase Invoice") and cint(doc.docstatus) == 1 and frappe.has_permission("Payment Entry", "create") else []
+        return ["Payment Entry"] if invoice and can_pay else []
     actions = []
     if frappe.has_permission(doc.doctype, "create"):
         actions.append("Duplicate")
@@ -738,7 +774,7 @@ def _related_actions(doc):
     if cint(doc.docstatus) == 1:
         actions.extend(action for action, (target, _) in MAPPINGS.get(doc.doctype, {}).items()
             if frappe.has_permission(target, "create"))
-        if doc.doctype in ("Sales Invoice", "Purchase Invoice", "Sales Order", "Purchase Order") and frappe.has_permission("Payment Entry", "create"):
+        if can_pay:
             actions.append("Payment Entry")
     return actions
 

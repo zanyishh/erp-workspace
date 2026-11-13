@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'ui/workspace_art.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -41,6 +42,60 @@ class KnitAction {
   final List<KnitField> fields;
   final bool needsJob;
 
+  IconData get icon => switch (id) {
+    'create_job' => Icons.post_add_outlined,
+    'revise_job' => Icons.edit_note_outlined,
+    'close_job' => Icons.task_alt_outlined,
+    'close_jobs' => Icons.playlist_add_check_circle_outlined,
+    'reopen_job' => Icons.restore_outlined,
+    'cancel_event' => Icons.undo_outlined,
+    'receive_yarn' => Icons.move_to_inbox_outlined,
+    'return_yarn' => Icons.assignment_return_outlined,
+    'allocate_yarn' => Icons.account_tree_outlined,
+    'transfer_yarn' => Icons.swap_horiz_rounded,
+    'move_yarn' => Icons.warehouse_outlined,
+    'repack_yarn' => Icons.inventory_2_outlined,
+    'adjust_yarn' => Icons.exposure_outlined,
+    'produce' => Icons.precision_manufacturing_outlined,
+    'produce_bulk' => Icons.layers_outlined,
+    'split_roll' => Icons.call_split_rounded,
+    'quality' => Icons.fact_check_outlined,
+    'plan' => Icons.edit_calendar_outlined,
+    'holiday' => Icons.event_busy_outlined,
+    'deliver' => Icons.local_shipping_outlined,
+    'return_fabric' => Icons.assignment_returned_outlined,
+    'transfer_fabric' => Icons.compare_arrows_rounded,
+    'invoice' => Icons.receipt_long_outlined,
+    'credit_invoice' => Icons.currency_exchange_outlined,
+    'create_rate' => Icons.sell_outlined,
+    'set_lot_charge' => Icons.price_change_outlined,
+    'create_yarn_order' => Icons.add_shopping_cart_outlined,
+    'bill_yarn' => Icons.shopping_cart_checkout_outlined,
+    'create_estimate' => Icons.calculate_outlined,
+    'accept_estimate' => Icons.approval_outlined,
+    'job_from_estimate' => Icons.assignment_add,
+    'create_machine' => Icons.add_business_outlined,
+    'create_component' => Icons.extension_outlined,
+    'replace_component' => Icons.change_circle_outlined,
+    'component_breakage' => Icons.report_problem_outlined,
+    'stoppage' => Icons.pause_circle_outline,
+    'save_master' => Icons.library_books_outlined,
+    'issue_consumable' => Icons.outbox_outlined,
+    'return_consumable' => Icons.unarchive_outlined,
+    'create_subcontract' => Icons.handshake_outlined,
+    'subcontract_issue' => Icons.output_outlined,
+    'subcontract_receive' => Icons.input_outlined,
+    'subcontract_return' => Icons.keyboard_return_rounded,
+    'subcontract_bill' => Icons.request_quote_outlined,
+    'close_subcontract' => Icons.assignment_turned_in_outlined,
+    'short_close_subcontract' => Icons.remove_done_outlined,
+    'reopen_subcontract' => Icons.history_rounded,
+    _ => Icons.description_outlined,
+  };
+
+  bool availableIn(WorkspaceContext workspace) =>
+      workspace.allows(capability) &&
+      !workspace.unavailableKnittingActions.contains(id);
   bool appearsIn(String destination) =>
       group == destination ||
       (id == 'cancel_event' && !needsJob && destination == 'Yarn');
@@ -174,7 +229,7 @@ const knitActions = <KnitAction>[
     'billing',
     [
       lotField,
-      KnitField('charge_item', 'Non-stock charge item', kind: 'Item'),
+      KnitField('charge_item', 'Non-stock charge item', kind: 'ServiceItem'),
       KnitField('charge_rate', 'Charge per kg', kind: 'money'),
       reasonField,
     ],
@@ -188,7 +243,7 @@ const knitActions = <KnitAction>[
     'billing',
     [
       KnitField('supplier', 'Supplier', kind: 'Supplier'),
-      KnitField('item', 'Stock yarn item', kind: 'Item'),
+      KnitField('item', 'Stock yarn item', kind: 'StockKgItem'),
       quantityField,
       rateField,
     ],
@@ -224,7 +279,7 @@ const knitActions = <KnitAction>[
     reasonField,
   ]),
   KnitAction('receive_yarn', 'Receive general yarn', 'Yarn', 'materials', [
-    KnitField('item', 'Yarn item', kind: 'Item'),
+    KnitField('item', 'Yarn item', kind: 'StockKgItem'),
     KnitField(
       'purchase_order',
       'Source yarn order (optional)',
@@ -383,12 +438,18 @@ const knitActions = <KnitAction>[
   KnitAction('revise_job', 'Revise programme', 'Jobs', 'lifecycle', [
     reasonField,
     programmeField,
-    rateField,
+    KnitField(
+      'rate',
+      'Rate per kg',
+      kind: 'money',
+      finance: true,
+      optional: true,
+    ),
   ]),
   KnitAction('close_job', 'Complete job', 'Jobs', 'lifecycle', []),
   KnitAction('reopen_job', 'Reopen job', 'Jobs', 'lifecycle', [reasonField]),
   KnitAction('receive_yarn', 'Receive yarn', 'Yarn', 'materials', [
-    KnitField('item', 'Yarn item', kind: 'Item'),
+    KnitField('item', 'Yarn item', kind: 'StockKgItem'),
     KnitField(
       'purchase_order',
       'Source yarn order (optional)',
@@ -408,7 +469,7 @@ const knitActions = <KnitAction>[
     KnitField(
       'charge_item',
       'Extra material charge item (optional)',
-      kind: 'Item',
+      kind: 'ServiceItem',
       optional: true,
       finance: true,
     ),
@@ -712,6 +773,8 @@ class _RecordPickerState extends State<_RecordPicker> {
   String query = '';
   int start = 0;
   final selected = <String, Map<String, dynamic>>{};
+  Timer? debounce;
+  bool pendingSearch = false;
   late Future<Map<String, dynamic>> future = _load();
   Future<Map<String, dynamic>> _load() => widget.api.knittingLookup(
     widget.company,
@@ -720,6 +783,52 @@ class _RecordPickerState extends State<_RecordPicker> {
     start: start,
     job: widget.job,
   );
+  Future<void> _createCustomer() async {
+    final revision = widget.api.accessRevision;
+    final row = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (c) => DocumentEditor(
+          api: widget.api,
+          doctype: 'Customer',
+          company: widget.company,
+          onCreated: (doc) => Navigator.pop(c, <String, dynamic>{
+            'name': doc.data['name'],
+            'title': doc.data['customer_name'],
+          }),
+        ),
+      ),
+    );
+    if (row != null &&
+        mounted &&
+        widget.api.accessReady &&
+        widget.api.accessRevision == revision) {
+      Navigator.pop(context, row);
+    }
+  }
+
+  void search(String value, {bool now = false}) {
+    debounce?.cancel();
+    void apply() => setState(() {
+      pendingSearch = false;
+      query = value.trim();
+      start = 0;
+      future = _load();
+    });
+    if (now) {
+      apply();
+    } else {
+      setState(() => pendingSearch = true);
+      debounce = Timer(const Duration(milliseconds: 350), apply);
+    }
+  }
+
+  @override
+  void dispose() {
+    debounce?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => Dialog(
     child: AccessGate(
@@ -760,17 +869,23 @@ class _RecordPickerState extends State<_RecordPicker> {
                   labelText: 'Search by reference or name',
                   prefixIcon: Icon(Icons.search),
                 ),
-                onSubmitted: (v) => setState(() {
-                  query = v;
-                  start = 0;
-                  future = _load();
-                }),
+                textInputAction: TextInputAction.search,
+                onChanged: search,
+                onSubmitted: (v) => search(v, now: true),
               ),
               const SizedBox(height: 12),
               Expanded(
                 child: FutureBuilder<Map<String, dynamic>>(
                   future: future,
                   builder: (c, s) {
+                    if (pendingSearch ||
+                        s.connectionState != ConnectionState.done) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          semanticsLabel: 'Searching records',
+                        ),
+                      );
+                    }
                     if (s.hasError) {
                       return MessagePanel(
                         title: 'COULD NOT LOAD',
@@ -792,8 +907,28 @@ class _RecordPickerState extends State<_RecordPicker> {
                       children: [
                         Expanded(
                           child: rows.isEmpty
-                              ? const Center(
-                                  child: Text('No matching records.'),
+                              ? Center(
+                                  child:
+                                      widget.entity == 'Customer' &&
+                                          s.data!['can_create'] == true
+                                      ? Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Text(
+                                              'No matching customers.',
+                                            ),
+                                            TextButton.icon(
+                                              onPressed: _createCustomer,
+                                              icon: const Icon(
+                                                Icons.person_add_alt_1_outlined,
+                                              ),
+                                              label: const Text(
+                                                'Create customer',
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : const Text('No matching records.'),
                                 )
                               : ListView.builder(
                                   itemCount: rows.length,
@@ -858,30 +993,35 @@ class _RecordPickerState extends State<_RecordPicker> {
                                   },
                                 ),
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            TextButton(
-                              onPressed: start == 0
-                                  ? null
-                                  : () => setState(() {
-                                      start -= 50;
-                                      future = _load();
-                                    }),
-                              child: const Text('Previous'),
-                            ),
-                            Text('${start + 1}–${start + rows.length}'),
-                            TextButton(
-                              onPressed: s.data!['has_more'] == true
-                                  ? () => setState(() {
-                                      start += 50;
-                                      future = _load();
-                                    })
-                                  : null,
-                              child: const Text('Next'),
-                            ),
-                          ],
-                        ),
+                        if (start > 0 || s.data!['has_more'] == true)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              TextButton(
+                                onPressed: start == 0
+                                    ? null
+                                    : () => setState(() {
+                                        start -= 50;
+                                        future = _load();
+                                      }),
+                                child: const Text('Previous'),
+                              ),
+                              Text(
+                                rows.isEmpty
+                                    ? '0 records'
+                                    : '${start + 1}–${start + rows.length}',
+                              ),
+                              TextButton(
+                                onPressed: s.data!['has_more'] == true
+                                    ? () => setState(() {
+                                        start += 50;
+                                        future = _load();
+                                      })
+                                    : null,
+                                child: const Text('Next'),
+                              ),
+                            ],
+                          ),
                       ],
                     );
                   },
@@ -931,6 +1071,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   final scroll = ScrollController();
   KnittingDraft? draft;
   bool review = false, changed = false, checkingTotals = false, leaving = false;
+  bool refreshingSources = false;
   Map<String, dynamic>? invoiceReview;
   String? validation;
   bool accessInvalidatedDraft = false;
@@ -992,7 +1133,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     for (final f in fields) {
       if (f.value != null) {
         values[f.key] = f.value;
-      } else if (f.kind == 'select') {
+      } else if (f.kind == 'select' && f.key != 'decision') {
         values[f.key] = f.options.first;
       }
     }
@@ -1002,18 +1143,38 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     if (widget.job != null) {
       values['job'] = widget.job!['name'];
       if (widget.action.id == 'revise_job') {
-        values['programme'] = List<Map<String, dynamic>>.from(
-          (widget.job!['programme'] as List).map(
-            (r) => Map<String, dynamic>.from(r),
-          ),
-        );
-        values['rate'] = widget.job!['rate'];
+        _loadProgramme(widget.job!);
       }
     }
     _maskFinancialFields();
   }
 
+  void _loadProgramme(Map<String, dynamic> source) {
+    values['programme'] = jsonDecode(jsonEncode(source['programme'] ?? []));
+  }
+
+  void _changeSourceJob(Map<String, dynamic>? next) {
+    final previous = values['job'];
+    if (previous == next?['name']) return;
+    freshJob = null;
+    if (previous != null) {
+      // A roll, allocation or yarn input selected for one job cannot be
+      // reviewed under the next. Keep the operator's independent text fields.
+      for (final f in fields.where(
+        (f) =>
+            f.key != 'job' &&
+            (_nestedKinds.contains(f.kind) || f.kind == 'line' || _isPicker(f)),
+      )) {
+        values.remove(f.key);
+        references.remove(f.key);
+      }
+      if (widget.action.id == 'revise_job') values.remove('rate');
+    }
+    if (widget.action.id == 'revise_job' && next != null) _loadProgramme(next);
+  }
+
   bool get busy =>
+      refreshingSources ||
       draft?.state == CommandState.posting ||
       draft?.state == CommandState.checking;
   void _finish() => Navigator.pop(context, draft?.result);
@@ -1055,7 +1216,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   Future<void> _review() async {
-    if (!workspace.allows(widget.action.capability) ||
+    if (!widget.action.availableIn(workspace) ||
         !widget.api.accessReady ||
         draft?.state == CommandState.uncertain) {
       return;
@@ -1071,6 +1232,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       return;
     }
     try {
+      final discrepancy = _quantityDiscrepancy();
+      if (discrepancy != null) {
+        setState(() => validation = discrepancy);
+        return;
+      }
       if (values['target_job'] != null) {
         values['target_modified'] = references['target_job']?['modified'];
       }
@@ -1123,18 +1289,59 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          validation = e.toString();
-          review = false;
+          review = e is ErpException && e.staleDocument && draft != null;
+          if (review) {
+            draft!.state = CommandState.stale;
+            draft!.error = e.toString();
+          } else {
+            validation = e.toString();
+          }
           checkingTotals = false;
         });
       }
     }
   }
 
+  String? _quantityDiscrepancy() {
+    Kg total(Iterable<dynamic> items) => items.fold(
+      Kg.parse('0'),
+      (sum, value) => sum + Kg.parse(value.toString()),
+    );
+    final id = widget.action.id;
+    if (id == 'create_job' || id == 'create_estimate') {
+      final target = Kg.parse(values['target_kg'].toString());
+      final programme = total(
+        (values['programme'] as List).map((row) => row['target_kg']),
+      );
+      if (target.compareTo(programme) != 0) {
+        return 'The fabric programme totals $programme kg. Match it to the $target kg target before review.';
+      }
+    }
+    if (const {'produce', 'produce_bulk', 'subcontract_receive'}.contains(id)) {
+      final entries = id == 'produce_bulk'
+          ? values['entries'] as List
+          : [values];
+      for (final (i, row) in entries.indexed) {
+        final yarn = total(
+          (row['inputs'] as List).map((input) => input['quantity_kg']),
+        );
+        final fabric = total(row['weights_kg'] as List);
+        final loss = Kg.parse((row['loss_kg'] ?? '0').toString());
+        if (yarn.compareTo(fabric + loss) != 0) {
+          final line = id == 'produce_bulk'
+              ? 'Line ${i + 1} uses'
+              : 'This entry uses';
+          return '$line $yarn kg of yarn. Match it to $fabric kg of fabric plus $loss kg of loss before review.';
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> _post() async {
     if (!widget.api.accessReady ||
         accessInvalidatedDraft ||
-        !workspace.allows(widget.action.capability)) {
+        !widget.action.availableIn(workspace)) {
       return;
     }
     final d = draft!;
@@ -1149,7 +1356,15 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     );
     setState(() {});
     await future;
-    if (mounted) setState(() {});
+    if (!mounted || !identical(d, draft)) return;
+    setState(() {
+      if (d.state == CommandState.rejected) {
+        validation = d.error;
+        review = false;
+        draft = null;
+        invoiceReview = null;
+      }
+    });
   }
 
   Future<void> _check() async {
@@ -1162,6 +1377,59 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     setState(() {});
     await future;
     if (mounted) setState(() {});
+  }
+
+  Future<void> _reloadStaleSources() async {
+    if (busy || !widget.api.accessReady) return;
+    setState(() => refreshingSources = true);
+    try {
+      final company = workspace.company!;
+      final name = values['job'] as String?;
+      final revision = widget.api.accessRevision;
+      Map<String, dynamic>? latest;
+      if (name != null) {
+        final snapshot = await widget.api.knittingSnapshot(company, job: name);
+        latest = snapshot
+            .rows('jobs')
+            .where((j) => j['name'] == name)
+            .firstOrNull;
+        if (latest == null) {
+          throw const ErpException('The source job is no longer available.');
+        }
+      }
+      if (!mounted ||
+          revision != widget.api.accessRevision ||
+          !widget.api.accessReady) {
+        return;
+      }
+      setState(() {
+        freshJob = latest;
+        for (final f in fields.where(
+          (f) =>
+              f.key != 'job' &&
+              (_isPicker(f) ||
+                  f.kind == 'line' ||
+                  const {'entries', 'inputs'}.contains(f.kind)),
+        )) {
+          values.remove(f.key);
+          references.remove(f.key);
+        }
+        if (widget.action.id == 'revise_job' && latest != null) {
+          _loadProgramme(latest);
+          values.remove('rate');
+        }
+        invoiceReview = null;
+        draft = null;
+        review = false;
+        validation =
+            'Current sources loaded. Check your programme and selections before reviewing again.';
+      });
+      _scrollToStart();
+    } catch (e) {
+      if (mounted) setState(() => draft?.error = e.toString());
+    } finally {
+      if (mounted) setState(() => refreshingSources = false);
+    }
   }
 
   @override
@@ -1177,7 +1445,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         invoiceReview = null;
         checkingTotals = false;
         accessInvalidatedDraft = true;
-        if (effective == null || !effective.allows(widget.action.capability)) {
+        if (effective == null || !widget.action.availableIn(effective)) {
           throw const ErpException(
             'Your access to this action changed. Your entry has not been posted.',
           );
@@ -1261,6 +1529,15 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     final state = draft!.state;
     if (state == CommandState.confirmed) {
       return FilledButton(onPressed: _finish, child: const Text('Done'));
+    }
+    if (state == CommandState.stale) {
+      return FilledButton.icon(
+        onPressed: refreshingSources ? null : _reloadStaleSources,
+        icon: const Icon(Icons.refresh),
+        label: Text(
+          refreshingSources ? 'Reloading…' : 'Reload current sources',
+        ),
+      );
     }
     if (state == CommandState.uncertain) {
       return FilledButton.icon(
@@ -1453,7 +1730,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                '${d.error}\nCheck status before changing or posting this entry again.',
+                d.state == CommandState.stale
+                    ? '${d.error}\nReload the current sources and review your entry again.'
+                    : '${d.error}\nCheck status before changing or posting this entry again.',
                 style: const TextStyle(color: Color(0xFFA23F38)),
               ),
             ),
@@ -1768,7 +2047,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     if (f.kind == 'select') {
       return DropdownButtonFormField<String>(
         isExpanded: true,
-        initialValue: target[f.key]?.toString() ?? f.options.first,
+        initialValue: target[f.key]?.toString(),
+        hint: f.key == 'decision' ? const Text('Choose a decision') : null,
+        validator: (value) => f.key == 'decision' && value == null
+            ? 'Choose an inspection decision.'
+            : null,
         decoration: InputDecoration(labelText: f.label),
         items: f.options
             .map((s) => DropdownMenuItem(value: s, child: Text(s)))
@@ -1843,6 +2126,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 );
                 if (row != null && mounted) {
                   setState(() {
+                    if (f.key == 'job') _changeSourceJob(row);
                     target[f.key] = f.kind == 'Jobs'
                         ? (row['records'] as List)
                               .map(
@@ -1864,7 +2148,6 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                           : '$title · $name';
                     }
                     if (identical(target, values)) references[f.key] = row;
-                    if (f.key == 'job') freshJob = null;
                     if (f.key == 'plan') {
                       for (final k in [
                         'programme_line',
@@ -1918,12 +2201,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 child: TextButton(
                   onPressed: () {
                     setState(() {
+                      if (f.key == 'job') _changeSourceJob(null);
                       target.remove(f.key);
                       if (identical(target, values)) references.remove(f.key);
-                      if (f.key == 'job') {
-                        freshJob = null;
-                        values.remove('programme_line');
-                      }
                       changed = true;
                     });
                     state.didChange(null);
@@ -1936,11 +2216,20 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       );
     }
     return TextFormField(
-      key: ValueKey(
-        '${f.key}-${references['master']?['name']}-${references['plan']?['name']}',
-      ),
+      key: ValueKey((
+        f.key,
+        references['master']?['name'],
+        references['plan']?['name'],
+        _isRevisionRate(f) ? values['job'] : null,
+      )),
       initialValue: target[f.key]?.toString(),
-      decoration: InputDecoration(labelText: f.label),
+      decoration: InputDecoration(
+        labelText: f.label,
+        helperText: _isRevisionRate(f)
+            ? 'Leave blank to keep line rates. Enter a rate to apply it to every programme line.'
+            : null,
+        helperMaxLines: 3,
+      ),
       maxLines: const {'notes', 'remarks', 'reason'}.contains(f.key) ? 2 : 1,
       keyboardType: ['kg', 'money', 'integer'].contains(f.kind)
           ? const TextInputType.numberWithOptions(decimal: true)
@@ -1977,6 +2266,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       },
     );
   }
+
+  bool _isRevisionRate(KnitField field) =>
+      field.key == 'rate' && widget.action.id == 'revise_job';
 
   Widget _rowsField(KnitField f, Map<String, dynamic> target) {
     final rows = (target[f.key] ??= <Map<String, dynamic>>[]) as List;

@@ -16,6 +16,198 @@ void main() {
     await server.close(force: true);
   });
 
+  test(
+    'service origin uses the build setting or local development default',
+    () {
+      const configured = String.fromEnvironment('ERP_SERVER');
+      final expected = configured.isNotEmpty
+          ? configured
+          : Platform.isAndroid
+          ? 'http://10.0.2.2:8081'
+          : 'http://localhost:8081';
+      expect(ErpApi.serviceOrigin, Uri.parse(expected));
+      expect(
+        () => ErpApi.validateServer(Uri.parse('http://workspace.example.com')),
+        throwsA(isA<ErpException>()),
+      );
+      expect(
+        () => ErpApi.validateServer(
+          Uri.parse('https://user@workspace.example.com/path'),
+        ),
+        throwsA(isA<ErpException>()),
+      );
+    },
+  );
+
+  test(
+    'unpaid invoice drilldown applies the posted balance and company filters on every page',
+    () async {
+      final requests = <Map<String, String>>[];
+      server.listen((r) async {
+        requests.add(r.uri.queryParameters);
+        r.response.headers.contentType = ContentType.json;
+        r.response.write('{"message":[]}');
+        await r.response.close();
+      });
+      await api.records(
+        ErpModule.accounts,
+        company: 'Pilot mill',
+        unpaidOnly: true,
+        start: 50,
+        query: 'Clerk',
+      );
+      await api.records(ErpModule.accounts, company: 'Pilot mill');
+      final filtered = jsonDecode(requests.first['filters']!);
+      expect(filtered, contains(equals(['company', '=', 'Pilot mill'])));
+      expect(filtered, contains(equals(['docstatus', '=', 1])));
+      expect(filtered, contains(equals(['outstanding_amount', '>', 0])));
+      expect(requests.first['limit_start'], '50');
+      expect(requests.last['filters'], isNot(contains('outstanding_amount')));
+    },
+  );
+
+  test('rejected credentials tell a signed-out user how to retry', () async {
+    server.listen((r) async {
+      r.response.statusCode = 401;
+      r.response.headers.contentType = ContentType.json;
+      r.response.write('{"exc_type":"AuthenticationError"}');
+      await r.response.close();
+    });
+    await expectLater(
+      api.login('staff', 'synthetic'),
+      throwsA(
+        isA<ErpException>()
+            .having((e) => e.sessionExpired, 'expired', false)
+            .having(
+              (e) => e.message,
+              'message',
+              contains('username and password'),
+            ),
+      ),
+    );
+  });
+
+  for (final entry in {
+    'Password Reset': 'reset link',
+    'No App': 'website account',
+  }.entries) {
+    test('sign-in gives the ERPNext next step for ${entry.key}', () async {
+      server.listen((r) async {
+        r.response.headers.contentType = ContentType.json;
+        r.response.write(jsonEncode({'message': entry.key}));
+        await r.response.close();
+      });
+      await expectLater(
+        api.login('staff', 'synthetic'),
+        throwsA(
+          isA<ErpException>().having(
+            (e) => e.message,
+            'instructions',
+            contains(entry.value),
+          ),
+        ),
+      );
+    });
+  }
+
+  test(
+    'verification uses the same temporary ID, preserves a leading zero, and only accepts a real session',
+    () async {
+      final requests = <Map<String, String>>[];
+      server.listen((r) async {
+        final values = Uri.splitQueryString(await utf8.decoder.bind(r).join());
+        requests.add(values);
+        r.response.headers.contentType = ContentType.json;
+        if (values['usr'] != null) {
+          r.response.write(
+            jsonEncode({
+              'verification': {
+                'method': 'Email',
+                'setup': true,
+                'prompt': 'Check your registered email.',
+              },
+              'tmp_id': 'test-challenge',
+            }),
+          );
+        } else if (values['otp'] != '012345') {
+          r.response.statusCode = 401;
+          r.response.write('{"exc_type":"AuthenticationError"}');
+        } else {
+          r.response.cookies.add(Cookie('sid', 'verified-session'));
+          r.response.write('{"message":"Logged In","full_name":"Test Staff"}');
+        }
+        await r.response.close();
+      });
+      late LoginVerification challenge;
+      try {
+        await api.login('staff', 'synthetic');
+        fail('A verification challenge is required');
+      } on LoginVerification catch (e) {
+        challenge = e;
+      }
+      expect(challenge.prompt, contains('registered email'));
+      await expectLater(
+        api.verifyLogin('staff', challenge, '000000'),
+        throwsA(
+          isA<ErpException>().having(
+            (e) => e.message,
+            'recovery',
+            contains('code'),
+          ),
+        ),
+      );
+      await api.verifyLogin('staff', challenge, '012345');
+      expect(api.userName, 'Test Staff');
+      expect(api.account, 'staff');
+      expect(requests, [
+        {'usr': 'staff', 'pwd': 'synthetic'},
+        {'otp': '000000', 'tmp_id': 'test-challenge'},
+        {'otp': '012345', 'tmp_id': 'test-challenge'},
+      ]);
+    },
+  );
+
+  test(
+    'an authenticated portal user can redeem an invitation before a fresh system login',
+    () async {
+      final visited = <String>[];
+      server.listen((request) async {
+        final action = request.uri.path.split('/').last;
+        visited.add(action);
+        request.response.headers.contentType = ContentType.json;
+        if (action == 'login') {
+          request.response.cookies.add(Cookie('sid', 'portal-session'));
+          request.response.write('{"message":"No App"}');
+        } else if (action.endsWith('accept_invite')) {
+          expect(request.cookies.single.value, 'portal-session');
+          expect(
+            Uri.splitQueryString(await utf8.decoder.bind(request).join()),
+            {'token': 'test-code'},
+          );
+          request.response.write(
+            '{"message":{"email":"person@example.invalid","company":"Example"}}',
+          );
+        } else {
+          request.response.write('{}');
+        }
+        await request.response.close();
+      });
+      await api.redeemExistingInvitation(
+        'test-code',
+        () => api.login('person@example.invalid', 'test-password'),
+      );
+      expect(visited, [
+        'login',
+        'erp_extensions.onboarding.accept_invite',
+        'logout',
+      ]);
+      await expectLater(
+        api.login('person@example.invalid', 'test-password'),
+        throwsA(isA<ErpException>()),
+      );
+    },
+  );
+
   test('authenticated reads send the login session and scoped query', () async {
     final seen = <HttpRequest>[];
     String? sentSession;

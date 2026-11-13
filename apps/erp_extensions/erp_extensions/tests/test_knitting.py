@@ -2,6 +2,7 @@
 import importlib
 import os
 import unittest
+from unittest.mock import patch
 
 import frappe
 
@@ -80,14 +81,24 @@ class KnittingTests(unittest.TestCase):
         self.assertIn(COMPANY, [c["name"] for c in result["companies"]])
         self.assertEqual(result["capabilities"], [])
         self.assertFalse(result["knitting_enabled"])
+        self.assertIn("Sales Invoice", result["creatable_records"])
         from erp_extensions import api
         self.assertTrue(any(t["name"] == "Sales Invoice" for t in api.catalog()["types"]))
+
+    def test_stock_kg_and_service_pickers_return_only_eligible_items(self):
+        self.enable()
+        for selector, wanted, unwanted in (("StockKgItem", "fabric", "service"), ("ServiceItem", "service", "fabric")):
+            rows = self.knitting().lookup(COMPANY, selector, "KNIT-SETUP-")["rows"]
+            names = {row.name for row in rows}
+            self.assertIn(self.setup_items[wanted], names)
+            self.assertNotIn(self.setup_items[unwanted], names)
 
     def test_operator_and_accountant_receive_different_capabilities(self):
         workspace = self.workspace()
         self.enable()
         frappe.set_user("knit-operator@example.invalid")
         operator = workspace.context(COMPANY)
+        self.assertNotIn("Sales Invoice", operator["creatable_records"])
         self.assertIn("production", operator["capabilities"])
         self.assertNotIn("billing", operator["capabilities"])
         self.assertNotIn("financial_read", operator["capabilities"])
@@ -458,6 +469,15 @@ class KnittingTests(unittest.TestCase):
         values = {'job':self.job,'item':self.items['yarn'],'quantity_kg':'1.000','material_owner':'Customer','party':self.customer,'warehouse':self.warehouse}
         modified = str(frappe.db.get_value('Knitting Job',self.job,'modified'))
         self.call('receive_yarn',values,'scope-actor-replay',modified)
+        # Repeated references across events, ledger rows and their parent job must
+        # resolve once in this read. The next read must see a new restriction.
+        with patch.object(frappe, 'get_list', wraps=frappe.get_list) as lists:
+            before = self.knitting().snapshot(COMPANY, self.job)
+        self.assertEqual(before['jobs'][0].name, self.job)
+        warehouse_reads = [call for call in lists.call_args_list
+                           if call.args == ('Warehouse',) and
+                           call.kwargs.get('filters') == {'name': self.warehouse}]
+        self.assertEqual(len(warehouse_reads), 1)
         frappe.set_user('Administrator')
         frappe.get_doc({"doctype": "User Permission", "user": user, "allow": "Warehouse", "for_value": allowed, "apply_to_all_doctypes": 1}).insert()
         frappe.set_user(user)
@@ -544,6 +564,26 @@ class KnittingTests(unittest.TestCase):
         report = self.knitting().report(COMPANY, "breakage", {"job": self.job, "group_by": "gauge"})
         self.assertEqual(report['rows'][0]['gauge'], '24')
         self.assertEqual(report['rows'][0]['quantity'], '3')
+
+    def test_checker_event_list_retains_visible_work_when_other_job_links_to_unreadable_purchase_order(self):
+        self.fixtures()
+        hidden = self.call("create_subcontract", {
+            "job": self.job, "supplier": self.supplier(), "target_kg": "88.000", "rate": "10.00",
+        })
+        purchase_order = hidden["data"]["purchase_order"]
+        self.fixtures()
+        lot = self.receive()
+        self.produce(lot)
+        frappe.set_user("knit-checker@example.invalid")
+        self.assertFalse(frappe.has_permission("Purchase Order", "read"))
+        visible_events = set(frappe.get_list("Knitting Event", filters={"company": COMPANY},
+                                             pluck="name", limit=0))
+        self.assertNotIn(hidden["event"], visible_events)
+        self.assertFalse(frappe.has_permission("Knitting Event", "read", doc=hidden["event"]))
+        snapshot = self.knitting().snapshot(COMPANY, self.job)
+        self.assertEqual(snapshot["jobs"][0]["workflow"]["inspection"]["count"], 2)
+        self.assertIn("produce", {row.kind for row in snapshot["events"]})
+        self.assertNotIn(purchase_order, frappe.as_json(snapshot))
 
     def test_selected_job_workflow_tracks_partial_invoices_returns_and_permissions(self):
         self.fixtures()

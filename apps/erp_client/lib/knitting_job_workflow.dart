@@ -208,10 +208,10 @@ List<_JobStep> _jobSteps(
   // earlier task, e.g. dispatching a released roll while another awaits QC.
   return [
     ...candidates.where(
-      (s) => s.action != null && workspace.allows(s.action!.capability),
+      (s) => s.action != null && s.action!.availableIn(workspace),
     ),
     ...candidates.where(
-      (s) => s.action == null || !workspace.allows(s.action!.capability),
+      (s) => s.action == null || !s.action!.availableIn(workspace),
     ),
   ];
 }
@@ -228,7 +228,7 @@ class _JobWorkflow extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = steps.first;
     final action = step.action;
-    final allowed = action != null && workspace.allows(action.capability);
+    final allowed = action != null && action.availableIn(workspace);
     final closed = job['status'] == 'Completed';
     return Panel(
       border: true,

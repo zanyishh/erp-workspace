@@ -14,6 +14,7 @@ class OverviewScreen extends StatelessWidget {
     required this.onModule,
     required this.onNew,
     this.range,
+    this.onUnpaid,
     this.onRecord,
   });
 
@@ -22,6 +23,7 @@ class OverviewScreen extends StatelessWidget {
   final ValueChanged<ErpModule> onModule;
   final ValueChanged<ErpRecord>? onRecord;
   final VoidCallback onNew;
+  final VoidCallback? onUnpaid;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -257,7 +259,7 @@ class OverviewScreen extends StatelessWidget {
           (
             'Work orders',
             ErpModule.manufacturing,
-            ArtObject.machine,
+            ArtObject.assembly,
             data.count(ErpModule.manufacturing),
           ),
           (
@@ -278,7 +280,11 @@ class OverviewScreen extends StatelessWidget {
     final value = count == null
         ? 'No access'
         : NumberFormat.decimalPattern().format(count);
-    final open = count == null ? null : () => onModule(module);
+    final open = count == null
+        ? null
+        : module == ErpModule.accounts && onUnpaid != null
+        ? onUnpaid
+        : () => onModule(module);
     return Semantics(
       button: open != null,
       onTap: open,
@@ -353,7 +359,7 @@ class OverviewScreen extends StatelessWidget {
   Widget _invoiceRow(ErpRecord record) {
     final amount = record.data[record.module.amountField] == null
         ? '—'
-        : invoiceMoney(record.amount, record.currency ?? data.currency);
+        : money(record.amount, record.currency ?? data.currency);
     final open = onRecord == null ? null : () => onRecord!(record);
     return Semantics(
       button: open != null,

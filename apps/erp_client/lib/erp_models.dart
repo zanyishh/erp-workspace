@@ -127,6 +127,7 @@ enum ErpModule {
     statusField,
     ?dateField,
     ?amountField,
+    if (this == manufacturing) 'stock_uom',
     if ([accounts, selling, buying].contains(this)) 'currency',
   }.toList();
   List<List<dynamic>> filters(String company, DateRange range) => [
@@ -164,8 +165,9 @@ class ErpRecord {
   String get status => module == ErpModule.stock
       ? (data['disabled'] == 1 ? 'Disabled' : 'Active')
       : (data[module.statusField]?.toString() ?? '');
-  double? get amount =>
-      module.amountField == null ? null : number(data[module.amountField!]);
+  double? get amount => data[module.amountField] == null
+      ? null
+      : number(data[module.amountField]);
   String? get currency => data['currency']?.toString();
   bool matches(String query) =>
       '$name $title $status'.toLowerCase().contains(query.trim().toLowerCase());

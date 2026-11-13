@@ -1,4 +1,4 @@
-import 'ui/workspace_art.dart';
+import 'ui/record_icon.dart';
 import 'package:flutter/material.dart';
 import 'design.dart';
 import 'erp_models.dart';
@@ -8,26 +8,30 @@ Future<void> showWorkspacePicker(
   BuildContext context,
   ValueChanged<ErpModule?> onSelect, {
   VoidCallback? onAll,
+  Iterable<ErpModule> available = ErpModule.values,
 }) {
   String query = '';
   return showDialog<void>(
     context: context,
     builder: (dialog) => StatefulBuilder(
-      builder: (c, setLocal) => Dialog(
-        backgroundColor: WorkspaceTheme.canvas,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 530),
-          child: Padding(
-            padding: const EdgeInsets.all(23),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      builder: (c, setLocal) {
+        final modules = available.where(
+          (m) => '${m.label} ${m.doctype} ${m.description}'
+              .toLowerCase()
+              .contains(query),
+        );
+        final showOverview = 'business overview'.contains(query);
+        return Dialog(
+          backgroundColor: WorkspaceTheme.canvas,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 530),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(20),
               children: [
                 Row(
                   children: [
-                    const Expanded(
-                      child: Display('FIND YOUR WORKSPACE', size: 29),
-                    ),
+                    const Expanded(child: Display('Workspaces', size: 29)),
                     IconButton(
                       tooltip: 'Close workspaces',
                       onPressed: () => Navigator.pop(c),
@@ -39,10 +43,11 @@ Future<void> showWorkspacePicker(
                 TextField(
                   autofocus: true,
                   decoration: const InputDecoration(
-                    hintText: 'Search modules…',
+                    labelText: 'Search workspaces',
                     prefixIcon: Icon(Icons.search, size: 18),
                   ),
-                  onChanged: (s) => setLocal(() => query = s.toLowerCase()),
+                  onChanged: (s) =>
+                      setLocal(() => query = s.trim().toLowerCase()),
                 ),
                 if (onAll != null)
                   Align(
@@ -57,50 +62,45 @@ Future<void> showWorkspacePicker(
                     ),
                   ),
                 const SizedBox(height: 15),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        if ('business overview'.contains(query))
-                          ListTile(
-                            leading: const Icon(Icons.space_dashboard_outlined),
-                            title: const Text('Business overview'),
-                            onTap: () {
-                              Navigator.pop(c);
-                              onSelect(null);
-                            },
-                          ),
-                        for (final m in ErpModule.values.where(
-                          (m) => '${m.label} ${m.description}'
-                              .toLowerCase()
-                              .contains(query),
-                        ))
-                          ListTile(
-                            leading: WorkspaceArt(
-                              moduleArt(m),
-                              width: 54,
-                              height: 35,
-                            ),
-                            title: Text(m.label),
-                            subtitle: Text(
-                              m.description,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                            trailing: const Icon(Icons.arrow_outward, size: 16),
-                            onTap: () {
-                              Navigator.pop(c);
-                              onSelect(m);
-                            },
-                          ),
-                      ],
+                if (!showOverview && modules.isEmpty)
+                  const ListTile(
+                    leading: Icon(Icons.search_off_outlined),
+                    title: Text('No matching workspaces'),
+                    subtitle: Text(
+                      'Try a workspace or record name, such as Stock or Item.',
                     ),
                   ),
-                ),
+                if (showOverview)
+                  ListTile(
+                    leading: const Icon(Icons.space_dashboard_outlined),
+                    title: const Text('Business overview'),
+                    onTap: () {
+                      Navigator.pop(c);
+                      onSelect(null);
+                    },
+                  ),
+                for (final m in modules)
+                  ListTile(
+                    leading: RecordIcon(
+                      moduleIcon(m),
+                      tone: moduleMark(m.label).$2,
+                    ),
+                    title: Text(m.label),
+                    subtitle: Text(
+                      m.description,
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    trailing: const Icon(Icons.chevron_right, size: 16),
+                    onTap: () {
+                      Navigator.pop(c);
+                      onSelect(m);
+                    },
+                  ),
               ],
             ),
           ),
-        ),
-      ),
+        );
+      },
     ),
   );
 }

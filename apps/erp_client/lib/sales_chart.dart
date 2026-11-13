@@ -13,16 +13,6 @@ import 'widgets.dart';
 const _muted = WorkspaceTheme.muted;
 const _accent = Color(0xFFA35631);
 
-String invoiceMoney(num? value, String currency) {
-  if (value == null) return '—';
-  final format = NumberFormat.simpleCurrency(
-    name: currency,
-    locale: currency == 'INR' ? 'en_IN' : 'en_US',
-    decimalDigits: value % 1 == 0 ? 0 : null,
-  );
-  return format.format(value);
-}
-
 class SalesChart extends StatefulWidget {
   const SalesChart({super.key, required this.data, this.range});
   final ErpSnapshot data;
@@ -107,7 +97,7 @@ class _SalesChartState extends State<SalesChart> {
       (monthly ? DateFormat.yMMM() : DateFormat.yMMMd()).format(date);
 
   String _reading(int index) =>
-      '${_label(buckets[index].day)}, ${invoiceMoney(buckets[index].amount, widget.data.currency)}';
+      '${_label(buckets[index].day)}, ${money(buckets[index].amount, widget.data.currency)}';
 
   void _select(int index) {
     if (index >= 0 && index < buckets.length && index != selected) {
@@ -138,7 +128,7 @@ class _SalesChartState extends State<SalesChart> {
                   children: [
                     const Display('BILLED SALES', size: 23),
                     Text(
-                      invoiceMoney(data.billed, data.currency),
+                      money(data.billed, data.currency),
                       style: TextStyle(
                         fontSize: compact ? 26 : 31,
                         fontWeight: FontWeight.w600,
@@ -209,7 +199,7 @@ class _SalesChartState extends State<SalesChart> {
     final day = buckets[selected];
     final unit = monthly ? 'month' : 'day';
     final text =
-        '${_label(day.day)} · ${invoiceMoney(day.amount, widget.data.currency)}';
+        '${_label(day.day)} · ${money(day.amount, widget.data.currency)}';
     Widget step(int offset, IconData icon, String label) {
       final next = selected + offset;
       return IconButton(

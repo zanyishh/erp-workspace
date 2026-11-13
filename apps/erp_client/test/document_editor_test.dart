@@ -1,3 +1,4 @@
+import 'package:erp_client/ui/workspace_art.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,120 @@ NativeDocument draft() => NativeDocument.fromJson({
 });
 
 void main() {
+  testWidgets('a new prompt-named document requests and saves its name once', (
+    tester,
+  ) async {
+    final meta = NativeSchema.fromJson({
+      'doctype': 'Warehouse Type',
+      'fields': [],
+      'autoname': 'Prompt',
+    });
+    final saved = NativeDocument.fromJson({
+      'doc': {'doctype': 'Warehouse Type', 'name': 'Dispatch'},
+      'permissions': {'write': 1},
+    });
+    Map<String, dynamic>? payload;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NativeDocumentForm(
+          schema: meta,
+          initial: NativeDocument.fromJson({
+            'doc': {'doctype': 'Warehouse Type', '__islocal': 1},
+            'permissions': {'create': 1},
+          }),
+          onSave: (values, _) async {
+            payload = meta.payload(values);
+            return saved;
+          },
+        ),
+      ),
+    );
+    expect(
+      tester.widget<WorkspaceArt>(find.byType(WorkspaceArt)).object,
+      ArtObject.warehouse,
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(payload, isNull);
+    expect(find.text('Document name is required.'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Document name *'),
+      'Dispatch',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(payload?['__newname'], 'Dispatch');
+    expect(find.text('Dispatch'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNothing);
+    expect(meta.payload(saved.data).containsKey('__newname'), isFalse);
+  });
+
+  testWidgets('saving identifies the child row that needs correction', (
+    tester,
+  ) async {
+    final meta = NativeSchema.fromJson({
+      'doctype': 'Example',
+      'fields': [
+        {
+          'fieldname': 'rows',
+          'fieldtype': 'Table',
+          'options': 'Line',
+          'label': 'Lines',
+        },
+      ],
+      'children': {
+        'Line': {
+          'doctype': 'Line',
+          'fields': [
+            {
+              'fieldname': 'qty',
+              'fieldtype': 'Float',
+              'label': 'Quantity',
+              'reqd': 1,
+            },
+          ],
+        },
+      },
+    });
+    var saved = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NativeDocumentForm(
+          schema: meta,
+          initial: NativeDocument.fromJson({
+            'doc': {
+              'doctype': 'Example',
+              '__islocal': 1,
+              'rows': [
+                {'doctype': 'Line'},
+              ],
+            },
+            'permissions': {'create': 1},
+          }),
+          onSave: (values, _) async {
+            saved = true;
+            return draft();
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Row 1: Quantity is required.'), findsOneWidget);
+    await tester.tap(find.text('Row 1: Quantity is required.'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Quantity *'),
+      '2',
+    );
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('Row 1: Quantity is required.'), findsNothing);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved, isTrue);
+  });
+
   testWidgets(
     'back immediately after typing protects the draft before the next frame',
     (tester) async {

@@ -12,7 +12,7 @@ def readiness(values):
 
 def obligations(company):
     from decimal import Decimal
-    from erp_extensions.knitting import domain as d
+    from erp_extensions.knitting import domain as d, procurement
     if d.current_rows("Knitting Job", filters={"company": company, "status": "Running"}, fields=["name"]):
         return True
     totals = {}
@@ -26,6 +26,12 @@ def obligations(company):
         return True
     if d.current_rows("Knitting Subcontract", filters={"company": company, "status": "Open"}, fields=["name"]):
         return True
+    manual_receipts = d.current_rows("Knitting Event", filters={"company": company, "kind": "receive_yarn",
+                                     "voucher_type": "Stock Entry", "cancelled": 0}, fields=["name", "result"])
+    if manual_receipts:
+        billed = procurement.billed_receipt_quantities(company)
+        if any(billed.get(r.name, d.ZERO) < Decimal(d.json_value(r.result)["quantity_kg"]) for r in manual_receipts):
+            return True
     for event in d.current_rows("Knitting Event", filters={"company": company, "kind": "create_yarn_order", "cancelled": 0}, fields=["result"]):
         name = d.json_value(event.result, {}).get("purchase_order")
         if name:
@@ -39,6 +45,7 @@ def obligations(company):
 def context(company=None):
     import hashlib
     import json
+    from erp_extensions.onboarding import can_manage_team
     available = permissions.companies()
     if frappe.session.user == "Guest":
         frappe.throw("Sign in first.", frappe.PermissionError)
@@ -53,12 +60,27 @@ def context(company=None):
     caps = permissions.capabilities() if setup and setup.state in ("Active", "Closing") else set()
     scope = frappe.get_all("User Permission", filters={"user": frappe.session.user},
                            fields=["allow", "for_value", "applicable_for", "apply_to_all_doctypes", "hide_descendants", "modified"], order_by="name")
-    fingerprint = hashlib.sha256(json.dumps([sorted(frappe.get_roles()), scope], sort_keys=True, default=str).encode()).hexdigest()
+    core_records = ("Sales Invoice", "Sales Order", "Purchase Order", "Item", "Work Order", "Project", "Asset", "Quality Inspection")
+    readable = [name for name in core_records if selected and frappe.has_permission(name, "read")]
+    creatable = [name for name in core_records if frappe.has_permission(name, "create")]
+    unavailable = []
+    if "factory" in caps and not frappe.has_permission("Workstation", "create"):
+        unavailable.append("create_machine")
+    if "billing" in caps:
+        for doctype, actions in (
+            ("Purchase Order", ("create_subcontract", "create_yarn_order")),
+            ("Purchase Invoice", ("bill_yarn", "subcontract_bill")),
+            ("Sales Invoice", ("invoice", "credit_invoice")),
+        ):
+            if not (frappe.has_permission(doctype, "create") and frappe.has_permission(doctype, "submit")):
+                unavailable.extend(actions)
+    fingerprint = hashlib.sha256(json.dumps([sorted(frappe.get_roles()), scope, readable, creatable, unavailable], sort_keys=True, default=str).encode()).hexdigest()
     return {"version": 1, "companies": available, "company": selected, "access_fingerprint": fingerprint,
+            "can_manage_team": can_manage_team(selected),
             "setup_state": setup.state if setup else "General ERP", "revision": setup.revision if setup else 0,
             "needs_industry_selection": bool(selected and (not setup or setup.state == "Setup") and "configure" in permissions.capabilities()),
-            "knitting_enabled": bool(caps), "capabilities": sorted(caps),
-            "can_configure": "configure" in permissions.capabilities(),
+            "knitting_enabled": bool(caps), "capabilities": sorted(caps), "creatable_records": creatable, "readable_records": readable,
+            "unavailable_knitting_actions": unavailable, "can_configure": "configure" in permissions.capabilities(),
             "readiness": readiness(frappe.parse_json(setup.settings or "{}") if setup else {})}
 
 

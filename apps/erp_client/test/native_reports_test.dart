@@ -3,6 +3,29 @@ import 'package:erp_client/native_reports.dart';
 
 void main() {
   test(
+    'hidden report columns retain positional alignment without appearing in the table or CSV',
+    () {
+      final report = NativeReportResult.fromJson({
+        'columns': [
+          {'fieldname': 'doctype', 'label': 'Source type', 'hidden': 1},
+          {
+            'fieldname': 'voucher',
+            'label': 'Voucher',
+            'fieldtype': 'Dynamic Link',
+            'options': 'doctype',
+          },
+        ],
+        'result': [
+          ['Sales Order', 'SO-1'],
+        ],
+      });
+      expect(report.columns.map((col) => col.label), ['Voucher']);
+      expect(report.rows.single['doctype'], 'Sales Order');
+      expect(report.csv(), '"Voucher"\r\n"SO-1"\r\n');
+    },
+  );
+
+  test(
     'reports preserve numeric values and support map and positional rows',
     () {
       final report = NativeReportResult.fromJson({

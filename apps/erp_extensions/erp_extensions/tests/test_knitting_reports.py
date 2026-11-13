@@ -11,6 +11,49 @@ from erp_extensions.tests import test_knitting as fixtures
 
 
 class ReportTests(fixtures.KnittingTests):
+    def test_roll_and_fabric_filters_reconcile_split_weights_before_grouping_and_paging(self):
+        self.fixtures()
+        lot = self.receive()
+        machine = self.machine()
+        rolls = self.call("produce", {"job": self.job, "programme_line": "P1", "shift": "A", "machine": machine,
+            "inputs": [{"lot": lot, "quantity_kg": "60.000"}], "weights_kg": ["60.000"]})["data"]["rolls"]
+        self.call("split_roll", {"job": self.job, "roll": rolls[0], "weights_kg": ["20.000", "40.000"], "reason": "Split for inspection"})
+        self.call("produce", {"job": self.job, "programme_line": "P1", "shift": "B",
+            "inputs": [{"lot": lot, "quantity_kg": "28.000"}], "weights_kg": ["28.000"]})
+        for name, trace_count in (("rolls", 3), ("fabric", 2)):
+            def report(**extra):
+                return self.knitting().report(fixtures.COMPANY, name, {"job": self.job, **extra})
+            with self.subTest(report=name):
+                subset = report(machine=machine)
+                self.assertEqual((subset["row_count"], subset["summary"]["quantity_kg"]), (trace_count, "60.000"))
+                grouped = report(shift="A", gauge="24", group_by="gauge")
+                self.assertEqual((grouped["rows"][0]["records"], grouped["summary"]["quantity_kg"]), (trace_count, "60.000"))
+                self.assertEqual(grouped["rows"][0]["weight_kg"], "60.000")
+                page = report(shift="A", start=100)
+                self.assertEqual((page["rows"], page["summary"]["quantity_kg"]), ([], "60.000"))
+                empty = report(gauge="22")
+                self.assertEqual((empty["row_count"], empty["summary"]["quantity_kg"]), (0, "0.000"))
+
+    def test_breakage_employee_and_gauge_filters_limit_counts_and_totals(self):
+        self.fixtures()
+        gender = frappe.get_doc({"doctype": "Gender", "gender": "Report fixture gender"}).insert()
+        employee = frappe.get_doc({"doctype": "Employee", "first_name": "Report employee", "company": fixtures.COMPANY,
+            "gender": gender.name, "date_of_birth": "1990-01-01", "date_of_joining": "2020-01-01", "status": "Active"}).insert()
+        for machine, who, quantity in (
+            (self.machine(), employee.name, 3),
+            (self.call("create_machine", {"title": "Fixture 18 gauge", "dia": "30", "gauge": "18", "knit_type": "Tubular",
+                "capacity_kg": "100.000"})["data"]["machine"], None, 5),
+        ):
+            part = self.call("create_component", {"machine": machine, "component_type": "Needle", "boundary_kg": "100.000"})["data"]["component"]
+            self.call("component_breakage", {"job": self.job, "programme_line": "P1", "component": part,
+                "employee": who, "quantity": quantity, "reason": "Synthetic breakage"})
+        for selected, expected in (({"employee": employee.name}, "3"), ({"gauge": "18"}, "5"), ({"employee": employee.name, "gauge": "18"}, "0")):
+            with self.subTest(selected=selected):
+                result = self.knitting().report(fixtures.COMPANY, "breakage", {"job": self.job, "group_by": "machine", **selected})
+                self.assertEqual((result["row_count"], result["summary"]["quantity"]), (int(expected != "0"), expected))
+                if result["rows"]:
+                    self.assertEqual((result["rows"][0]["records"], result["rows"][0]["quantity"]), (1, expected))
+
     def test_next_day_reversals_reconcile_original_period_current_period_and_register(self):
         self.fixtures(mode="Owned")
         lot = self.receive("90.000", owner="Owned")
@@ -18,6 +61,15 @@ class ReportTests(fixtures.KnittingTests):
         self.release(rolls)
         delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
         invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
+        for name in ("billing", "margin"):
+            def financial(**filters):
+                result = self.knitting().report(fixtures.COMPANY, name, {"job": self.job, **filters})
+                summary = result["summary"]
+                return result["row_count"], summary["net_amount"], summary["posted_cost"], summary["margin_before_overhead"]
+            with self.subTest(report=name, basis="filtered financial events"):
+                self.assertEqual(financial(operator="Another operator"), (0, "0.00", "0.00", "0.00"))
+                self.assertEqual(financial(kind="invoice"), (1, "8800.00", "0.00", "8800.00"))
+                self.assertEqual(financial(kind="deliver"), (0, "0.00", "900.00", "-900.00"))
         production = frappe.db.get_value("Knitting Roll", rolls[0], "production")
         inspections = frappe.get_all("Knitting QC", filters={"job": self.job}, pluck="event")
         today = getdate()

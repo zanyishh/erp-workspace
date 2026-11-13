@@ -1,5 +1,6 @@
 """Pack permissions apply to native commands and generic Frappe routes alike."""
 from contextlib import contextmanager
+from contextvars import ContextVar
 
 import frappe
 
@@ -15,7 +16,7 @@ FINANCIAL_EVENTS = ("invoice", "credit_invoice", "bill_yarn", "create_yarn_order
 
 def companies(user=None):
     user = user or frappe.session.user
-    if user == "Guest":
+    if user == "Guest" or not frappe.has_permission("Company", "read", user=user):
         return []
     return frappe.get_list("Company", fields=["name", "abbr", "default_currency"],
                            order_by="name", limit=1000, user=user)
@@ -114,10 +115,39 @@ def has_permission(doc, ptype, user=None, **kwargs):
     return True
 
 
+_snapshot_links = ContextVar("knitting_snapshot_links", default=None)
+
+
+@contextmanager
+def snapshot_link_checks():
+    """Share link decisions within one read-only snapshot, including list hooks."""
+    token = _snapshot_links.set({})
+    try:
+        yield
+    finally:
+        _snapshot_links.reset(token)
+
+
+def readable_link_names(doctype, user, name=None):
+    # An unreadable linked type excludes its source rows. Access to other rows is independent.
+    cache = _snapshot_links.get()
+    key = (doctype, user, name)
+    if cache is not None and key in cache:
+        return cache[key]
+    names = []
+    if frappe.has_permission(doctype, "read", user=user):
+        names = frappe.get_list(doctype, filters={"name": name} if name is not None else {},
+                                pluck="name", limit=1 if name is not None else 0, user=user)
+    if cache is not None:
+        cache[key] = names
+    return names
+
+
 def link_visible(doctype, name, user=None):
-    if not name or (user or frappe.session.user) == "Administrator":
+    user = user or frappe.session.user
+    if not name or user == "Administrator":
         return True
-    return bool(frappe.get_list(doctype, filters={"name": name}, pluck="name", limit=1, user=user or frappe.session.user))
+    return bool(readable_link_names(doctype, user, name))
 
 
 def source_scope(doc, user=None):
@@ -199,7 +229,7 @@ def query_conditions(user=None, doctype=None):
     for field, target in (("warehouse", "Warehouse"), ("customer", "Customer"), ("party", "Customer"),
                            ("job", "Knitting Job"), ("target_job", "Knitting Job"), ("lot", "Knitting Material Lot"), ("roll", "Knitting Roll")):
         if frappe.get_meta(doctype).has_field(field):
-            names = frappe.get_list(target, pluck="name", limit_page_length=0, user=user or frappe.session.user)
+            names = readable_link_names(target, user or frappe.session.user)
             values = ",".join(frappe.db.escape(n) for n in names) or "NULL"
             condition += f" and (coalesce(`tab{doctype}`.`{field}`, '')='' or `tab{doctype}`.`{field}` in ({values}))"
     if doctype == 'Knitting Event' and (user or frappe.session.user) != 'Administrator':

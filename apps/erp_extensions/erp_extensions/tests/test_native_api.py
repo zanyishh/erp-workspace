@@ -127,6 +127,13 @@ class NativeApiTests(unittest.TestCase):
         doc.update(title=title, **values)
         return api.save(doc)["doc"]
 
+    def test_industry_source_fields_only_display_on_linked_general_documents(self):
+        fields = api.schema("Purchase Order")["fields"]
+        for name in ("knitting_event", "knitting_job"):
+            source = next(field for field in fields if field["fieldname"] == name)
+            self.assertTrue(source["read_only"])
+            self.assertEqual(source["conditions"]["depends_on"], {"op": "field", "name": name})
+
     def test_native_tree_lists_company_roots_and_paginates_children(self):
         self.assertTrue(callable(getattr(api, "tree_children", None)), "Native tree browsing is missing")
         company = "ERP Native Verification"
@@ -335,6 +342,15 @@ class NativeApiTests(unittest.TestCase):
         self.assertEqual(api.document(TYPE, saved["name"])["doc"]["title"], "Edited natively")
         self.assertEqual(saved["rows"][0]["description"], "First")
 
+    def test_prompt_named_master_can_be_created_and_edited(self):
+        record = api.document("Warehouse Type")["doc"]
+        name = "Native storage " + frappe.generate_hash(length=8)
+        saved = api.save({**record, "__newname": name})["doc"]
+        self.assertEqual(saved["name"], name)
+        edited = api.save({**saved, "__newname": "Another name", "description": "Storage"})["doc"]
+        self.assertEqual(edited["name"], name)
+        self.assertEqual(api.document("Warehouse Type", name)["doc"]["description"], "Storage")
+
     def test_stale_native_save_does_not_overwrite_another_edit(self):
         first = self.create()
         concurrent = dict(first, title="Other edit")
@@ -468,6 +484,14 @@ class NativeApiTests(unittest.TestCase):
         self.assertEqual(saved["grand_total"],200)
         posted = api.save({"doctype":"Sales Invoice","name":saved["name"],"modified":saved["modified"]},"Submit")["doc"]
         self.assertEqual(posted["docstatus"],1)
+        invoice = frappe.get_doc("Sales Invoice", posted["name"])
+        self.assertIn("Payment Entry", api._related_actions(invoice))
+        invoice.outstanding_amount = 0
+        self.assertNotIn("Payment Entry", api._related_actions(invoice))
+        invoice.knitting_job = "Synthetic linked job"
+        self.assertNotIn("Payment Entry", api._related_actions(invoice))
+        invoice.outstanding_amount = -50
+        self.assertIn("Payment Entry", api._related_actions(invoice))
         ledger = frappe.get_all("GL Entry",filters={"voucher_no":posted["name"],"is_cancelled":0},fields=["debit","credit"])
         self.assertEqual(sum(r.debit for r in ledger),200)
         self.assertEqual(sum(r.credit for r in ledger),200)

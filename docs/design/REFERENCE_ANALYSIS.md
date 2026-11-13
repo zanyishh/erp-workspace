@@ -8,4 +8,4 @@ Manrope source has a default variable weight of 200. Explicit static 400/500/600
 
 Visual QA tightened the summary spacing and kept the desktop header to one strip. Utility controls retain 44px hit targets; narrow summaries wrap instead of shrinking text.
 
-The finished first preview is shown in [the native Mac screenshot](erp-workspace-overview.png). The business-flow drawing is clipped within its panel, and workspace cards expose real accessibility tap actions. See [client verification and scope](../setup/CLIENT_PREVIEW.md): overview and module lists are native; Create/Edit still uses the original ERPNext browser forms.
+The finished first preview is shown in [the native Mac screenshot](erp-workspace-overview.png). The business-flow drawing is clipped within its panel, and workspace cards expose real accessibility tap actions. The [first client preview](../setup/CLIENT_PREVIEW.md) documents the original browser handoff. The current client uses native record editors. See [native workflow coverage](../setup/NATIVE_WORKFLOWS.md).

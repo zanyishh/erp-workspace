@@ -18,8 +18,8 @@ import 'package:flutter_test/flutter_test.dart' show LiveWidgetController, find;
 
 const company = 'Sample mill';
 
-class _FixtureApi extends ErpApi {
-  _FixtureApi() : super(Uri.parse('https://native-test.localhost'));
+class ProfileFixtureApi extends ErpApi {
+  ProfileFixtureApi() : super(Uri.parse('https://native-test.localhost'));
 
   final workspace = WorkspaceContext.fromJson({
     'company': company,
@@ -147,7 +147,7 @@ Future<void> main() async {
 Future<void> _profile() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   final controller = LiveWidgetController(binding);
-  final api = _FixtureApi();
+  final api = ProfileFixtureApi();
   final timings = <FrameTiming>[];
   binding.addTimingsCallback(timings.addAll);
   runApp(
@@ -232,7 +232,7 @@ Future<void> _profile() async {
   await measure('mill_first_open', () async {
     await controller
         .widget<SignInScreen>(find.byType(SignInScreen))
-        .onSignIn('https://native-test.localhost', 'synthetic', 'synthetic');
+        .onSignIn('synthetic', 'synthetic');
     await settle();
   });
   final bars = [
@@ -269,6 +269,14 @@ Future<void> _profile() async {
     () => selectBars(18),
     atLeast: 18,
   );
+  Future<void> revealMillDestination(String label) async {
+    if (find.text(label).evaluate().isEmpty) {
+      await controller.tap(find.byTooltip('Open navigation menu'));
+      await settle();
+    }
+  }
+
+  await revealMillDestination('Jobs');
   await measure('jobs_first_open', () async {
     await controller.tap(find.text('Jobs'));
     await settle();
@@ -310,6 +318,7 @@ Future<void> _profile() async {
     }
     await scrollTo(0, 2500);
   }, atLeast: 60);
+  await revealMillDestination('General ERP');
   await measure('general_first_open', () async {
     await controller.tap(find.text('General ERP'));
     await settle();

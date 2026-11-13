@@ -7,6 +7,7 @@ String plainReportText(Object? value) => (value?.toString() ?? '')
 
 class NativeReportColumn {
   NativeReportColumn.fromJson(Object? value) {
+    hidden = value is Map && enabled(value['hidden']);
     if (value is String) {
       final parts = value.split(':');
       label = parts.first;
@@ -25,14 +26,12 @@ class NativeReportColumn {
     }
   }
   late final String fieldname, label, type, options;
+  late final bool hidden;
 }
 
 class NativeReportResult {
   NativeReportResult.fromJson(Map<String, dynamic> json)
-    : columns = (json['columns'] as List? ?? [])
-          .map(NativeReportColumn.fromJson)
-          .toList(),
-      pending = enabled(json['prepared_report']) && json['result'] == null,
+    : pending = enabled(json['prepared_report']) && json['result'] == null,
       truncated = enabled(json['truncated']),
       summary = (json['report_summary'] as List? ?? [])
           .map(objectMap)
@@ -40,18 +39,22 @@ class NativeReportResult {
     if (json['error'] is String && (json['error'] as String).isNotEmpty) {
       throw FormatException(plainReportText(json['error']));
     }
+    final allColumns = (json['columns'] as List? ?? [])
+        .map(NativeReportColumn.fromJson)
+        .toList();
+    columns = allColumns.where((column) => !column.hidden).toList();
     for (final raw in json['result'] as List? ?? []) {
       if (raw is List) {
         rows.add({
-          for (var i = 0; i < columns.length; i++)
-            columns[i].fieldname: i < raw.length ? raw[i] : null,
+          for (var i = 0; i < allColumns.length; i++)
+            allColumns[i].fieldname: i < raw.length ? raw[i] : null,
         });
       } else {
         rows.add(objectMap(raw));
       }
     }
   }
-  final List<NativeReportColumn> columns;
+  late final List<NativeReportColumn> columns;
   final List<Map<String, dynamic>> rows = [];
   final List<Map<String, dynamic>> summary;
   final bool pending, truncated;

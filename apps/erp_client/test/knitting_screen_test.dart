@@ -8,6 +8,97 @@ import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/knitting_forms.dart';
 
 void main() {
+  testWidgets(
+    'operator finds the 201st job through paged search and opens a versioned production entry',
+    (tester) async {
+      final api = _NavigationApi();
+      addTearDown(api.close);
+      final access = WorkspaceContext.fromJson({
+        'company': 'Demo',
+        'knitting_enabled': true,
+        'setup_state': 'Active',
+        'capabilities': ['jobs', 'production'],
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: KnittingScreen(
+            api: api,
+            workspace: access,
+            onContextChanged: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Job 201'), findsNothing);
+      await tester.tap(find.text('Find any job'));
+      await tester.pumpAndSettle();
+      for (var page = 0; page < 4; page++) {
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+      }
+      expect(api.offsets, [0, 50, 100, 150, 200]);
+      await tester.tap(find.text('Customer 201').first);
+      await tester.pumpAndSettle();
+      final next = find.byKey(const ValueKey('next-job-action'));
+      await tester.ensureVisible(next);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      final form = tester.widget<KnittingCommandForm>(
+        find.byType(KnittingCommandForm),
+      );
+      expect(form.job?['name'], 'Job 201');
+      expect(form.job?['modified'], 'current-201');
+      expect(form.action.id, 'produce');
+      expect(form.initial['programme_line'], 'P1');
+      expect(api.writes, 0);
+    },
+  );
+
+  testWidgets(
+    'setup and report shortcuts open role-allowed work with page-specific controls',
+    (tester) async {
+      final api = _NavigationApi();
+      addTearDown(api.close);
+      final manager = WorkspaceContext.fromJson({
+        'company': 'Demo',
+        'knitting_enabled': true,
+        'setup_state': 'Active',
+        'can_configure': true,
+        'capabilities': ['jobs', 'configure', 'reports'],
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: KnittingScreen(
+            api: api,
+            workspace: manager,
+            onContextChanged: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Future<void> go(String page) async {
+        await tester.tap(find.byTooltip('Open navigation menu'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(page).last);
+        await tester.pumpAndSettle();
+      }
+
+      await go('Setup');
+      expect(find.text('Knitting setup'), findsOneWidget);
+      expect(find.text('Refresh'), findsNothing);
+      await go('Reports');
+      expect(find.text('Report options'), findsOneWidget);
+      expect(find.text('Refresh'), findsNothing);
+      await tester.tap(find.text('Report options'));
+      await tester.pumpAndSettle();
+      final run = find.text('Run report');
+      await tester.ensureVisible(run);
+      await tester.tap(run);
+      await tester.pumpAndSettle();
+      expect(api.reportRuns, 2);
+      expect(find.text('Report options'), findsOneWidget);
+    },
+  );
   final w = WorkspaceContext.fromJson({
     'company': 'Demo',
     'knitting_enabled': true,
@@ -106,7 +197,6 @@ void main() {
                 query: '',
                 onQuery: (_) {},
                 onJob: (_) {},
-                onBack: () {},
                 onAction: (a, {initial = const {}}) async =>
                     selection.add((a.id, initial)),
                 onSource: (_, _) async {},
@@ -257,6 +347,83 @@ void main() {
       expect(find.text('Confirm & post'), findsNothing);
     },
   );
+
+  testWidgets(
+    'quality queue opens the selected roll with its current job version',
+    (tester) async {
+      final api = TestKnitApi();
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          home: KnittingScreen(
+            api: api,
+            workspace: w,
+            onContextChanged: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Quality'));
+      await tester.pumpAndSettle();
+      final row = find.text('ROLL-A');
+      await tester.ensureVisible(row);
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      final form = tester.widget<KnittingCommandForm>(
+        find.byType(KnittingCommandForm),
+      );
+      expect(form.action.id, 'quality');
+      expect(form.job?['modified'], '2026-11-13 10:12:00.123456');
+      expect(form.initial, {'roll': 'ROLL-A'});
+      expect(api.writes, 0);
+    },
+  );
+
+  testWidgets('factory search matches company machines within an open job', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: KnittingWorkbench(
+            snapshot: KnittingSnapshot('Demo', {
+              'machines': [
+                {
+                  'title': 'Machine North',
+                  'capacity_kg': '48',
+                  'dia': '12',
+                  'gauge': '12',
+                  'knit_type': 'Tubular',
+                },
+                {
+                  'title': 'Machine South',
+                  'capacity_kg': '48',
+                  'dia': '12',
+                  'gauge': '12',
+                  'knit_type': 'Tubular',
+                },
+              ],
+            }),
+            page: 'Factory',
+            selected: job,
+            query: 'North',
+            onQuery: (_) {},
+            onJob: (_) {},
+            onAction: (_, {initial = const {}}) async {},
+            onSource: (_, _) async {},
+            workspace: w,
+            onFind: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Machine North'), findsOneWidget);
+    expect(find.text('Machine South'), findsNothing);
+  });
 
   testWidgets('Done opens the new job after recovery of an uncertain save', (
     tester,
@@ -472,7 +639,6 @@ void main() {
                   query: '',
                   onQuery: (_) {},
                   onJob: (_) {},
-                  onBack: () {},
                   onAction: (_, {initial = const {}}) async {},
                   onSource: (_, _) async {},
                   workspace: w,
@@ -503,7 +669,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('OLD-JOB'));
     await tester.pumpAndSettle();
-    expect(find.text('All jobs'), findsOneWidget);
+    expect(find.byTooltip('Back to jobs'), findsOneWidget);
     await tester.pumpAndSettle();
     expect(find.text('OLD-JOB'), findsWidgets);
     final other = WorkspaceContext.fromJson({
@@ -588,6 +754,77 @@ void main() {
     expect(api.writes, 1);
     expect(api.posted?['preview_hash'], 'review-verified');
   });
+}
+
+class _NavigationApi extends TestKnitApi {
+  final offsets = <int>[];
+  int reportRuns = 0;
+  Map<String, dynamic> jobRow(int index) => {
+    'name': 'Job $index',
+    'customer': 'Customer $index',
+    'modified': 'current-$index',
+    'status': 'Running',
+    'programme': [
+      {'id': 'P1', 'fabric': 'Interlock', 'target_kg': '20.000'},
+    ],
+    'target_kg': '20.000',
+    'balances': {'yarn_kg': '20.000'},
+  };
+  @override
+  Future<KnittingSnapshot> knittingSnapshot(
+    String company, {
+    String? job,
+  }) async => KnittingSnapshot(company, {
+    'jobs': job == null
+        ? [for (var i = 1; i <= 200; i++) jobRow(i)]
+        : [jobRow(201)],
+  });
+  @override
+  Future<Map<String, dynamic>> knittingLookup(
+    String company,
+    String entity,
+    String query, {
+    int start = 0,
+    String? job,
+  }) async {
+    offsets.add(start);
+    return {
+      'rows': [
+        for (var i = start + 1; i <= start + 50 && i <= 201; i++) jobRow(i),
+      ],
+      'has_more': start < 200,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> industrySettings(String company) async => {
+    'state': 'Active',
+    'revision': 1,
+    'settings': {
+      'warehouse': 'A',
+      'service_item': 'Service',
+      'fabric_item': 'Fabric',
+    },
+  };
+  @override
+  Future<Map<String, dynamic>> knittingReport(
+    String company,
+    String report,
+    Map<String, dynamic> filters,
+  ) async {
+    reportRuns++;
+    return {
+      'columns': [],
+      'rows': [],
+      'row_count': 0,
+      'summary': {},
+      'mode': 'as_of',
+      'basis': 'Current stock',
+      'start': 0,
+      'to_date': '2026-11-13',
+      'has_more': false,
+    };
+  }
 }
 
 class TestKnitApi extends ErpApi {

@@ -162,13 +162,14 @@ class MillOverview extends StatelessWidget {
           onTap: () => showBalances('unbilled_kg', 'Awaiting invoice'),
         ),
     ];
-    final queues = <(String, String, String, ArtObject, int?)>[
+    final queues = <(String, String, String, IconData, Color, int?)>[
       if (workspace.allows('quality')) ...[
         (
           'Awaiting inspection',
           'Quality',
           'Awaiting QC',
-          ArtObject.inspection,
+          Icons.fact_check_outlined,
+          const Color(0xFFF7D8BD),
           snapshot.data['rolls'] is List
               ? rolls.where((r) => r['state'] == 'Awaiting QC').length
               : null,
@@ -177,7 +178,8 @@ class MillOverview extends StatelessWidget {
           'On hold',
           'Quality',
           'On Hold',
-          ArtObject.fabric,
+          Icons.pause_circle_outline,
+          const Color(0xFFF2DCA9),
           snapshot.data['rolls'] is List
               ? rolls.where((r) => r['state'] == 'On Hold').length
               : null,
@@ -188,7 +190,8 @@ class MillOverview extends StatelessWidget {
           'Ready to dispatch',
           'Delivery',
           'Released',
-          ArtObject.dispatch,
+          Icons.local_shipping_outlined,
+          const Color(0xFFD2E4D5),
           snapshot.data['rolls'] is List
               ? rolls.where((r) => r['state'] == 'Released').length
               : null,
@@ -198,7 +201,8 @@ class MillOverview extends StatelessWidget {
           'Planned runs',
           'Planning',
           'Planned',
-          ArtObject.machine,
+          Icons.calendar_month_outlined,
+          const Color(0xFFD0E1E9),
           snapshot.data['plans'] is List
               ? snapshot
                     .rows('plans')
@@ -208,66 +212,61 @@ class MillOverview extends StatelessWidget {
         ),
     ];
     final queue = Panel(
-      dark: true,
+      border: true,
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 3, 4, 0),
-            child: Display('Work queues', size: 25, light: true),
+            child: Display('Work queues', size: 25),
           ),
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 2, 4, 12),
-            child: Text(
-              'From recent rolls and plans',
-              style: TextStyle(fontSize: 12, color: Color(0xFFDEDED8)),
-            ),
+            child: Text('From recent rolls and plans', style: _meta),
           ),
           for (final (i, q) in queues.indexed) ...[
-            if (i > 0) const SizedBox(height: 6),
-            Material(
-              color: WorkspaceTheme.surface,
-              clipBehavior: Clip.antiAlias,
-              borderRadius: BorderRadius.circular(13),
-              child: InkWell(
-                onTap: () => onDestination(q.$2, filter: q.$3),
+            if (i > 0) const Divider(height: 1),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              minLeadingWidth: 0,
+              horizontalTitleGap: 10,
+              leading: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: q.$5,
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(6, 6, 9, 6),
-                  child: Row(
-                    children: [
-                      Flexible(
-                        flex: 4,
-                        child: WorkspaceArt(q.$4, width: 90, height: 58),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 6,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              q.$5?.toString() ?? '—',
-                              style: const TextStyle(
-                                fontSize: 23,
-                                fontWeight: FontWeight.w600,
-                                height: 1.15,
-                                color: WorkspaceTheme.ink,
-                              ),
-                            ),
-                            Text(q.$1, style: _meta),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.north_east,
-                        size: 14,
-                        color: WorkspaceTheme.muted,
-                      ),
-                    ],
-                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(q.$4, size: 20, color: WorkspaceTheme.ink),
                 ),
               ),
+              title: Text(
+                q.$1,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    q.$6?.toString() ?? '—',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 17,
+                    color: WorkspaceTheme.muted,
+                  ),
+                ],
+              ),
+              onTap: () => onDestination(q.$2, filter: q.$3),
             ),
           ],
         ],
@@ -373,8 +372,8 @@ class MillOverview extends StatelessWidget {
             }
             return column([
               stage,
-              if (showChart) ...[gap, chart],
               if (hasQueue) ...[gap, queue],
+              if (showChart) ...[gap, chart],
               if (balances.isNotEmpty) ...[gap, summary],
               gap,
               register,
@@ -649,8 +648,9 @@ class MillJobRegister extends StatelessWidget {
                   heading('JOB / CUSTOMER', 25),
                   heading('DUE DATE', 12),
                   heading('MATERIAL', 12, icon: Icons.layers_outlined),
-                  heading('TARGET KG', 11),
-                  if (showOutput) heading('PRODUCED KG', 13),
+                  heading('TARGET KG', 11, icon: Icons.flag_outlined),
+                  if (showOutput)
+                    heading('PRODUCED KG', 13, icon: Icons.scale_outlined),
                   heading('STATUS', 12),
                   const SizedBox(width: 18),
                 ],

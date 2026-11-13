@@ -11,6 +11,7 @@ class AccessEditorApi extends ErpApi {
   String reference = 'Before';
   bool available = true;
   int mapped = 0;
+  bool conflict = false;
   @override
   Future<NativeSchema> nativeSchema(
     String type,
@@ -75,9 +76,67 @@ class AccessEditorApi extends ErpApi {
     mapped++;
     return linkedDraft();
   }
+
+  @override
+  Future<NativeDocument> saveNative(
+    NativeSchema schema,
+    Map<String, dynamic> values, {
+    String action = 'Save',
+  }) async {
+    if (conflict) {
+      throw const ErpException(
+        'Someone changed this document.',
+        staleDocument: true,
+      );
+    }
+    return NativeDocument.fromJson({
+      'doc': {...values, 'name': 'TEST-1'},
+      'permissions': {'write': 1},
+    });
+  }
 }
 
 void main() {
+  testWidgets(
+    'stale save can recover in place and only discards edits after the fresh version loads',
+    (tester) async {
+      final api = AccessEditorApi()..conflict = true;
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DocumentEditor(api: api, doctype: 'Example', name: 'TEST-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Description'),
+        'Unsaved entry',
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reload latest version'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved entry'), findsOneWidget);
+      api.available = false;
+      await tester.tap(find.text('Reload latest version'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard and reload'));
+      await tester.pumpAndSettle();
+      expect(find.text('Connection unavailable'), findsOneWidget);
+      expect(find.text('Unsaved entry'), findsOneWidget);
+      api.available = true;
+      api.reference = 'Changed on server';
+      await tester.tap(find.text('Reload latest version'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard and reload'));
+      await tester.pumpAndSettle();
+      expect(find.text('Changed on server'), findsOneWidget);
+      expect(find.text('Unsaved entry'), findsNothing);
+      expect(find.text('Reload latest version'), findsNothing);
+    },
+  );
   testWidgets(
     'core editor refreshes permissions and keeps only allowed draft input',
     (tester) async {

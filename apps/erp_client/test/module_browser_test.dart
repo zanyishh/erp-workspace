@@ -1,3 +1,4 @@
+import 'package:erp_client/ui/workspace_art.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/module_browser.dart';
@@ -18,6 +19,65 @@ Widget browser(RecordLoader loader) => MaterialApp(
 );
 
 void main() {
+  testWidgets(
+    'read-only module offers a way back to records without creation prompts',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ModuleBrowser(
+              module: ErpModule.stock,
+              company: 'Example',
+              currency: 'INR',
+              loader: (_, _) async => [],
+              onRecord: (_) {},
+              onCreate: null,
+              onBrowseAll: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Create record'), findsNothing);
+      expect(find.textContaining('New'), findsNothing);
+      expect(find.text('Refresh'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'manufacturing quantities use the item unit from the work order',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ModuleBrowser(
+              module: ErpModule.manufacturing,
+              company: 'Example',
+              currency: 'INR',
+              loader: (_, _) async => [
+                ErpRecord({
+                  'name': 'WO-1',
+                  'qty': 2.5,
+                  'stock_uom': 'Kg',
+                }, ErpModule.manufacturing),
+              ],
+              onRecord: (_) {},
+              onCreate: null,
+              onBrowseAll: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkspaceArt), findsOneWidget);
+      expect(
+        tester.widget<WorkspaceArt>(find.byType(WorkspaceArt)).object.name,
+        'assembly',
+      );
+      expect(find.text('2.5 Kg'), findsOneWidget);
+      expect(ErpModule.manufacturing.fields, contains('stock_uom'));
+      expect(ErpRecord({'name': 'INV-1'}, ErpModule.accounts).amount, isNull);
+    },
+  );
   testWidgets('search reloads the current module after typing settles', (
     tester,
   ) async {

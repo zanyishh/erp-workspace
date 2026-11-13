@@ -1,10 +1,10 @@
 # Native workflows — 13 November 2026
 
-The current increment moves document operations into Flutter while retaining ERPNext's server-side business rules. The complete conversion is **in progress**. Metadata coverage, working native controls and verified business scenarios are separate measures. AI integration and further UI/UX enhancement are deferred by the user.
+The current increment moves document operations into Flutter while retaining ERPNext's server-side business rules. The complete conversion is **in progress**. Metadata coverage, working native controls and verified business scenarios are separate measures. This page records the original foundation milestone. The subsequent industry-pack increment extends its design and workflows. AI remains deferred.
 
 ## Run
 
-Double-click `scripts/erp-workspace.command`. It starts the isolated native verification site and opens **ERP Workspace.app**. For the current development build, use `http://localhost:8081`, account `Administrator`, password `admin`, company **ERP Native Verification**. These are local evaluation credentials. The Android emulator address is `http://10.0.2.2:8081`. A build can override its default with `--dart-define=ERP_SERVER=https://your-server`.
+Double-click `scripts/erp-workspace.command`. It starts the isolated native verification site and opens **ERP Workspace.app**. The local launcher configures the service. To explore the synthetic demo, sign in with account `Administrator`, password `admin`, company **ERP Native Verification**. These are local evaluation credentials. The Android emulator address is `http://10.0.2.2:8081`. Customer release builds must supply a deployed HTTPS origin through `--dart-define=ERP_SERVER=https://workspace.example.com`. New owners choose **Create a company** in the app. Owners invite staff through **Team access** in account settings and share a code for **Join with invitation**.
 
 The original ERPNext evaluation site remains separate at `http://localhost:8080`, company **ERP Evaluation**. Its database and files are preserved. The native extension is installed only on `native-test.localhost`. An earlier automatic approval review rejected modifying the original site's installed apps; no installation was performed there.
 
