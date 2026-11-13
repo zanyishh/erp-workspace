@@ -1,7 +1,8 @@
 # ERP workspace conventions
 
 - This project will use Flutter for macOS, Windows, iOS and Android, with ERPNext/Frappe as the initial business backend.
-- The current user-directed increment converts the full ERPNext feature set to native Flutter workflows using the approved reference-led style. AI and further UX enhancement are deferred. Preserve the original ERPNext baseline and verify changes on the isolated native test site.
+- The current user-directed increment keeps the general ERP foundation and adds an optional company-enabled, permission-scoped knitting industry pack, plus consistent UI/UX across the whole Flutter app. Follow `docs/superpowers/specs/2026-11-13-industry-packs-and-knitting-design.md`; its full design is pending product approval. AI remains deferred. Preserve the original ERPNext baseline and verify changes on the isolated native test site.
+- Do not connect implementation or tests to the customer's live Fashion Suite account. Use synthetic fixtures on `native-test.localhost`; customer migration or integration samples require separate authorised test material. Future industries reuse the pack contract, not knitting-specific tables or workflows.
 - Keep official checkouts in `upstream/` unchanged as a reference. Record their exact versions in `upstream.lock.json`.
 - Put local deployment configuration in `infrastructure/erpnext/`, launchers in `scripts/`, setup evidence in `docs/setup/`, and disposable output in ignored `.local/`.
 - When requested, place the Flutter product in `apps/erp_client/` and server extensions in `apps/erp_extensions/`. Use an independent product name once the user chooses one.

@@ -1,6 +1,8 @@
 # ERP workspace
 
-This workspace holds the preserved ERPNext backend and the first native Flutter client, **ERP Workspace**, for macOS, Windows, iOS and Android. The current increment connects native document forms, wider module navigation, reports and collaboration to ERPNext. The complete conversion remains in progress; AI and further UI/UX enhancement are deferred.
+This workspace holds the preserved ERPNext backend and the first native Flutter client, **ERP Workspace**, for macOS, Windows, iOS and Android. Its foundation connects native document forms, wider module navigation, reports and collaboration to ERPNext. The complete conversion remains in progress. AI is deferred; industry extensions and app-wide UI consistency are the next proposed increment.
+
+The next proposed increment adds optional company-enabled industry packs, beginning with knitting, and a consistent design system across core and industry screens. See the [industry and knitting design](docs/superpowers/specs/2026-11-13-industry-packs-and-knitting-design.md), [whole-app experience contract](docs/design/WORKSPACE_EXPERIENCE.md) and [planned acceptance cycle](docs/coverage/knitting-acceptance.md). This design is awaiting product approval; knitting features are not implemented or verified yet. Implementation and tests must not access the customer's live system.
 
 ## Flutter application
 
@@ -42,7 +44,7 @@ The official source trees retain their own Git repositories and notices. Git his
 
 ## Development direction
 
-Keep ERPNext/Frappe business logic and APIs as the starting server. The approved visual style is retained while native workflow coverage is expanded. The product name is provisional. Full feature parity and packaging must be verified before completion; AI and UX changes come afterward.
+Keep ERPNext/Frappe business logic and APIs as the starting server. Extend the approved visual style across all native routes while expanding industry workflows. The product name is provisional. Track general ERP parity, knitting scenarios and packaging separately; AI remains deferred.
 
 See [license review](docs/setup/LICENSES.md) and [setup status](docs/setup/STATUS.md). Windows builds require a Windows host with Visual Studio's Desktop development with C++ workload. macOS cannot validate a native Windows build.
 

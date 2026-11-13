@@ -1,0 +1,4391 @@
+{
+  "date": "2026-11-13",
+  "status": "design_proposal_not_implemented",
+  "source": "knitpack-screen-catalogue.json",
+  "product_rule": "General ERP plus optional company-enabled permission-scoped industry packs",
+  "live_customer_access": "prohibited_for_implementation_and_tests",
+  "work_packages": [
+    {
+      "id": "K00",
+      "name": "Whole application experience and regression",
+      "status": "planned"
+    },
+    {
+      "id": "K01",
+      "name": "Business industry setup and access control",
+      "status": "planned"
+    },
+    {
+      "id": "K02",
+      "name": "Knitting masters jobs programmes and rates",
+      "status": "planned"
+    },
+    {
+      "id": "K03",
+      "name": "Yarn ownership custody processing and general stock",
+      "status": "planned"
+    },
+    {
+      "id": "K04",
+      "name": "Machine planning capacity and shortages",
+      "status": "planned"
+    },
+    {
+      "id": "K05",
+      "name": "Roll production operator shifts and corrections",
+      "status": "planned"
+    },
+    {
+      "id": "K06",
+      "name": "Quality inspections touch station and release",
+      "status": "planned"
+    },
+    {
+      "id": "K07",
+      "name": "Delivery returns transfers invoicing and closure",
+      "status": "planned"
+    },
+    {
+      "id": "K08",
+      "name": "Subcontract custody receipts bills and closure",
+      "status": "planned"
+    },
+    {
+      "id": "K09",
+      "name": "Stoppage needle sinker consumables and margin",
+      "status": "planned"
+    },
+    {
+      "id": "K10",
+      "name": "Operational registers reports and reconciliation",
+      "status": "planned"
+    },
+    {
+      "id": "K11",
+      "name": "Prints numbering export and provider integrations",
+      "status": "planned"
+    },
+    {
+      "id": "K12",
+      "name": "Migration recovery packaging and target devices",
+      "status": "planned"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "S001",
+      "observed_name": "Dashboard",
+      "observed_section": "Knitpack / Dashboard",
+      "observed_route": "#/knitpack/dashboard/d1/d1",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S002",
+      "observed_name": "Estimation",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/estimation/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Knitting estimation over Quotation; no posting; trusted accepted-source conversion to job with version and company checks.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S003",
+      "observed_name": "Job Order",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/order/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S004",
+      "observed_name": "Yarn Inward",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/yarn_grn/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S005",
+      "observed_name": "Bulk Production",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/production_bulk_entry/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S006",
+      "observed_name": "Production",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/prod/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S007",
+      "observed_name": "Fabric Delivery",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/fab_dc/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S008",
+      "observed_name": "Yarn Return",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/yarn_ret/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S009",
+      "observed_name": "Invoice",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/invoice/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S010",
+      "observed_name": "Yarn Consumption",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/yarn_consumption",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S011",
+      "observed_name": "Rate Change",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/rate_change",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S012",
+      "observed_name": "Stock Adjustment",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/stock_adj/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S013",
+      "observed_name": "Job Completion",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/job_completion",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S014",
+      "observed_name": "Job Reopen",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/job_reopen",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S015",
+      "observed_name": "Dia Transfer",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/dia_transfer/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S016",
+      "observed_name": "Fabric Transfer",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/fabric_transfer/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S017",
+      "observed_name": "Job Rate List",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/rate_change_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S018",
+      "observed_name": "Job Delete",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/job_delete",
+      "audit_status": "Menu only",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Use reviewed correction/cancellation with preserved history instead of copying a destructive delete operation.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "safe_correction_and_cancellation_substitute"
+    },
+    {
+      "id": "S019",
+      "observed_name": "Shift Card",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/shift_card",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S020",
+      "observed_name": "Private Jobs",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/order/private_jobs",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Order/Sample filtered job view; no inferred confidentiality model. Explicit document permissions govern restricted jobs.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S021",
+      "observed_name": "Yarn Processing",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/yarn_processing/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Traceable same-owner yarn repack/cone transformation; explicit outputs/loss and linked fabric production only; test canonical stock/custody effects.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S022",
+      "observed_name": "Multi Job Completion",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/multi_job_completion",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S023",
+      "observed_name": "Invoice",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/invoice_new/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S024",
+      "observed_name": "Multi Size Production",
+      "observed_section": "Knitpack / Order",
+      "observed_route": "#/knitpack/inward/multi_size_production",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S025",
+      "observed_name": "Sc Order",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_order/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S026",
+      "observed_name": "Sc Yarn Dc",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_yarn_dc/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S027",
+      "observed_name": "Sc Fabric Recipt",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_fabric_rec/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S028",
+      "observed_name": "Sc yarn Return",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_yarn_rec/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S029",
+      "observed_name": "Sc Adjustment",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_adj/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S030",
+      "observed_name": "Sc Bill Entry",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_bill/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S031",
+      "observed_name": "Sc Job Completion",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/sub_con/sc_job_completion",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S032",
+      "observed_name": "Sc Job Ledger",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/reg_sc/sc_job_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S033",
+      "observed_name": "Sc Receipt Pening",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/reg_sc/sc_receipt",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S034",
+      "observed_name": "Sc Yarn Cloth Statement",
+      "observed_section": "Knitpack / Subcontract",
+      "observed_route": "#/knitpack/reg_sc/sc_yarn_cloth",
+      "audit_status": "Screen inspected",
+      "work_package": "K08",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S035",
+      "observed_name": "Production Parameter",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/production_params",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S036",
+      "observed_name": "Job Planner",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/job_plan/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S037",
+      "observed_name": "Machine Planner",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/mc_plan/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S038",
+      "observed_name": "Machine Calender",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/mc_cal",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S039",
+      "observed_name": "72 Hours shortage Report",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/yarn_shortage_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S040",
+      "observed_name": "24 Hours Job Change Report",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/job_change_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S041",
+      "observed_name": "Unplanned Report",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/unplan_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S042",
+      "observed_name": "Planned Report",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/planned_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S043",
+      "observed_name": "Planning status Report",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/plan/plan_status_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S044",
+      "observed_name": "Automation test",
+      "observed_section": "Knitpack / Planning",
+      "observed_route": "#/knitpack/automation/tab/entry",
+      "audit_status": "Menu only",
+      "work_package": "K04",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "No fake automation control. Not a version-one completion gate; requires future specified hardware and explicit scope.",
+      "release_requirement": "excluded_until_device_protocol_supplied",
+      "disposition": "optional_hardware_requirement"
+    },
+    {
+      "id": "S045",
+      "observed_name": "Opertor Change",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/opr_change",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S046",
+      "observed_name": "Job Change",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/job_change",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S047",
+      "observed_name": "Roll Production",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/entry",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S048",
+      "observed_name": "Roll Edit&Delete",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/roll_edit",
+      "audit_status": "Menu only",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Use reviewed correction/cancellation with preserved history instead of copying a destructive delete operation.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "safe_correction_and_cancellation_substitute"
+    },
+    {
+      "id": "S049",
+      "observed_name": "Operator Re-Entry",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/operator_re_entry",
+      "audit_status": "Screen inspected",
+      "work_package": "K05",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S050",
+      "observed_name": "Quality Check",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/qc",
+      "audit_status": "Screen inspected",
+      "work_package": "K06",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S051",
+      "observed_name": "Touch QC",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/touch_qc",
+      "audit_status": "Screen inspected",
+      "work_package": "K06",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S052",
+      "observed_name": "Operator Shift card",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/operator_shift_card",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S053",
+      "observed_name": "Production Roll Status",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/prod_roll_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S054",
+      "observed_name": "Roll Time Register",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/roll_time_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S055",
+      "observed_name": "Hourly Roll Register",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/hourly_roll_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S056",
+      "observed_name": "Employe Roll Register",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/emp_roll_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S057",
+      "observed_name": "Employe Hourly Roll Register",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/emp_hr_roll_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S058",
+      "observed_name": "Machine Running Status",
+      "observed_section": "Knitpack / Roll Production & QC",
+      "observed_route": "#/knitpack/roll_prod/mc_running_status",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S059",
+      "observed_name": "Yarn Po",
+      "observed_section": "Knitpack / General Stock",
+      "observed_route": "#/knitpack/gen_stock/yarn_po/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S060",
+      "observed_name": "General Yarn Recepit",
+      "observed_section": "Knitpack / General Stock",
+      "observed_route": "#/knitpack/gen_stock/gen_yarn_rec/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S061",
+      "observed_name": "General Yarn Transfer",
+      "observed_section": "Knitpack / General Stock",
+      "observed_route": "#/knitpack/gen_stock/gen_yarn_transfer/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S062",
+      "observed_name": "General Stock Adjustment",
+      "observed_section": "Knitpack / General Stock",
+      "observed_route": "#/knitpack/gen_stock/gen_adj/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S063",
+      "observed_name": "General Yarn Bill",
+      "observed_section": "Knitpack / General Stock",
+      "observed_route": "#/knitpack/gen_stock/gen_yarn_bill/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S064",
+      "observed_name": "General Yarn Return",
+      "observed_section": "Knitpack / General Stock",
+      "observed_route": "#/knitpack/gen_stock/gen_yarn_return/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K03",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S065",
+      "observed_name": "General Invoice",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/gen_invoice/invoice/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S066",
+      "observed_name": "GST Report",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/gst_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_schema_and_golden_files_customer_samples_for_parity",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S067",
+      "observed_name": "GST Download",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/gstr_download",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_schema_and_golden_files_customer_samples_for_parity",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S068",
+      "observed_name": "Tally Export",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/tally_export",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_schema_and_golden_files_customer_samples_for_parity",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S069",
+      "observed_name": "Party Billwise Outstanding",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/billwise_outstanding",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S070",
+      "observed_name": "Invoice Collection Summary",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/invoice_collection_summary",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S071",
+      "observed_name": "Party Overall Statement",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/party_overall_stmt",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S072",
+      "observed_name": "Monthwise Invoice Summary",
+      "observed_section": "Knitpack / Knitpack Accounts",
+      "observed_route": "#/knitpack/report_accounts/monthly_invoice_summary",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S073",
+      "observed_name": "Job ledger",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/job_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S074",
+      "observed_name": "Program Chart",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/program_chart",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S075",
+      "observed_name": "Roll Stock Report",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/roll_stock_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S076",
+      "observed_name": "Job Order Summary",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/job_order_summary",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S077",
+      "observed_name": "Yarn Cloth Statement",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/yarn_cloth_stmt",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S078",
+      "observed_name": "Invoice Pending Jobs",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/invoice_pending",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S079",
+      "observed_name": "Job Order Status",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/job_order_status",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S080",
+      "observed_name": "Production Report",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/production_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S081",
+      "observed_name": "Daily Production Report",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/daily_production_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S082",
+      "observed_name": "Employee Production Report",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/emp_production_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S083",
+      "observed_name": "Party Job History",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/party_job_history",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S084",
+      "observed_name": "Program Balance",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/program_balance",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S085",
+      "observed_name": "Overall Program Balance",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/overall_program_balance",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S086",
+      "observed_name": "Yarn Consumption Report",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/yarn_consumption_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S087",
+      "observed_name": "Yarn Requierment Balance",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/yarn_req_balance",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S088",
+      "observed_name": "Job Yarn Stock",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/job_yarn_stock",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S089",
+      "observed_name": "SC Yarn Stock",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/stock_report/sc_yarnstock",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S090",
+      "observed_name": "Yarn Stock",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/yarn_stock_mis",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S091",
+      "observed_name": "Fabric Stock Report",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/fabric_stock_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S092",
+      "observed_name": "Missing Documents",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/missing_document",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S093",
+      "observed_name": "Detailed Program Balance",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/detailed_pgm_balance",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S094",
+      "observed_name": "Machinewise Production",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/machine_production",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S095",
+      "observed_name": "Dia Party Program Balance",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/dia_party_pgm_balance",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S096",
+      "observed_name": "Co-Ordinaterwiase Production",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/coord_prod_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S097",
+      "observed_name": "All Party Job History",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/all_party_job_history",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S098",
+      "observed_name": "Multi Job Ledger",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/multi_job_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S099",
+      "observed_name": "Job Order Summery Fab-wise",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/job_order_summary_fab",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S100",
+      "observed_name": "Abstract Job Ledger",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/abstract_job_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S101",
+      "observed_name": "Machinewise Production Summary",
+      "observed_section": "Knitpack / Reports",
+      "observed_route": "#/knitpack/reports/machine_prod_summary",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S102",
+      "observed_name": "Job Order Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/job_order_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S103",
+      "observed_name": "Job Transaction History",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/job_transaction_history",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S104",
+      "observed_name": "Yarn Inward Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/yarn_grn_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S105",
+      "observed_name": "Fabric Dc Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/fabric_dc_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S106",
+      "observed_name": "Production Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/production_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S107",
+      "observed_name": "Production Abstract Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/production_abstract_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S108",
+      "observed_name": "Invoice Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/invoice_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S109",
+      "observed_name": "Invoice Detailed Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/invoice_detail_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S110",
+      "observed_name": "Yarn Return Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/yarn_return_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S111",
+      "observed_name": "Stock Adjustment Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/stock_adjustment_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S112",
+      "observed_name": "Fabric Transfer Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/fabric_transfer_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S113",
+      "observed_name": "PartyWise Invoice Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/party_invoice_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S114",
+      "observed_name": "Yarn Inward Abstract Register",
+      "observed_section": "Knitpack / Register Order",
+      "observed_route": "#/knitpack/reg_order/yarn_grn_abst_register",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S115",
+      "observed_name": "Sc Order Register",
+      "observed_section": "Knitpack / Register Sc",
+      "observed_route": "#/knitpack/reg_sc/sc_order_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S116",
+      "observed_name": "Sc Yarn Delivery Register",
+      "observed_section": "Knitpack / Register Sc",
+      "observed_route": "#/knitpack/reg_sc/sc_yarn_delivery_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S117",
+      "observed_name": "Sc Yarn Return Register",
+      "observed_section": "Knitpack / Register Sc",
+      "observed_route": "#/knitpack/reg_sc/sc_yarn_retun_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S118",
+      "observed_name": "Sc Fabric Recipt Register",
+      "observed_section": "Knitpack / Register Sc",
+      "observed_route": "#/knitpack/reg_sc/sc_fabric_receipt_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S119",
+      "observed_name": "Sc Bill Register",
+      "observed_section": "Knitpack / Register Sc",
+      "observed_route": "#/knitpack/reg_sc/sc_bill_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S120",
+      "observed_name": "Sc Stock Adjustment",
+      "observed_section": "Knitpack / Register Sc",
+      "observed_route": "#/knitpack/reg_sc/sc_stock_adjustment_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S121",
+      "observed_name": "Qc Test Register",
+      "observed_section": "Knitpack / Register Others",
+      "observed_route": "#/knitpack/report_others/qc_test_register",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S122",
+      "observed_name": "Shift Card Register",
+      "observed_section": "Knitpack / Register Others",
+      "observed_route": "#/knitpack/report_others/shift_card_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S123",
+      "observed_name": "Qc Detail Register",
+      "observed_section": "Knitpack / Register Others",
+      "observed_route": "#/knitpack/report_others/qc_detail_register",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S124",
+      "observed_name": "Coller Program Register",
+      "observed_section": "Knitpack / Register Others",
+      "observed_route": "#/knitpack/report_others/color_program_register",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S125",
+      "observed_name": "Yarn Purchase Register",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/gen_purchase_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S126",
+      "observed_name": "General Yarn GRN Register",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/gen_yarn_grn_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S127",
+      "observed_name": "General Yarn Transfer Register",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/gen_yarn_transfer_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S128",
+      "observed_name": "General Stock Adjustment Rgister",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/gen_stock_adjustment_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S129",
+      "observed_name": "General Yarn Transfer Ledger",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/gen_yarn_transfer_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S130",
+      "observed_name": "Lycra Consumption Report",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/lycra_cons_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S131",
+      "observed_name": "General Yarn Return Register",
+      "observed_section": "Knitpack / Register General",
+      "observed_route": "#/knitpack/reg_gen/gen_yarn_return_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S132",
+      "observed_name": "Issue Entry",
+      "observed_section": "Knitpack / Inventory Issue",
+      "observed_route": "#/knitpack/inventory/issue/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S133",
+      "observed_name": "Issue Return Entry",
+      "observed_section": "Knitpack / Inventory Issue",
+      "observed_route": "#/knitpack/inventory/issue_ret/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S134",
+      "observed_name": "Issue Register",
+      "observed_section": "Knitpack / Inventory Issue",
+      "observed_route": "#/knitpack/reg_gen/issue",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S135",
+      "observed_name": "Issue Detail Register",
+      "observed_section": "Knitpack / Inventory Issue",
+      "observed_route": "#/knitpack/reg_gen/issue_det",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S136",
+      "observed_name": "Issue Return Register",
+      "observed_section": "Knitpack / Inventory Issue",
+      "observed_route": "#/knitpack/reg_gen/issue_return",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S137",
+      "observed_name": "Issue Return Detailed Register",
+      "observed_section": "Knitpack / Inventory Issue",
+      "observed_route": "#/knitpack/reg_gen/issue_ret_det",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S138",
+      "observed_name": "JobWise Yarn Stock",
+      "observed_section": "Knitpack / Stock Report",
+      "observed_route": "#/knitpack/stock_report/job_yarn_stock",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S139",
+      "observed_name": "JobWise Fabric Stock",
+      "observed_section": "Knitpack / Stock Report",
+      "observed_route": "#/knitpack/stock_report/job_fabric_stock",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S140",
+      "observed_name": "General Yarn Stock",
+      "observed_section": "Knitpack / Stock Report",
+      "observed_route": "#/knitpack/stock_report/gen_yarn_stock",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S141",
+      "observed_name": "Total Yarn Stock",
+      "observed_section": "Knitpack / Stock Report",
+      "observed_route": "#/knitpack/stock_report/total_yarn_stock",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S142",
+      "observed_name": "P&L Items",
+      "observed_section": "Knitpack / P & L",
+      "observed_route": "#/knitpack/pl_entry/pl_entry_items_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S143",
+      "observed_name": "P&L Query",
+      "observed_section": "Knitpack / P & L",
+      "observed_route": "#/knitpack/pl_entry/pl_query_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S144",
+      "observed_name": "P&L Expences",
+      "observed_section": "Knitpack / P & L",
+      "observed_route": "#/knitpack/pl_entry/pl_expense_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S145",
+      "observed_name": "P&L Entry",
+      "observed_section": "Knitpack / P & L",
+      "observed_route": "#/knitpack/pl_entry/pl_entry",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S146",
+      "observed_name": "P&L Report",
+      "observed_section": "Knitpack / P & L",
+      "observed_route": "#/knitpack/pl_entry/pl_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S147",
+      "observed_name": "Stoppage Entry",
+      "observed_section": "Knitpack / Stoppage",
+      "observed_route": "#/knitpack/stoppage/stoppage_entry",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S148",
+      "observed_name": "Shiftwise Stoppage",
+      "observed_section": "Knitpack / Stoppage",
+      "observed_route": "#/knitpack/stoppage/shiftwise_stoppage",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S149",
+      "observed_name": "Stoppage Percentage Wise",
+      "observed_section": "Knitpack / Stoppage",
+      "observed_route": "#/knitpack/stoppage/stoppage_percent",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S150",
+      "observed_name": "Machinewise Stoppage",
+      "observed_section": "Knitpack / Stoppage",
+      "observed_route": "#/knitpack/stoppage/machinewise_stoppage",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S151",
+      "observed_name": "Needle Breakage Opening",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/needle_breakage_opening_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S152",
+      "observed_name": "Needle Bulk Entry",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/needle_bulk_entry",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S153",
+      "observed_name": "Needle Breakage Report",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/needle_breakage_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S154",
+      "observed_name": "Needle Life Status",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/needle_life_status_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S155",
+      "observed_name": "Sinker Opening",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/sinker_opening/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S156",
+      "observed_name": "Sinker Bulk Entry",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/sinker_bulk_entry/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S157",
+      "observed_name": "Sinker Life Status",
+      "observed_section": "Knitpack / Needle Change",
+      "observed_route": "#/knitpack/needle_change/sinker_life_status",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S158",
+      "observed_name": "Fabric Variety",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/fabric_variety/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S159",
+      "observed_name": "Mills",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/mills/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S160",
+      "observed_name": "Yarn Color",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/yarn_color/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S161",
+      "observed_name": "Yarn Count",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/yarn_count/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S162",
+      "observed_name": "Yarn Variety",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/yarn_variety/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S163",
+      "observed_name": "Party Co-Ordinator",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/party_coordinator/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S164",
+      "observed_name": "Elastane Marker",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/elastane_mark/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S165",
+      "observed_name": "Construct",
+      "observed_section": "Knitpack / Master - Regular",
+      "observed_route": "#/knitpack/masters/construct/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S166",
+      "observed_name": "Dia",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/dia/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S167",
+      "observed_name": "Machine Type",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/fabric_type/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S168",
+      "observed_name": "Gauge",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/gauge/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S169",
+      "observed_name": "Machine",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/machine/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S170",
+      "observed_name": "Bank",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/bank/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S171",
+      "observed_name": "Party Fabric Rate",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/party_fabric_rate/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S172",
+      "observed_name": "Machine Needle Settings",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/mc_needle/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S173",
+      "observed_name": "Ingredient",
+      "observed_section": "Knitpack / Master - Owner",
+      "observed_route": "#/knitpack/masters/ingredients/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S174",
+      "observed_name": "Feeders",
+      "observed_section": "Knitpack / Master - Global",
+      "observed_route": "#/knitpack/masters/feeders/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S175",
+      "observed_name": "Knit Type",
+      "observed_section": "Knitpack / Master - Global",
+      "observed_route": "#/knitpack/masters/knit_type/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S176",
+      "observed_name": "Machine Make",
+      "observed_section": "Knitpack / Master - Global",
+      "observed_route": "#/knitpack/masters/machine_make/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S177",
+      "observed_name": "UOM",
+      "observed_section": "Knitpack / Master - Global",
+      "observed_route": "#/knitpack/masters/uom/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S178",
+      "observed_name": "QC Parameter",
+      "observed_section": "Knitpack / Master - Global",
+      "observed_route": "#/knitpack/masters/qc_parameter/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K06",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S179",
+      "observed_name": "Prefix Suffix",
+      "observed_section": "Knitpack / Master - Global",
+      "observed_route": "#/knitpack/masters/prefix_suffix/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S180",
+      "observed_name": "Knitpack Configuration",
+      "observed_section": "Knitpack / Configuration",
+      "observed_route": "#/knitpack/config/knitpack_config",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S181",
+      "observed_name": "User Configuration",
+      "observed_section": "Knitpack / Configuration",
+      "observed_route": "#/knitpack/config/user_config/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S182",
+      "observed_name": "Roll Config",
+      "observed_section": "Knitpack / Configuration",
+      "observed_route": "#/knitpack/config/roll_config",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_knitting_workflow"
+    },
+    {
+      "id": "S183",
+      "observed_name": "Voucher Entry",
+      "observed_section": "Accounts / Vouchers",
+      "observed_route": "#/accounts/trans/voucher_entry/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S184",
+      "observed_name": "Payment Realisation",
+      "observed_section": "Accounts / Vouchers",
+      "observed_route": "#/accounts/trans/cheque/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S185",
+      "observed_name": "Journal Entry",
+      "observed_section": "Accounts / Vouchers",
+      "observed_route": "#/accounts/trans/bank/journal/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S186",
+      "observed_name": "Opening Balance",
+      "observed_section": "Accounts / Vouchers",
+      "observed_route": "#/accounts/trans/op_bal/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S187",
+      "observed_name": "Cash Ledger Master",
+      "observed_section": "Accounts / Cash & Bank",
+      "observed_route": "#/accounts/masters/cash_ledger/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S188",
+      "observed_name": "Contra Entry",
+      "observed_section": "Accounts / Cash & Bank",
+      "observed_route": "#/accounts/trans/bank/contra_entry/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S189",
+      "observed_name": "Petty Cash",
+      "observed_section": "Accounts / Cash & Bank",
+      "observed_route": "#/accounts/trans/petty_cash/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S190",
+      "observed_name": "Opening Cash Balance",
+      "observed_section": "Accounts / Cash & Bank",
+      "observed_route": "#/accounts/trans/bank/opening_cash_bal",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S191",
+      "observed_name": "Cash Ledger View",
+      "observed_section": "Accounts / Cash & Bank",
+      "observed_route": "#/accounts/registers/cash_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S192",
+      "observed_name": "Sales Invoice",
+      "observed_section": "Accounts / Sales",
+      "observed_route": "#/accounts/trans/invoice/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S193",
+      "observed_name": "E-Invoice",
+      "observed_section": "Accounts / Sales",
+      "observed_route": "#/accounts/trans/e_invoice/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "conditional_provider_and_customer_pilot_gate",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S194",
+      "observed_name": "E-Way Bill",
+      "observed_section": "Accounts / Sales",
+      "observed_route": "#/accounts/trans/e_way/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "conditional_provider_and_customer_pilot_gate",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S195",
+      "observed_name": "Day Book",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/day_book",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S196",
+      "observed_name": "Party Ledger",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/party_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S197",
+      "observed_name": "Party Statement",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/party_statement",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S198",
+      "observed_name": "Ageing Report",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/ageing_report",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S199",
+      "observed_name": "Voucher Register",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/voucher_entry_reg",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S200",
+      "observed_name": "Accounts Ledger",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/accounts_ledger",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S201",
+      "observed_name": "Voucher Month Wise Register",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/voucher_monthly_register",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S202",
+      "observed_name": "Party Statement Abstract",
+      "observed_section": "Accounts / Reports",
+      "observed_route": "#/accounts/registers/party_statement_abs",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S203",
+      "observed_name": "Fiscal Dashboard",
+      "observed_section": "Accounts / Dashboard",
+      "observed_route": "#/accounts/dashboard/d1",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S204",
+      "observed_name": "Ledger Type",
+      "observed_section": "Accounts / Masters",
+      "observed_route": "#/accounts/masters/ledger_type/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S205",
+      "observed_name": "Ledger",
+      "observed_section": "Accounts / Masters",
+      "observed_route": "#/accounts/masters/ledger/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10",
+        "K11"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S206",
+      "observed_name": "HSN",
+      "observed_section": "Accounts / Masters",
+      "observed_route": "#/accounts/masters/hsn/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S207",
+      "observed_name": "Income / Expense",
+      "observed_section": "Accounts / Masters",
+      "observed_route": "#/accounts/masters/income_expense/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K07",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S208",
+      "observed_name": "Configuration",
+      "observed_section": "Accounts / Configuration",
+      "observed_route": "#/accounts/config/accounts_config",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S209",
+      "observed_name": "User Config",
+      "observed_section": "Accounts / Configuration",
+      "observed_route": "#/accounts/config/user_config/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S210",
+      "observed_name": "Company",
+      "observed_section": "Masters / Your Information",
+      "observed_route": "#/masters/company/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S211",
+      "observed_name": "Godown",
+      "observed_section": "Masters / Your Information",
+      "observed_route": "#/masters/godown/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S212",
+      "observed_name": "Party",
+      "observed_section": "Masters / Parties",
+      "observed_route": "#/masters/party/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S213",
+      "observed_name": "Department",
+      "observed_section": "Masters / Employees",
+      "observed_route": "#/masters/department/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S214",
+      "observed_name": "Role",
+      "observed_section": "Masters / Employees",
+      "observed_route": "#/masters/role/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S215",
+      "observed_name": "Employee Type",
+      "observed_section": "Masters / Employees",
+      "observed_route": "#/masters/employee_type/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S216",
+      "observed_name": "Employee",
+      "observed_section": "Masters / Employees",
+      "observed_route": "#/masters/employee/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S217",
+      "observed_name": "UOM",
+      "observed_section": "Masters / Products",
+      "observed_route": "#/masters/uom/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S218",
+      "observed_name": "Item Group Config",
+      "observed_section": "Masters / Products",
+      "observed_route": "#/masters/group/config_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S219",
+      "observed_name": "Group",
+      "observed_section": "Masters / Products",
+      "observed_route": "#/masters/group/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S220",
+      "observed_name": "Sub Group",
+      "observed_section": "Masters / Products",
+      "observed_route": "#/masters/sub_group/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S221",
+      "observed_name": "Item Sub Group Config",
+      "observed_section": "Masters / Products",
+      "observed_route": "#/masters/sub_group/config_list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S222",
+      "observed_name": "Item",
+      "observed_section": "Masters / Products",
+      "observed_route": "#/masters/item/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K02",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S223",
+      "observed_name": "Config",
+      "observed_section": "Masters / Configuration",
+      "observed_route": "#/masters/configuration/masters_config",
+      "audit_status": "Unresolved link",
+      "work_package": "K01",
+      "related_packages": [
+        "K00"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Company/master setup and scope configuration; do not guess the unresolved vendor page.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_substitute"
+    },
+    {
+      "id": "S224",
+      "observed_name": "Terms Group",
+      "observed_section": "Masters / General",
+      "observed_route": "#/masters/termgroup/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S225",
+      "observed_name": "Terms",
+      "observed_section": "Masters / General",
+      "observed_route": "#/masters/terms/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S226",
+      "observed_name": "Payment Gateway",
+      "observed_section": "Masters / General",
+      "observed_route": "#/masters/trans/payment_gateway/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K11",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "conditional_provider_and_customer_pilot_gate",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S227",
+      "observed_name": "Holiday",
+      "observed_section": "Masters / General",
+      "observed_route": "#/masters/holiday/list",
+      "audit_status": "Unresolved link",
+      "work_package": "K01",
+      "related_packages": [
+        "K00"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Working calendar with holidays/shutdowns removes machine capacity; verified independently.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "independent_substitute"
+    },
+    {
+      "id": "S228",
+      "observed_name": "Shift",
+      "observed_section": "Masters / General",
+      "observed_route": "#/masters/shift/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K01",
+      "related_packages": [
+        "K00",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S229",
+      "observed_name": "Item Report",
+      "observed_section": "Masters / Reports",
+      "observed_route": "#/masters/registers/item",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S230",
+      "observed_name": "Party Report",
+      "observed_section": "Masters / Reports",
+      "observed_route": "#/masters/registers/party",
+      "audit_status": "Screen inspected",
+      "work_package": "K10",
+      "related_packages": [
+        "K00",
+        "K01"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S231",
+      "observed_name": "Stoppage Group",
+      "observed_section": "Masters / Stoppage",
+      "observed_route": "#/masters/stoppage_group/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    },
+    {
+      "id": "S232",
+      "observed_name": "Stoppage Type",
+      "observed_section": "Masters / Stoppage",
+      "observed_route": "#/masters/stoppage_type/list",
+      "audit_status": "Screen inspected",
+      "work_package": "K09",
+      "related_packages": [
+        "K00",
+        "K01",
+        "K10"
+      ],
+      "implementation_status": "planned",
+      "automated_verification": "not_run",
+      "native_verification": "not_run",
+      "decision": "Reuse shared ERP records where semantics agree; add a knitting view or adapter and verify its scenario.",
+      "release_requirement": "required_independent_functionality",
+      "disposition": "reuse_shared_erp_with_scoped_knitting_adapters"
+    }
+  ],
+  "counts": {
+    "source_routes": 232,
+    "mapped_routes": 232,
+    "implemented_routes": 0,
+    "verified_routes": 0
+  },
+  "release_scope": "Independent product functionality; explicit substitutes, unspecified hardware exclusion and conditional provider/pilot gates are proposed for product approval."
+}
