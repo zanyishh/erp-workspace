@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'erp_models.dart';
 import 'native_models.dart';
 import 'native_reports.dart';
+import 'workspace_context.dart';
+import 'knitting_models.dart';
 
 class ErpException implements Exception {
   const ErpException(
@@ -114,7 +116,7 @@ class ErpApi {
       if (!expired &&
           response.statusCode == 403 &&
           sessionAtStart != null &&
-          path.startsWith('/api/method/erp_extensions.api.') &&
+          path.startsWith('/api/method/erp_extensions.') &&
           !path.endsWith('.session_status')) {
         try {
           final status = await _request(
@@ -238,6 +240,96 @@ class ErpApi {
     }
   }
 
+  Future<Map<String, dynamic>> _industry(
+    String module,
+    String operation,
+    Map<String, Object?> args,
+  ) async {
+    final response = await _request(
+      '/api/method/erp_extensions.$module.$operation',
+      form: {
+        for (final e in args.entries)
+          if (e.value != null)
+            e.key: e.value is String ? e.value as String : jsonEncode(e.value),
+      },
+    );
+    return objectMap(response['message']);
+  }
+
+  Future<WorkspaceContext> workspaceContext({String? company}) async =>
+      WorkspaceContext.fromJson(
+        await _industry('workspace', 'context', {'company': company}),
+      );
+  Future<WorkspaceContext> configureIndustry(
+    String company,
+    Map<String, dynamic> settings,
+  ) async => WorkspaceContext.fromJson(
+    await _industry('workspace', 'configure', {
+      'company': company,
+      'settings': settings,
+    }),
+  );
+  Future<Map<String, dynamic>> industrySettings(String company) =>
+      _industry('workspace', 'settings', {'company': company});
+  Future<KnittingSnapshot> knittingSnapshot(
+    String company, {
+    String? job,
+  }) async => KnittingSnapshot.fromJson(
+    await _industry('knitting.api', 'snapshot', {
+      'company': company,
+      'job': job,
+    }),
+  );
+  Future<Map<String, dynamic>> knittingCommand(
+    String company,
+    String action,
+    Map<String, dynamic> values,
+    String requestId, {
+    String? modified,
+  }) => _industry('knitting.api', 'command', {
+    'company': company,
+    'action': action,
+    'payload': values,
+    'request_id': requestId,
+    'modified': modified,
+  });
+  Future<Map<String, dynamic>> knittingCommandStatus(
+    String company,
+    String requestId,
+  ) => _industry('knitting.api', 'command_status', {
+    'company': company,
+    'request_id': requestId,
+  });
+  Future<Map<String, dynamic>> knittingLookup(
+    String company,
+    String entity,
+    String query, {
+    int start = 0,
+  }) => _industry('knitting.api', 'lookup', {
+    'company': company,
+    'entity': entity,
+    'query': query,
+    'start': start,
+  });
+  Future<Map<String, dynamic>> knittingReport(
+    String company,
+    String report,
+    Map<String, dynamic> filters,
+  ) => _industry('knitting.api', 'report', {
+    'company': company,
+    'report': report,
+    'filters': filters,
+  });
+  Future<Map<String, dynamic>> knittingExport(
+    String company,
+    String format,
+    Map<String, dynamic> filters,
+  ) => _industry('knitting.api', 'export', {
+    'company': company,
+    'format': format,
+    'filters': filters,
+  });
+
   Future<Map<String, dynamic>> documentActivity(String type, String name) =>
       _native('activity', {'doctype': type, 'name': name});
   Future<void> comment(String type, String name, String content) async {
@@ -318,8 +410,8 @@ class ErpApi {
     );
   }
 
-  Future<NativeCatalog> nativeCatalog() async =>
-      NativeCatalog.fromJson(await _native('catalog'));
+  Future<NativeCatalog> nativeCatalog({String? company}) async =>
+      NativeCatalog.fromJson(await _native('catalog', {'company': company}));
 
   Future<Map<String, dynamic>> reportDefinition(
     String name, {

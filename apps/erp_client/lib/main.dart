@@ -13,6 +13,8 @@ import 'sign_in.dart';
 import 'session_recovery.dart';
 import 'widgets.dart';
 import 'workspace_picker.dart';
+import 'workspace_context.dart';
+import 'knitting_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +58,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   ErpModule? _module;
   ErpSnapshot? _lastData;
   int _revision = 0;
+  WorkspaceContext? _workspace;
   @override
   void dispose() {
     _api?.close();
@@ -70,11 +73,16 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         api.close();
         return;
       }
+      final workspace = await api.workspaceContext();
       api.onSessionExpired = () => _recoverSession(api);
       setState(() {
         _api = api;
+        _workspace = workspace;
         _module = null;
-        _snapshot = _guard(api, api.snapshot(_period));
+        _snapshot = _guard(
+          api,
+          api.snapshot(_period, selectedCompany: workspace.company),
+        );
       });
     } catch (_) {
       api.close();
@@ -142,6 +150,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       _snapshot = null;
       _lastData = null;
       _module = null;
+      _workspace = null;
     });
     try {
       await api.signOut();
@@ -150,6 +159,75 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     } finally {
       api.close();
     }
+  }
+
+  Future<void> _company() async {
+    final api = _api;
+    if (api == null) return;
+    try {
+      final fresh = await api.workspaceContext(company: _workspace?.company);
+      if (!mounted) return;
+      final name = await showDialog<String>(
+        context: context,
+        builder: (c) => SimpleDialog(
+          title: const Text('Choose company'),
+          children: [
+            for (final row in fresh.companies)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(c, row['name'] as String),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(row['name'] as String),
+                ),
+              ),
+          ],
+        ),
+      );
+      if (name == null || !mounted) return;
+      final w = await api.workspaceContext(company: name);
+      if (!mounted || !identical(api, _api)) return;
+      setState(() {
+        _workspace = w;
+        _lastData = null;
+        _module = null;
+        _revision++;
+        _snapshot = _guard(api, api.snapshot(_period, selectedCompany: name));
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  Future<void> _industry({bool setup = false}) async {
+    final api = _api;
+    final w = _workspace;
+    if (api == null || w == null) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => setup
+            ? IndustrySetupScreen(
+                api: api,
+                workspace: w,
+                onSaved: (value) {
+                  if (mounted) setState(() => _workspace = value);
+                },
+              )
+            : KnittingScreen(
+                key: ValueKey(w.company),
+                api: api,
+                workspace: w,
+                onContextChanged: (value) {
+                  if (mounted) setState(() => _workspace = value);
+                },
+              ),
+      ),
+    );
+    if (mounted) _refresh();
   }
 
   void _licenses() => showLicensePage(
@@ -579,6 +657,38 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         ),
         child: Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: _company,
+                      icon: const Icon(Icons.business_outlined, size: 16),
+                      label: Text(
+                        _workspace?.company ?? 'Select company',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: TextButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                      ),
+                    ),
+                  ),
+                  if (_workspace?.enabled == true)
+                    Pill(
+                      'Knitting',
+                      icon: Icons.texture,
+                      onPressed: () => _industry(),
+                    ),
+                  if (_workspace?.canConfigure == true)
+                    IconButton(
+                      onPressed: () => _industry(setup: true),
+                      tooltip: 'Industry setup',
+                      icon: const Icon(Icons.tune, size: 20),
+                    ),
+                ],
+              ),
+            ),
             if (wide)
               Row(
                 children: [

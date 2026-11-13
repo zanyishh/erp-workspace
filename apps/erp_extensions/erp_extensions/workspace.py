@@ -39,6 +39,23 @@ def configure(company, settings):
         doc = frappe.get_doc("Workspace Industry Setup", found.name, for_update=True)
     if settings["state"] == "Inactive" and frappe.db.exists("Knitting Job", {"company": company, "status": "Running"}):
         frappe.throw("Settle the open knitting jobs before deactivating the pack.")
+    if "revision" in settings and int(settings["revision"]) != int(doc.revision or 0):
+        frappe.throw("The setup changed. Reload its latest policy before applying your changes.")
+    from erp_extensions.knitting import domain
+    if "allow_production_excess_pct" in settings:
+        excess = domain.decimal(settings["allow_production_excess_pct"])
+        if excess > 100:
+            frappe.throw("Review excess production between zero and 100 percent.")
+    if settings.get("warehouse"):
+        domain.warehouse(settings["warehouse"], company)
+    for field, stock in (("service_item", False), ("fabric_item", True)):
+        if settings.get(field):
+            item = domain.reference("Item", settings[field])
+            if bool(item.is_stock_item) != stock or item.stock_uom != "Kg":
+                frappe.throw("Use a non-stock Kg service item and a stock Kg fabric item.")
+    for field, doctype in (("income_account", "Account"), ("expense_account", "Account"), ("cost_center", "Cost Center")):
+        if settings.get(field):
+            domain.reference(doctype, settings[field], company)
     previous = frappe.parse_json(doc.settings or "{}")
     allowed = {"shifts", "warehouse", "service_item", "fabric_item", "cost_center", "expense_account", "income_account",
                "allow_production_excess_pct", "lycra_charge", "service_rate", "number_prefix", "component_defaults", "rate_lookup"}
@@ -57,3 +74,12 @@ def configure(company, settings):
     with permissions.service_write():
         doc.save()
     return context(company)
+
+
+@frappe.whitelist()
+def settings(company):
+    if "configure" not in permissions.capabilities() or not permissions.company_allowed(company):
+        frappe.throw("This account cannot configure this business.", frappe.PermissionError)
+    profile = permissions.profile(company)
+    return {"settings": frappe.parse_json(profile.settings or "{}") if profile else {},
+            "revision": profile.revision if profile else 0, "state": profile.state if profile else "Setup"}

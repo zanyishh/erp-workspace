@@ -26,7 +26,7 @@ abstract final class WorkspaceTheme {
       onPrimary: light,
     ),
     textTheme: const TextTheme(
-      bodyMedium: TextStyle(fontSize: 13, color: ink),
+      bodyMedium: TextStyle(fontSize: 14, color: ink),
       bodySmall: TextStyle(fontSize: 11, color: muted),
     ),
     tooltipTheme: const TooltipThemeData(
@@ -48,6 +48,98 @@ abstract final class WorkspaceTheme {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: ink, width: 1.4),
       ),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: canvas,
+      surfaceTintColor: Colors.transparent,
+      foregroundColor: ink,
+      elevation: 0,
+      centerTitle: false,
+      titleTextStyle: TextStyle(
+        fontFamily: 'BarlowCondensed',
+        fontWeight: FontWeight.w600,
+        fontSize: 27,
+        color: ink,
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(44, 46),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+        textStyle: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(44, 46),
+        foregroundColor: ink,
+        side: const BorderSide(color: border),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        textStyle: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: surface,
+      surfaceTintColor: Colors.transparent,
+      showDragHandle: true,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: charcoal,
+      contentTextStyle: const TextStyle(color: light, fontFamily: 'Manrope'),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      minVerticalPadding: 12,
+    ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: ink,
+      unselectedLabelColor: muted,
+      indicatorColor: peach,
+      dividerColor: border,
+    ),
+    dataTableTheme: const DataTableThemeData(
+      headingRowColor: WidgetStatePropertyAll(palePeach),
+      dataRowMinHeight: 48,
+      headingTextStyle: TextStyle(
+        fontFamily: 'Manrope',
+        fontWeight: FontWeight.w600,
+        color: ink,
+        fontSize: 13,
+      ),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: ink,
+      linearTrackColor: border,
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.macOS: WorkspaceRouteTransition(),
+        TargetPlatform.windows: WorkspaceRouteTransition(),
+        TargetPlatform.linux: WorkspaceRouteTransition(),
+        TargetPlatform.android: WorkspaceRouteTransition(),
+        TargetPlatform.iOS: WorkspaceRouteTransition(),
+      },
     ),
     dividerColor: border,
   );
@@ -86,3 +178,25 @@ IconData moduleIcon(ErpModule m) => switch (m) {
   ErpModule.assets => Icons.domain_outlined,
   ErpModule.quality => Icons.verified_outlined,
 };
+
+class WorkspaceRouteTransition extends PageTransitionsBuilder {
+  const WorkspaceRouteTransition();
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: child,
+    );
+  }
+}

@@ -102,14 +102,16 @@ def command_status(company, request_id):
 
 
 @frappe.whitelist()
-def snapshot(company):
+def snapshot(company, job=None):
     permissions.require(company, "jobs", history=True)
     finance = "financial_read" in permissions.capabilities()
+    if job:
+        domain.reference("Knitting Job", job, company)
     jobs = []
     fields = ["name", "modified", "customer", "kind", "material_mode", "due_date", "status", "target_kg", "revision", "programme"]
     if finance:
         fields += ["rate", "service_item"]
-    for row in frappe.get_list("Knitting Job", filters={"company": company}, fields=fields, order_by="modified desc", limit=200):
+    for row in frappe.get_list("Knitting Job", filters={"company": company, **({"name": job} if job else {})}, fields=fields, order_by="modified desc", limit=200):
         row.programme = domain.json_value(row.programme, [])
         row.balances = domain.balances(row.name)
         if finance:
@@ -129,7 +131,8 @@ def snapshot(company):
     ):
         # Event result JSON has a private field level; read it only after scoped row permission filtering.
         query_fields = [f for f in fields if f != "result"] if key == "events" else fields
-        limits[key] = frappe.get_list(doctype, filters={"company": company}, fields=query_fields, order_by="creation desc", limit=500)
+        filters = {"company": company, **({"job": job} if job and frappe.get_meta(doctype).has_field("job") else {})}
+        limits[key] = frappe.get_list(doctype, filters=filters, fields=query_fields, order_by="creation desc", limit=500)
     for event in limits["events"]:
         event.result = project(domain.json_value(frappe.db.get_value("Knitting Event", event.name, "result"), {}))
     for component in limits["components"]:
@@ -149,3 +152,38 @@ def snapshot(company):
         lot.general_kg = domain.kg(allocated.get((lot.name, None), 0))
     return {"version": 1, "company": company, "financial_read": finance, **limits,
             "integrations": [{"name": name, "status": "Not configured"} for name in ("E-Invoice", "E-Way Bill", "Payment gateway")]}
+
+
+@frappe.whitelist()
+def lookup(company, entity, query="", start=0):
+    """Bounded permission-scoped selectors, never an arbitrary DocType/query endpoint."""
+    if "configure" not in permissions.capabilities() or not permissions.company_allowed(company):
+        permissions.require(company, "jobs", history=True)
+    registry = {
+        "Job": ("Knitting Job", ["name", "customer", "status", "modified", "programme"], {}),
+        "Lot": ("Knitting Material Lot", ["name", "item", "party", "material_owner"], {}),
+        "Machine": ("Knitting Machine", ["name", "title", "dia", "gauge"], {"enabled": 1}),
+        "Roll": ("Knitting Roll", ["name", "job", "state", "weight_kg"], {"state": ["not in", ["Split", "Cancelled", "Delivered"]]}),
+        "ReleasedRoll": ("Knitting Roll", ["name", "job", "state", "weight_kg"], {"state": "Released"}),
+        "Delivery": ("Knitting Event", ["name", "job", "kind"], {"kind": "deliver", "cancelled": 0}),
+        "Event": ("Knitting Event", ["name", "job", "kind"], {"cancelled": 0}),
+        "Subcontract": ("Knitting Subcontract", ["name", "job", "supplier", "status"], {"status": "Open"}),
+        "Component": ("Knitting Component", ["name", "machine", "component_type"], {}),
+        "Customer": ("Customer", ["name", "customer_name as title"], {"disabled": 0}),
+        "Supplier": ("Supplier", ["name", "supplier_name as title"], {"disabled": 0}),
+        "Item": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0}),
+        "Warehouse": ("Warehouse", ["name"], {"is_group": 0}),
+        "Quotation": ("Quotation", ["name", "party_name", "docstatus", "modified"], {"knitting_event": ["is", "set"]}),
+    }
+    if entity not in registry or len(str(query)) > 120 or not str(start).isdigit() or int(start) > 1000000:
+        frappe.throw("Choose a supported record selector and page.")
+    doctype, fields, filters = registry[entity]
+    if frappe.get_meta(doctype).has_field("company"):
+        filters = {**filters, "company": company}
+    rows = frappe.get_list(doctype, filters=filters, or_filters=[["name", "like", "%" + query + "%"]] if query else None,
+                           fields=fields, order_by="modified desc, name", start=int(start), limit=51)
+    for row in rows:
+        if entity == "Job":
+            row.programme = domain.json_value(row.programme, [])
+            row.balances = domain.balances(row.name)
+    return {"rows": rows[:50], "has_more": len(rows) > 50, "start": int(start)}

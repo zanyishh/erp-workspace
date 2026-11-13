@@ -23,7 +23,9 @@ class NativeCatalogScreen extends StatefulWidget {
 }
 
 class _NativeCatalogScreenState extends State<NativeCatalogScreen> {
-  late Future<NativeCatalog> _future = widget.api.nativeCatalog();
+  late Future<NativeCatalog> _future = widget.api.nativeCatalog(
+    company: widget.company,
+  );
   void _open(NativeType type) => Navigator.push(
     context,
     MaterialPageRoute<void>(
@@ -73,7 +75,7 @@ class _NativeCatalogScreenState extends State<NativeCatalogScreen> {
             title: 'COULD NOT LOAD MODULES',
             message: state.error.toString(),
             action: () => setState(() {
-              _future = widget.api.nativeCatalog();
+              _future = widget.api.nativeCatalog(company: widget.company);
             }),
           );
         }

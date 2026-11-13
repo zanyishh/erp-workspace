@@ -5,7 +5,7 @@ import unittest
 
 import frappe
 
-COMPANY = "ERP Native Verification"
+COMPANY = "ERP Knitting Verification"
 
 
 def optional_module(name):
@@ -26,6 +26,10 @@ class KnittingTests(unittest.TestCase):
         frappe.init(site="native-test.localhost", sites_path=".")
         frappe.connect()
         frappe.set_user("Administrator")
+        if not frappe.db.exists("Company", COMPANY):
+            from erpnext.setup.setup_wizard.operations.install_fixtures import install_company
+            install_company(frappe._dict(company_name=COMPANY, company_abbr="KTEST", currency="INR", country="India",
+                chart_of_accounts="Standard", fy_start_date="2026-04-01", fy_end_date="2027-03-31", fiscal_year="2026-2027"))
         module = optional_module("erp_extensions.knitting.install")
         if module:
             module.install()
@@ -494,3 +498,24 @@ class KnittingTests(unittest.TestCase):
         self.assertIsNone(api.document("Knitting Event", event["event"])["doc"].get("result"))
         self.assertEqual(next(e for e in self.knitting().snapshot(COMPANY)["events"] if e["name"] == event["event"])["result"]["quantity_kg"], "88.000")
 
+
+    def test_setup_validates_scoped_defaults_and_stale_policy_revision(self):
+        self.fixtures()
+        before = self.workspace().context(COMPANY)
+        with self.assertRaises(frappe.ValidationError):
+            self.workspace().configure(COMPANY, {"state": "Active", "allow_production_excess_pct": "NaN"})
+        with self.assertRaises(frappe.ValidationError):
+            self.workspace().configure(COMPANY, {"state": "Active", "revision": before["revision"] - 1})
+        with self.assertRaises(frappe.ValidationError):
+            self.workspace().configure(COMPANY, {"state": "Active", "service_item": self.items["yarn"]})
+
+    def test_scoped_selector_is_bounded_and_never_accepts_arbitrary_types(self):
+        self.fixtures()
+        api = self.knitting()
+        self.assertEqual(api.lookup(COMPANY, "Job", self.job)["rows"][0]["name"], self.job)
+        with self.assertRaises(frappe.ValidationError):
+            api.lookup(COMPANY, "User", "")
+        with self.assertRaises(frappe.PermissionError):
+            api.lookup("Another business", "Job", "")
+        with self.assertRaises(frappe.ValidationError):
+            api.lookup(COMPANY, "Job", "", -1)
