@@ -506,7 +506,9 @@ def cancel_event(event, data, job):
             roll.save()
     if source.kind == "quality":
         roll = reference("Knitting Roll", result["roll"], event.company)
-        if roll.state == "Delivered" or frappe.db.exists("Knitting QC", {"roll": roll.name, "creation": [">", source.creation]}):
+        later = frappe.db.sql("""select q.name from `tabKnitting QC` q join `tabKnitting Event` e on e.name=q.event
+            where q.roll=%s and q.event!=%s and q.creation>%s and e.cancelled=0 limit 1""", (roll.name, source.name, source.creation))
+        if roll.state == "Delivered" or later:
             frappe.throw("A later inspection or delivery depends on this quality decision.")
         roll.state = result["previous_state"]
         roll.save()

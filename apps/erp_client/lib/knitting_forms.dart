@@ -882,6 +882,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     }
     if (f.kind == 'select') {
       return DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: target[f.key]?.toString() ?? f.options.first,
         decoration: InputDecoration(labelText: f.label),
         items: f.options
@@ -897,6 +898,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       final job = widget.job ?? references['job'];
       final lines = (job?['programme'] as List? ?? []);
       return DropdownButtonFormField<String>(
+        isExpanded: true,
         initialValue: target[f.key] as String?,
         decoration: InputDecoration(
           labelText: f.label,

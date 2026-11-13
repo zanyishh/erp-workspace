@@ -101,12 +101,12 @@ def _schema(meta, parenttype=None):
 @frappe.whitelist()
 def catalog(company=None):
     _signed_in()
-    from erp_extensions.knitting.permissions import visible_type
+    from erp_extensions.knitting.permissions import visible_type, is_pack
     types = []
     for dt in frappe.get_all("DocType", fields=["name", "module", "issingle", "is_submittable", "is_tree"],
         filters={"istable": 0}, order_by="module, name"):
         if frappe.has_permission(dt.name, "read") and visible_type(dt.name, company):
-            types.append({**dt, "create": bool(frappe.has_permission(dt.name, "create"))})
+            types.append({**dt, "create": bool(not is_pack(dt.name) and frappe.has_permission(dt.name, "create"))})
     reports = []
     for row in frappe.get_all("Report", fields=["name", "module", "ref_doctype", "report_type"],
         filters={"disabled": 0}, order_by="module, name"):
@@ -135,13 +135,17 @@ def _native_identities(data, meta):
 
 def _result(doc):
     from frappe.model.workflow import get_transitions, get_workflow_name
-    permissions = get_doc_permissions(doc)
+    permissions = dict(get_doc_permissions(doc))
+    from erp_extensions.knitting.permissions import is_pack
+    guarded = is_pack(doc.doctype) or bool(doc.get("knitting_event") or doc.get("knitting_job"))
+    if guarded:
+        permissions.update({p: False for p in ("write", "create", "submit", "cancel", "amend")})
     workflow = get_workflow_name(doc.doctype)
-    transitions = get_transitions(doc) if workflow and not doc.is_new() else []
+    transitions = get_transitions(doc) if workflow and not doc.is_new() and not guarded else []
     data = _native_identities(doc.copy_with_fieldlevel_read_permissions().as_dict(), doc.meta)
     if doc.is_new() and doc.flags.native_origin:
         data["__native_origin"] = doc.flags.native_origin
-    return {"doc": data, "permissions": permissions, "related_actions":_related_actions(doc),
+    return {"doc": data, "permissions": permissions, "related_actions":[] if guarded else _related_actions(doc),
         "workflow": workflow, "transitions": [{"action": t.action, "next_state": t.next_state} for t in transitions]}
 
 

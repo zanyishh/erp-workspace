@@ -519,3 +519,96 @@ class KnittingTests(unittest.TestCase):
             api.lookup("Another business", "Job", "")
         with self.assertRaises(frappe.ValidationError):
             api.lookup(COMPANY, "Job", "", -1)
+
+    def test_operational_reports_reconcile_asof_period_and_financial_scope(self):
+        self.fixtures()
+        lot = self.receive()
+        rolls = self.produce(lot)
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
+        api = self.knitting()
+        self.assertTrue(callable(getattr(api, "report", None)), "Operational reporting is not implemented")
+        filters = {"job": self.job, "mode": "as_of", "to_date": "2026-11-13"}
+        report = api.report(COMPANY, "jobs", filters)
+        row = report["rows"][0]
+        self.assertEqual(row["yarn_kg"], "10.000")
+        self.assertEqual(row["billed_kg"], "88.000")
+        grouped = api.report(COMPANY, "production", {**filters, "group_by": "operator"})
+        self.assertEqual(grouped["rows"][0]["quantity_kg"], "88.000")
+        self.assertEqual(grouped["rows"][0]["operator"], "Administrator")
+        self.assertEqual(api.report(COMPANY, "activity", {**filters, "kind": "receive_yarn"})["row_count"], 1)
+        self.assertEqual(api.report(COMPANY, "yarn", filters)["summary"]["quantity_kg"], "10.000")
+        for name in ("fabric", "rolls", "planning", "production", "quality", "subcontract", "components", "stoppage", "billing", "margin"):
+            result = api.report(COMPANY, name, filters)
+            self.assertIn("columns", result)
+            self.assertIn("rows", result)
+        empty = api.report(COMPANY, "production", {**filters, "mode": "period", "from_date": "2026-01-01", "to_date": "2026-01-02"})
+        self.assertEqual(empty["summary"]["quantity_kg"], "0.000")
+        frappe.set_user("knit-operator@example.invalid")
+        with self.assertRaises(frappe.PermissionError):
+            api.report(COMPANY, "margin", filters)
+        with self.assertRaises(frappe.PermissionError):
+            api.export(COMPANY, "csv", {**filters, "report": "jobs"})
+
+    def test_exports_are_deterministic_escaped_and_roll_print_is_valid_pdf(self):
+        self.fixtures()
+        lot = self.receive()
+        rolls = self.produce(lot)
+        api = self.knitting()
+        self.assertTrue(callable(getattr(api, "export", None)), "Knitting export is not implemented")
+        import base64
+        value = api.export(COMPANY, "csv", {"report": "jobs", "job": self.job})
+        text = base64.b64decode(value["content"]).decode("utf-8-sig")
+        self.assertIn(self.job, text)
+        self.assertIn("10.000", text)
+        self.assertEqual(value, api.export(COMPANY, "csv", {"report": "jobs", "job": self.job}))
+        pdf = api.export(COMPANY, "roll_label", {"roll": rolls[0]})
+        self.assertTrue(base64.b64decode(pdf["content"]).startswith(b"%PDF-"))
+        for kind in ("gst_review", "tally_review"):
+            export = api.export(COMPANY, kind, {"job": self.job})
+            self.assertTrue(base64.b64decode(export["content"]))
+        from erp_extensions.knitting.exports import safe_cell, fiscal_token, roll_token
+        self.assertEqual(safe_cell("=1+1"), "'=1+1")
+        self.assertEqual(fiscal_token("2026-04-01"), "2026-27")
+        self.assertEqual(fiscal_token("2026-03-31"), "2025-26")
+        self.assertEqual(roll_token(self.job, "P1", "44.000"), self.job + "|P1|44.000kg")
+
+    def test_native_source_drilldowns_do_not_offer_forbidden_generic_actions(self):
+        self.fixtures()
+        from erp_extensions import api as native
+        result = native.document("Knitting Job", self.job)
+        for action in ("write", "create", "submit", "cancel", "amend"):
+            self.assertFalse(result["permissions"].get(action))
+        record = next(t for t in native.catalog(company=COMPANY)["types"] if t["name"] == "Knitting Job")
+        self.assertFalse(record["create"])
+
+    def test_review_export_golden_contracts(self):
+        from pathlib import Path
+        from erp_extensions.knitting.exports import gst_review, tally_review
+        row = {"invoice": "SYNTH-INV-1", "posting_date": "2026-11-13", "currency": "INR", "net_amount": "100.00", "tax_amount": "18.00", "grand_total": "118.00"}
+        folder = Path(__file__).parent / "golden"
+        self.assertEqual(gst_review("Synthetic Mills", [row]), (folder / "gst-review.json").read_text().strip())
+        self.assertEqual(tally_review("Synthetic Mills", [row]), (folder / "tally-review.xml").read_text().strip())
+
+    def test_asof_roll_state_uses_correction_time_and_keeps_prior_decision(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        hold = self.call("quality", {"job": self.job, "roll": rolls[0], "decision": "On Hold"})
+        release = self.call("quality", {"job": self.job, "roll": rolls[0], "decision": "Released"})
+        for row in frappe.get_all("Knitting Event", filters={"job": self.job}, fields=["name", "kind"]):
+            stamp = "2026-11-10 10:00:00"
+            if row.name == hold["event"]:
+                stamp = "2026-11-11 10:00:00"
+            if row.name == release["event"]:
+                stamp = "2026-11-12 10:00:00"
+            frappe.db.set_value("Knitting Event", row.name, "occurred_at", stamp, update_modified=False)
+        for roll in rolls:
+            frappe.db.set_value("Knitting Roll", roll, "produced_at", "2026-11-10 10:00:00", update_modified=False)
+        correction = self.call("cancel_event", {"job": self.job, "event": release["event"], "reason": "Synthetic correction timing"})
+        frappe.db.set_value("Knitting Event", correction["event"], "occurred_at", "2026-11-13 10:00:00", update_modified=False)
+        api = self.knitting()
+        for day, state in (("2026-11-10", "Awaiting QC"), ("2026-11-11", "On Hold"), ("2026-11-12", "Released"), ("2026-11-13", "On Hold")):
+            result = api.report(COMPANY, "rolls", {"job": self.job, "to_date": day})
+            row = next(r for r in result["rows"] if r["name"] == rolls[0])
+            self.assertEqual(row["state"], state)

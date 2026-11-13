@@ -187,3 +187,15 @@ def lookup(company, entity, query="", start=0):
             row.programme = domain.json_value(row.programme, [])
             row.balances = domain.balances(row.name)
     return {"rows": rows[:50], "has_more": len(rows) > 50, "start": int(start)}
+
+
+@frappe.whitelist()
+def report(company, report, filters=None):
+    from .reports import run
+    return run(company, report, filters)
+
+
+@frappe.whitelist()
+def export(company, format, filters=None):
+    from .exports import render
+    return render(company, format, filters)

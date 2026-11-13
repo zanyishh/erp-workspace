@@ -4,6 +4,7 @@ import 'document_editor.dart';
 import 'erp_api.dart';
 import 'knitting_forms.dart';
 import 'knitting_models.dart';
+import 'knitting_reports.dart';
 import 'workspace_context.dart';
 import 'widgets.dart';
 import 'ui/workspace_ui.dart';
@@ -114,7 +115,14 @@ class _KnittingScreenState extends State<KnittingScreen> {
         ),
         const SizedBox(height: 20),
         Expanded(
-          child: page == 'Setup'
+          child: page == 'Reports'
+              ? KnittingReports(
+                  api: widget.api,
+                  company: widget.workspace.company!,
+                  financialRead: widget.workspace.allows('financial_read'),
+                  job: selected?['name'] as String?,
+                )
+              : page == 'Setup'
               ? _Setup(
                   api: widget.api,
                   workspace: widget.workspace,
@@ -248,13 +256,6 @@ class KnittingWorkbench extends StatelessWidget {
       .toList();
   @override
   Widget build(BuildContext context) {
-    if (page == 'Reports') {
-      return KnittingReports(
-        api: null,
-        snapshot: snapshot,
-        company: workspace.company!,
-      );
-    }
     final jobs = rows('jobs');
     final record = selected;
     final balances = record?['balances'] as Map? ?? {};
@@ -769,24 +770,6 @@ class KnittingWorkbench extends StatelessWidget {
   );
 }
 
-// Reports are wired to the server in the reporting increment.
-class KnittingReports extends StatelessWidget {
-  const KnittingReports({
-    super.key,
-    required this.api,
-    required this.snapshot,
-    required this.company,
-  });
-  final ErpApi? api;
-  final KnittingSnapshot snapshot;
-  final String company;
-  @override
-  Widget build(BuildContext context) => const MessagePanel(
-    title: 'OPERATIONAL REPORTS',
-    message: 'Select a report from the report workspace.',
-  );
-}
-
 class IndustrySetupScreen extends StatelessWidget {
   const IndustrySetupScreen({
     super.key,
@@ -937,6 +920,7 @@ class _SetupState extends State<_Setup> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue: values![k]?.toString() ?? opts.first,
                       decoration: InputDecoration(labelText: label),
                       items: opts
