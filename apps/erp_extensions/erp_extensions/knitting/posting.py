@@ -17,12 +17,14 @@ def submit(doc):
     return doc
 
 
-def stock(event, purpose, rows):
+def stock(event, purpose, rows, additional_costs=None):
     company, defaults = common(event)
     doc = frappe.get_doc({"doctype": "Stock Entry", "company": event.company, "stock_entry_type": purpose,
                           "knitting_event": event.name, "knitting_job": event.job})
     for row in rows:
         doc.append("items", {**defaults, **row})
+    for row in additional_costs or []:
+        doc.append("additional_costs", row)
     return submit(doc)
 
 

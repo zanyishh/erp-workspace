@@ -10,7 +10,7 @@ CAPABILITIES = {
     "Knitting Planner": {"overview", "jobs", "planning", "factory", "reports"},
     "Knitting Accountant": {"overview", "jobs", "delivery", "billing", "financial_read", "reports"},
 }
-FINANCIAL_EVENTS = ("invoice", "deliver", "revise_job", "payment", "subcontract_bill", "estimate", "cost")
+FINANCIAL_EVENTS = ("invoice", "deliver", "revise_job", "payment", "subcontract_bill", "estimate", "create_estimate", "cost")
 
 
 def companies(user=None):
@@ -84,7 +84,7 @@ def visible_type(doctype, company=None):
 
 def guard_write(doc, method=None):
     if not is_pack(doc.doctype):
-        if doc.doctype in ("Stock Entry", "Sales Invoice", "Delivery Note"):
+        if doc.doctype in ("Stock Entry", "Sales Invoice", "Delivery Note", "Purchase Invoice", "Purchase Order", "Quotation"):
             current = doc.get("knitting_event") or doc.get("knitting_job")
             previous = frappe.db.get_value(doc.doctype, doc.name, "knitting_event") if doc.name and not doc.is_new() else None
             if (current or previous) and not frappe.flags.get("knitting_service_write"):

@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
+from decimal import Decimal
 
 import frappe
 from frappe.utils import now_datetime
@@ -16,8 +17,17 @@ def request_key(company, request_id):
     return hashlib.sha256(f"{frappe.local.site}|{frappe.session.user}|{company}|{request_id}".encode()).hexdigest()
 
 
+def project(value):
+    if "financial_read" in permissions.capabilities():
+        return value
+    private = {"rate", "amount", "valuation_rate", "charge_rate", "income_account", "expense_account", "grand_total", "pricing"}
+    if isinstance(value, Mapping):
+        return {key: project(item) for key, item in value.items() if key not in private}
+    return [project(item) for item in value] if isinstance(value, list) else value
+
+
 def response(event):
-    return {"event": event.name, "action": event.kind, "data": domain.json_value(event.result, {})}
+    return {"event": event.name, "action": event.kind, "data": project(domain.json_value(event.result, {}))}
 
 
 @frappe.whitelist(methods=["POST"])
@@ -25,9 +35,11 @@ def command(company, action, payload, request_id, modified=None):
     data = frappe.parse_json(payload) if isinstance(payload, str) else payload
     if not isinstance(data, Mapping) or len(frappe.as_json(data)) > 262144:
         frappe.throw("A bounded, structured action payload is required.")
-    if action not in domain.ACTIONS:
+    from . import factory
+    actions = {**domain.ACTIONS, **factory.ACTIONS}
+    if action not in actions:
         frappe.throw("That knitting action is not supported.")
-    capability, handler = domain.ACTIONS[action]
+    capability, handler = actions[action]
     if "financial_read" not in permissions.capabilities():
         def financial_keys(value):
             if isinstance(value, Mapping):
@@ -55,7 +67,7 @@ def command(company, action, payload, request_id, modified=None):
         _check_version(job, modified)
         if job.status != "Running" and action not in ("reopen_job",):
             frappe.throw("Reopen this job before posting more work.")
-    elif action not in ("create_job", "receive_yarn"):
+    elif action not in {"create_job", "receive_yarn", *factory.JOB_OPTIONAL}:
         frappe.throw("Select the source knitting job.")
     savepoint = "knitting_command"
     frappe.db.savepoint(savepoint)
@@ -111,11 +123,21 @@ def snapshot(company):
         ("plans", "Knitting Plan", ["name", "job", "machine", "starts_at", "ends_at", "quantity_kg", "state"]),
         ("inspections", "Knitting QC", ["name", "job", "roll", "checker", "decision", "remarks", "creation"]),
         ("events", "Knitting Event", ["name", "job", "kind", "occurred_at", "cancelled", "result"]),
+        ("subcontracts", "Knitting Subcontract", ["name", "job", "supplier", "target_kg", "status", "warehouse", "purchase_order"]),
+        ("components", "Knitting Component", ["name", "machine", "component_type", "boundary_kg", "run_kg", "installed_at"]),
+        ("holidays", "Knitting Holiday", ["name", "machine", "date", "description"]),
     ):
-        limits[key] = frappe.get_list(doctype, filters={"company": company}, fields=fields, order_by="creation desc", limit=500)
+        # Event result JSON has a private field level; read it only after scoped row permission filtering.
+        query_fields = [f for f in fields if f != "result"] if key == "events" else fields
+        limits[key] = frappe.get_list(doctype, filters={"company": company}, fields=query_fields, order_by="creation desc", limit=500)
     for event in limits["events"]:
-        event.result = domain.json_value(event.result, {})
-    from decimal import Decimal
+        event.result = project(domain.json_value(frappe.db.get_value("Knitting Event", event.name, "result"), {}))
+    for component in limits["components"]:
+        component.remaining_kg = domain.kg(Decimal(component.boundary_kg) - Decimal(component.run_kg or "0"))
+    if finance:
+        limits["rates"] = frappe.get_list("Knitting Rate", filters={"company": company}, fields=["name", "customer", "fabric", "yarn_count", "gauge", "rate", "effective_from"], limit=500)
+        for row in limits["rates"]:
+            row.rate = domain.money(row.rate or 0)
     allocated = {}
     if limits["lots"]:
         for row in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "lot": ["in", [l.name for l in limits["lots"]]], "custodian": "Warehouse"},

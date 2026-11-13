@@ -18,7 +18,7 @@ SCHEMAS = {
         field("fabric_owner", "Link", "Customer"), field("due_date", "Date"),
         field("status", "Select", "Running\nCompleted\nCancelled", in_list_view=1),
         field("programme", "JSON"), field("target_kg"), field("revision", "Int"),
-        field("service_item", "Link", "Item", permlevel=1), field("rate", "Currency", permlevel=1),
+        field("service_item", "Link", "Item", permlevel=1), field("rate", "Currency", permlevel=1), field("pricing", "JSON", permlevel=1),
         field("quotation", "Link", "Quotation"), field("notes", "Small Text")],
     "Knitting Machine": [*BASE, field("title", reqd=1, in_list_view=1), field("workstation", "Link", "Workstation"),
         field("dia"), field("gauge"), field("knit_type"), field("capacity_kg"), field("enabled", "Check", default=1)],
@@ -28,7 +28,7 @@ SCHEMAS = {
         field("charge_rate", "Currency", permlevel=1)],
     "Knitting Event": [*BASE, field("job", "Link", "Knitting Job"), field("kind", in_list_view=1),
         field("request_key", unique=1), field("payload_hash"), field("actor", "Link", "User"),
-        field("occurred_at", "Datetime"), field("payload", "JSON", permlevel=1), field("result", "JSON"),
+        field("occurred_at", "Datetime"), field("payload", "JSON", permlevel=1), field("result", "JSON", permlevel=1),
         field("reverses", "Link", "Knitting Event"), field("cancelled", "Check"), field("voucher_type"), field("voucher_name")],
     "Knitting Ledger Entry": [*BASE, field("job", "Link", "Knitting Job"), field("lot", "Link", "Knitting Material Lot"),
         field("event", "Link", "Knitting Event", reqd=1), field("material_owner", "Select", "Customer\nOwned"),
@@ -48,10 +48,13 @@ SCHEMAS = {
         field("starts_at", "Datetime", reqd=1), field("ends_at", "Datetime", reqd=1), field("quantity_kg", reqd=1),
         field("state", "Select", "Planned\nStarted\nCompleted\nCancelled"), field("event", "Link", "Knitting Event")],
     "Knitting Subcontract": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("supplier", "Link", "Supplier", reqd=1),
-        field("target_kg"), field("status", "Select", "Open\nCompleted\nCancelled"), field("rate", "Currency", permlevel=1)],
+        field("target_kg"), field("status", "Select", "Open\nCompleted\nCancelled"), field("rate", "Currency", permlevel=1),
+        field("warehouse", "Link", "Warehouse"), field("purchase_order", "Link", "Purchase Order"), field("service_item", "Link", "Item")],
     "Knitting Component": [*BASE, field("machine", "Link", "Knitting Machine"), field("component_type", "Select", "Needle\nSinker\nCylinder\nDial"),
         field("item", "Link", "Item"), field("boundary_kg"), field("run_kg"), field("installed_at", "Datetime")],
     "Knitting Holiday": [*BASE, field("machine", "Link", "Knitting Machine"), field("date", "Date", reqd=1), field("description")],
+    "Knitting Rate": [*BASE, field("customer", "Link", "Customer", reqd=1), field("fabric", reqd=1),
+        field("yarn_count"), field("gauge"), field("rate", "Currency", permlevel=1), field("effective_from", "Date", reqd=1)],
 }
 
 
@@ -96,8 +99,10 @@ def install():
     create_custom_fields({name: [
         field("knitting_event", "Link", "Knitting Event", read_only=1, no_copy=1),
         field("knitting_job", "Link", "Knitting Job", read_only=1, no_copy=1),
-    ] for name in ("Stock Entry", "Delivery Note", "Sales Invoice")})
+    ] for name in ("Stock Entry", "Delivery Note", "Sales Invoice", "Purchase Invoice", "Purchase Order", "Quotation")})
     create_custom_fields({"Sales Invoice Item": [field("knitting_delivery", "Link", "Knitting Event", read_only=1, no_copy=1)]})
+    create_custom_fields({"Quotation": [field("knitting_programme", "JSON", read_only=1),
+        field("knitting_material_mode", "Select", "Customer\nOwned", read_only=1)]})
     frappe.clear_cache()
     # Frappe's global cache reset leaves the request's expanded document hooks intact.
     frappe.local.doc_events_hooks = None

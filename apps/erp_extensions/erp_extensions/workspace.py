@@ -41,10 +41,16 @@ def configure(company, settings):
         frappe.throw("Settle the open knitting jobs before deactivating the pack.")
     previous = frappe.parse_json(doc.settings or "{}")
     allowed = {"shifts", "warehouse", "service_item", "fabric_item", "cost_center", "expense_account", "income_account",
-               "allow_production_excess_pct", "lycra_charge", "service_rate", "number_prefix", "component_defaults"}
+               "allow_production_excess_pct", "lycra_charge", "service_rate", "number_prefix", "component_defaults", "rate_lookup"}
     unknown = set(settings) - allowed - {"state", "revision"}
     if unknown:
         frappe.throw("Unknown industry setting: " + ", ".join(sorted(unknown)))
+    if settings.get("rate_lookup", "Fabric") not in ("Fabric", "FabricCountGauge") or settings.get("lycra_charge", "Included") not in ("Included", "Separate"):
+        frappe.throw("Choose valid pricing and lycra charge policies.")
+    if "number_prefix" in settings:
+        import re
+        if not re.fullmatch(r"[A-Z0-9-]{1,16}", settings["number_prefix"]):
+            frappe.throw("Use one to 16 uppercase letters, numbers or hyphens for the document prefix.")
     doc.company, doc.state = company, settings["state"]
     doc.settings = frappe.as_json({**previous, **{k: v for k, v in settings.items() if k in allowed}})
     doc.revision = (doc.revision or 0) + 1
