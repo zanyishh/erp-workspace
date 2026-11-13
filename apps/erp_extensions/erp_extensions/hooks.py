@@ -12,5 +12,6 @@ permission_query_conditions = {"*": "erp_extensions.knitting.permissions.query_c
 doc_events = {"*": {
     "before_insert": "erp_extensions.knitting.permissions.guard_write",
     "validate": "erp_extensions.knitting.permissions.guard_write",
+    "before_cancel": "erp_extensions.knitting.permissions.guard_write",
     "on_trash": "erp_extensions.knitting.permissions.guard_write",
 }}

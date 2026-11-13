@@ -24,10 +24,11 @@ SCHEMAS = {
         field("dia"), field("gauge"), field("knit_type"), field("capacity_kg"), field("enabled", "Check", default=1)],
     "Knitting Material Lot": [*BASE, field("item", "Link", "Item", reqd=1), field("party", "Link", "Customer"),
         field("material_owner", "Select", "Customer\nOwned"), field("warehouse", "Link", "Warehouse"),
-        field("source_lot"), field("specification", "JSON")],
+        field("source_lot"), field("specification", "JSON"), field("charge_item", "Link", "Item", permlevel=1),
+        field("charge_rate", "Currency", permlevel=1)],
     "Knitting Event": [*BASE, field("job", "Link", "Knitting Job"), field("kind", in_list_view=1),
         field("request_key", unique=1), field("payload_hash"), field("actor", "Link", "User"),
-        field("occurred_at", "Datetime"), field("payload", "JSON"), field("result", "JSON"),
+        field("occurred_at", "Datetime"), field("payload", "JSON", permlevel=1), field("result", "JSON"),
         field("reverses", "Link", "Knitting Event"), field("cancelled", "Check"), field("voucher_type"), field("voucher_name")],
     "Knitting Ledger Entry": [*BASE, field("job", "Link", "Knitting Job"), field("lot", "Link", "Knitting Material Lot"),
         field("event", "Link", "Knitting Event", reqd=1), field("material_owner", "Select", "Customer\nOwned"),
@@ -66,15 +67,37 @@ def install():
                 add_permission(target, role)
                 update_permission_property(target, role, 0, "read", 1)
     for name, fields in SCHEMAS.items():
-        if frappe.db.exists("DocType", name):
-            continue
         permissions = [{"role": role, "read": 1, "write": 1, "create": 1, "report": 1, "print": 1, "export": 1}
                        for role in ("System Manager", *ROLES)]
         if any(f.get("permlevel") == 1 for f in fields):
             permissions += [{"role": role, "permlevel": 1, "read": 1, "write": 1, "create": 1}
                             for role in ("System Manager", "Knitting Manager", "Knitting Accountant")]
-        frappe.get_doc({"doctype": "DocType", "name": name, "module": "Custom", "custom": 1,
-                        "autoname": "hash", "track_changes": 1, "fields": fields, "permissions": permissions}).insert()
+        if frappe.db.exists("DocType", name):
+            doc = frappe.get_doc("DocType", name)
+            changed = False
+            for definition in fields:
+                existing = next((f for f in doc.fields if f.fieldname == definition["fieldname"]), None)
+                if existing is None:
+                    doc.append("fields", definition)
+                    changed = True
+                elif existing.permlevel != definition.get("permlevel", 0):
+                    existing.permlevel = definition.get("permlevel", 0)
+                    changed = True
+            for permission in permissions:
+                if not any(p.role == permission["role"] and p.permlevel == permission.get("permlevel", 0) for p in doc.permissions):
+                    doc.append("permissions", permission)
+                    changed = True
+            if changed:
+                doc.save()
+        else:
+            frappe.get_doc({"doctype": "DocType", "name": name, "module": "Custom", "custom": 1,
+                            "autoname": "hash", "track_changes": 1, "fields": fields, "permissions": permissions}).insert()
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+    create_custom_fields({name: [
+        field("knitting_event", "Link", "Knitting Event", read_only=1, no_copy=1),
+        field("knitting_job", "Link", "Knitting Job", read_only=1, no_copy=1),
+    ] for name in ("Stock Entry", "Delivery Note", "Sales Invoice")})
+    create_custom_fields({"Sales Invoice Item": [field("knitting_delivery", "Link", "Knitting Event", read_only=1, no_copy=1)]})
     frappe.clear_cache()
     # Frappe's global cache reset leaves the request's expanded document hooks intact.
     frappe.local.doc_events_hooks = None

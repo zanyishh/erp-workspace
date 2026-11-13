@@ -4,13 +4,13 @@ from contextlib import contextmanager
 import frappe
 
 CAPABILITIES = {
-    "Knitting Manager": {"overview", "jobs", "new_job", "materials", "production", "quality", "planning", "delivery", "billing", "financial_read", "factory", "reports", "configure"},
+    "Knitting Manager": {"overview", "jobs", "new_job", "lifecycle", "materials", "production", "quality", "planning", "delivery", "billing", "financial_read", "factory", "reports", "configure"},
     "Knitting Operator": {"overview", "jobs", "production", "materials"},
     "Knitting Checker": {"overview", "jobs", "quality"},
     "Knitting Planner": {"overview", "jobs", "planning", "factory", "reports"},
     "Knitting Accountant": {"overview", "jobs", "delivery", "billing", "financial_read", "reports"},
 }
-FINANCIAL_EVENTS = ("invoice", "payment", "subcontract_bill", "estimate", "cost")
+FINANCIAL_EVENTS = ("invoice", "deliver", "revise_job", "payment", "subcontract_bill", "estimate", "cost")
 
 
 def companies(user=None):
@@ -84,6 +84,11 @@ def visible_type(doctype, company=None):
 
 def guard_write(doc, method=None):
     if not is_pack(doc.doctype):
+        if doc.doctype in ("Stock Entry", "Sales Invoice", "Delivery Note"):
+            current = doc.get("knitting_event") or doc.get("knitting_job")
+            previous = frappe.db.get_value(doc.doctype, doc.name, "knitting_event") if doc.name and not doc.is_new() else None
+            if (current or previous) and not frappe.flags.get("knitting_service_write"):
+                frappe.throw("Review this source-linked document through its knitting workflow.", frappe.PermissionError)
         return
     if not frappe.flags.get("knitting_service_write"):
         frappe.throw("Use the reviewed knitting workflow to change this record.", frappe.PermissionError)

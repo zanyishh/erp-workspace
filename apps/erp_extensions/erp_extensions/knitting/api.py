@@ -1,0 +1,129 @@
+"""Versioned, fixed knitting commands; no arbitrary RPC and no automatic write replay."""
+import hashlib
+import json
+import re
+from collections.abc import Mapping
+
+import frappe
+from frappe.utils import now_datetime
+
+from . import domain, permissions
+
+
+def request_key(company, request_id):
+    if not isinstance(request_id, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{8,128}", request_id):
+        frappe.throw("A valid action request reference is required.")
+    return hashlib.sha256(f"{frappe.local.site}|{frappe.session.user}|{company}|{request_id}".encode()).hexdigest()
+
+
+def response(event):
+    return {"event": event.name, "action": event.kind, "data": domain.json_value(event.result, {})}
+
+
+@frappe.whitelist(methods=["POST"])
+def command(company, action, payload, request_id, modified=None):
+    data = frappe.parse_json(payload) if isinstance(payload, str) else payload
+    if not isinstance(data, Mapping) or len(frappe.as_json(data)) > 262144:
+        frappe.throw("A bounded, structured action payload is required.")
+    if action not in domain.ACTIONS:
+        frappe.throw("That knitting action is not supported.")
+    capability, handler = domain.ACTIONS[action]
+    if "financial_read" not in permissions.capabilities():
+        def financial_keys(value):
+            if isinstance(value, Mapping):
+                return any(k in {"rate", "valuation_rate", "charge_rate", "charge_item", "income_account", "expense_account"} or
+                           financial_keys(v) for k, v in value.items())
+            return isinstance(value, list) and any(financial_keys(v) for v in value)
+        if financial_keys(data):
+            frappe.throw("This account cannot set financial values.", frappe.PermissionError)
+    # Configuration is the common lock for scope changes and quantity-consuming commands.
+    setup = permissions.require(company, capability)
+    frappe.db.sql("select name from `tabWorkspace Industry Setup` where name=%s for update", setup.name)
+    permissions.require(company, capability)
+    key = request_key(company, request_id)
+    digest = hashlib.sha256(json.dumps({"action": action, "payload": data, "modified": modified},
+        sort_keys=True, separators=(",", ":"), allow_nan=False, default=str).encode()).hexdigest()
+    existing = frappe.db.get_value("Knitting Event", {"request_key": key}, "name")
+    if existing:
+        event = frappe.get_doc("Knitting Event", existing)
+        if event.payload_hash != digest:
+            frappe.throw("That request reference was already used with different values.")
+        return response(event)
+    job = domain.reference("Knitting Job", data["job"], company) if data.get("job") else None
+    if job:
+        from erp_extensions.api import _check_version
+        _check_version(job, modified)
+        if job.status != "Running" and action not in ("reopen_job",):
+            frappe.throw("Reopen this job before posting more work.")
+    elif action not in ("create_job", "receive_yarn"):
+        frappe.throw("Select the source knitting job.")
+    savepoint = "knitting_command"
+    frappe.db.savepoint(savepoint)
+    try:
+        with permissions.service_write():
+            event = domain.insert("Knitting Event", company=company, job=job.name if job else None, kind=action,
+                request_key=key, payload_hash=digest, actor=frappe.session.user, occurred_at=now_datetime(), payload=frappe.as_json(data))
+            result = handler(event, data, job)
+            if action == "create_job":
+                event.job = result["job"]
+            if job:
+                # Advance the aggregate version after every confirmed domain change.
+                job = frappe.get_doc("Knitting Job", job.name)
+                job.save()
+            event.result = frappe.as_json(result)
+            event.voucher_type, event.voucher_name = result.get("voucher_type"), result.get("voucher")
+            event.save()
+            return response(event)
+    except Exception:
+        frappe.db.rollback(save_point=savepoint)
+        raise
+
+
+@frappe.whitelist()
+def command_status(company, request_id):
+    permissions.require(company, "jobs", history=True)
+    name = frappe.db.get_value("Knitting Event", {"request_key": request_key(company, request_id)}, "name")
+    if not name:
+        return {"state": "not_found", "request_id": request_id}
+    event = domain.reference("Knitting Event", name, company)
+    return response(event)
+
+
+@frappe.whitelist()
+def snapshot(company):
+    permissions.require(company, "jobs", history=True)
+    finance = "financial_read" in permissions.capabilities()
+    jobs = []
+    fields = ["name", "modified", "customer", "kind", "material_mode", "due_date", "status", "target_kg", "revision", "programme"]
+    if finance:
+        fields += ["rate", "service_item"]
+    for row in frappe.get_list("Knitting Job", filters={"company": company}, fields=fields, order_by="modified desc", limit=200):
+        row.programme = domain.json_value(row.programme, [])
+        row.balances = domain.balances(row.name)
+        if finance:
+            row.rate = domain.money(row.rate or 0)
+        jobs.append(row)
+    limits = {"jobs": jobs}
+    for key, doctype, fields in (
+        ("rolls", "Knitting Roll", ["name", "job", "programme_line", "weight_kg", "state", "warehouse", "machine", "operator", "shift", "produced_at", "production", "delivery"]),
+        ("lots", "Knitting Material Lot", ["name", "item", "party", "material_owner", "warehouse", "source_lot", "specification"]),
+        ("machines", "Knitting Machine", ["name", "title", "dia", "gauge", "knit_type", "capacity_kg", "enabled"]),
+        ("plans", "Knitting Plan", ["name", "job", "machine", "starts_at", "ends_at", "quantity_kg", "state"]),
+        ("inspections", "Knitting QC", ["name", "job", "roll", "checker", "decision", "remarks", "creation"]),
+        ("events", "Knitting Event", ["name", "job", "kind", "occurred_at", "cancelled", "result"]),
+    ):
+        limits[key] = frappe.get_list(doctype, filters={"company": company}, fields=fields, order_by="creation desc", limit=500)
+    for event in limits["events"]:
+        event.result = domain.json_value(event.result, {})
+    from decimal import Decimal
+    allocated = {}
+    if limits["lots"]:
+        for row in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "lot": ["in", [l.name for l in limits["lots"]]], "custodian": "Warehouse"},
+                                  fields=["lot", "job", "quantity_kg"]):
+            key = (row.lot, row.job or None)
+            allocated[key] = allocated.get(key, Decimal(0)) + Decimal(row.quantity_kg)
+    for lot in limits["lots"]:
+        lot.allocations = [{"job": job["name"], "quantity_kg": domain.kg(allocated.get((lot.name, job["name"]), 0))} for job in jobs]
+        lot.general_kg = domain.kg(allocated.get((lot.name, None), 0))
+    return {"version": 1, "company": company, "financial_read": finance, **limits,
+            "integrations": [{"name": name, "status": "Not configured"} for name in ("E-Invoice", "E-Way Bill", "Payment gateway")]}
