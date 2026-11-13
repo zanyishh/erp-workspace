@@ -120,6 +120,13 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
               Panel(
                 border: true,
                 child: ExpansionTile(
+                  expansionAnimationStyle:
+                      MediaQuery.disableAnimationsOf(context)
+                      ? AnimationStyle.noAnimation
+                      : const AnimationStyle(
+                          duration: Duration(milliseconds: 180),
+                          curve: Curves.easeOutCubic,
+                        ),
                   initiallyExpanded: true,
                   tilePadding: EdgeInsets.zero,
                   title: const Display('REPORT FILTERS', size: 25),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
 import 'erp_api.dart';
@@ -82,6 +83,221 @@ const datesFields = [
   KnitField('ends_at', 'Finish · YYYY-MM-DD HH:MM', kind: 'datetime'),
 ];
 const knitActions = <KnitAction>[
+  KnitAction(
+    'cancel_event',
+    'Correct company receipt or bill',
+    'Billing',
+    'lifecycle',
+    [
+      KnitField('event', 'Company source record', kind: 'CompanyEvent'),
+      reasonField,
+    ],
+    needsJob: false,
+  ),
+  KnitAction(
+    'reopen_subcontract',
+    'Reopen subcontract',
+    'Factory',
+    'lifecycle',
+    [
+      KnitField(
+        'subcontract',
+        'Completed subcontract',
+        kind: 'CompletedSubcontract',
+      ),
+      reasonField,
+    ],
+  ),
+
+  KnitAction('close_jobs', 'Complete several jobs', 'Jobs', 'lifecycle', [
+    KnitField('jobs', 'Reconciled jobs', kind: 'Jobs'),
+  ], needsJob: false),
+
+  KnitAction(
+    'set_lot_charge',
+    'Set extra material charge',
+    'Billing',
+    'billing',
+    [
+      lotField,
+      KnitField('charge_item', 'Non-stock charge item', kind: 'Item'),
+      KnitField('charge_rate', 'Charge per kg', kind: 'money'),
+      reasonField,
+    ],
+    needsJob: false,
+  ),
+
+  KnitAction(
+    'create_yarn_order',
+    'Order yarn from supplier',
+    'Billing',
+    'billing',
+    [
+      KnitField('supplier', 'Supplier', kind: 'Supplier'),
+      KnitField('item', 'Stock yarn item', kind: 'Item'),
+      quantityField,
+      rateField,
+    ],
+    needsJob: false,
+  ),
+  KnitAction('bill_yarn', 'Bill received yarn', 'Billing', 'billing', [
+    KnitField('receipt', 'Original yarn receipt', kind: 'YarnReceipt'),
+    quantityField,
+    KnitField(
+      'supplier',
+      'Supplier (manual receipts only)',
+      kind: 'Supplier',
+      optional: true,
+    ),
+  ], needsJob: false),
+
+  KnitAction('credit_invoice', 'Credit source invoice', 'Billing', 'billing', [
+    KnitField('invoice_event', 'Source invoice', kind: 'InvoiceEvent'),
+    quantityField,
+    reasonField,
+  ]),
+  KnitAction('return_fabric', 'Receive fabric return', 'Delivery', 'delivery', [
+    KnitField('delivery', 'Source delivery', kind: 'Delivery'),
+    KnitField('rolls', 'Delivered rolls to return', kind: 'DeliveredRolls'),
+    reasonField,
+  ]),
+
+  KnitAction('move_yarn', 'Transfer yarn to godown', 'Yarn', 'materials', [
+    lotField,
+    quantityField,
+    KnitField('target_warehouse', 'Destination godown', kind: 'Warehouse'),
+    reasonField,
+  ]),
+  KnitAction('receive_yarn', 'Receive general yarn', 'Yarn', 'materials', [
+    KnitField('item', 'Yarn item', kind: 'Item'),
+    KnitField(
+      'purchase_order',
+      'Source yarn order (optional)',
+      kind: 'PurchaseOrder',
+      optional: true,
+    ),
+    KnitField(
+      'material_owner',
+      'Owner',
+      kind: 'select',
+      options: ['Customer', 'Owned'],
+    ),
+    KnitField('party', 'Material owner', kind: 'Customer', optional: true),
+    quantityField,
+    warehouseField,
+    KnitField('source_lot', 'Supplier / customer lot', optional: true),
+    KnitField(
+      'valuation_rate',
+      'Owned cost per kg',
+      kind: 'money',
+      optional: true,
+      finance: true,
+    ),
+  ], needsJob: false),
+  KnitAction('return_yarn', 'Return general yarn', 'Yarn', 'materials', [
+    lotField,
+    quantityField,
+  ], needsJob: false),
+
+  KnitAction(
+    'transfer_fabric',
+    'Reassign matching fabric',
+    'Delivery',
+    'lifecycle',
+    [
+      KnitField('rolls', 'Undelivered rolls', kind: 'UndeliveredRolls'),
+      KnitField('target_job', 'Destination job', kind: 'Job'),
+      KnitField('target_programme_line', 'Destination programme line'),
+      reasonField,
+    ],
+  ),
+
+  KnitAction(
+    'produce_bulk',
+    'Bulk / multi-size production',
+    'Production',
+    'production',
+    [KnitField('entries', 'Production lines', kind: 'entries')],
+  ),
+  KnitAction('adjust_yarn', 'Review stock adjustment', 'Yarn', 'lifecycle', [
+    lotField,
+    KnitField('quantity_kg', 'Count difference · signed kg', kind: 'signed_kg'),
+    reasonField,
+    KnitField(
+      'valuation_rate',
+      'Owned gain value per kg',
+      kind: 'money',
+      optional: true,
+      finance: true,
+    ),
+    KnitField(
+      'subcontract',
+      'Subcontract custody (optional)',
+      kind: 'Subcontract',
+      optional: true,
+    ),
+  ]),
+  KnitAction(
+    'save_master',
+    'Maintain industry master',
+    'Factory',
+    'configure',
+    [
+      KnitField(
+        'master',
+        'Existing definition (optional)',
+        kind: 'Master',
+        optional: true,
+      ),
+      KnitField(
+        'category',
+        'Category',
+        kind: 'select',
+        options: [
+          'Fabric',
+          'Yarn mill',
+          'Yarn colour',
+          'Yarn count',
+          'Yarn variety',
+          'Coordinator',
+          'Elastane',
+          'Construction',
+          'Dia',
+          'Machine type',
+          'Gauge',
+          'Ingredient',
+          'Feeders',
+          'Knit type',
+          'Machine make',
+          'QC defect',
+          'Stoppage reason',
+          'Stoppage group',
+          'Shift',
+          'Component setting',
+          'Label setting',
+          'Terms group',
+        ],
+      ),
+      KnitField('title', 'Name'),
+      KnitField(
+        'enabled',
+        'Available for new work',
+        kind: 'toggle',
+        value: true,
+      ),
+      KnitField('description', 'Description', optional: true),
+      KnitField('value', 'Value', optional: true),
+      KnitField('severity', 'Defect severity (optional)', optional: true),
+      KnitField(
+        'boundary_kg',
+        'Component service boundary · kg',
+        kind: 'kg',
+        optional: true,
+      ),
+    ],
+    needsJob: false,
+  ),
+
   KnitAction('create_job', 'New job', 'Jobs', 'new_job', [
     KnitField('customer', 'Customer', kind: 'Customer'),
     KnitField('kind', 'Job kind', kind: 'select', options: ['Order', 'Sample']),
@@ -107,6 +323,12 @@ const knitActions = <KnitAction>[
   KnitAction('receive_yarn', 'Receive yarn', 'Yarn', 'materials', [
     KnitField('item', 'Yarn item', kind: 'Item'),
     KnitField(
+      'purchase_order',
+      'Source yarn order (optional)',
+      kind: 'PurchaseOrder',
+      optional: true,
+    ),
+    KnitField(
       'material_owner',
       'Owner',
       kind: 'select',
@@ -116,6 +338,20 @@ const knitActions = <KnitAction>[
     quantityField,
     KnitField('units', 'Bags / units', kind: 'integer', value: '0'),
     warehouseField,
+    KnitField(
+      'charge_item',
+      'Extra material charge item (optional)',
+      kind: 'Item',
+      optional: true,
+      finance: true,
+    ),
+    KnitField(
+      'charge_rate',
+      'Extra material charge per kg',
+      kind: 'money',
+      optional: true,
+      finance: true,
+    ),
     KnitField(
       'valuation_rate',
       'Owned cost per kg',
@@ -145,10 +381,22 @@ const knitActions = <KnitAction>[
     KnitField('output_units', 'Output bags', kind: 'integer', value: '0'),
   ]),
   KnitAction('plan', 'Allocate machine', 'Planning', 'planning', [
+    KnitField(
+      'plan',
+      'Existing allocation (optional)',
+      kind: 'Plan',
+      optional: true,
+    ),
     lineField,
     machineField,
     ...datesFields,
     quantityField,
+    KnitField(
+      'required_yarn_kg',
+      'Planned input demand · kg (optional)',
+      kind: 'kg',
+      optional: true,
+    ),
   ]),
   KnitAction('holiday', 'Factory holiday', 'Planning', 'planning', [
     KnitField('date', 'Date · YYYY-MM-DD', kind: 'date'),
@@ -177,6 +425,7 @@ const knitActions = <KnitAction>[
       kind: 'select',
       options: ['Released', 'On Hold', 'Rework', 'Rejected'],
     ),
+    KnitField('defects', 'Quality defects', kind: 'Defects', optional: true),
     KnitField('remarks', 'Inspection notes'),
   ]),
   KnitAction('split_roll', 'Split roll', 'Production', 'production', [
@@ -232,7 +481,7 @@ const knitActions = <KnitAction>[
     ...datesFields,
     reasonField,
   ], needsJob: false),
-  KnitAction('create_subcontract', 'Subcontract order', 'Factory', 'factory', [
+  KnitAction('create_subcontract', 'Subcontract order', 'Billing', 'billing', [
     KnitField('supplier', 'Supplier', kind: 'Supplier'),
     targetField,
     rateField,
@@ -452,6 +701,11 @@ class _RecordPickerState extends State<_RecordPicker> {
                                     subtitle: Text(
                                       [
                                         name,
+                                        row['customer'],
+                                        row['supplier'],
+                                        row['item'],
+                                        row['party'],
+                                        row['category'],
                                         row['status'],
                                         row['state'],
                                         row['weight_kg'] != null
@@ -528,6 +782,7 @@ class _RecordPickerState extends State<_RecordPicker> {
                     ? null
                     : () => Navigator.pop(context, {
                         'names': selected.keys.toList(),
+                        'records': selected.values.toList(),
                       }),
                 child: Text('Use ${selected.length} selected'),
               ),
@@ -561,7 +816,8 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   final values = <String, dynamic>{};
   final references = <String, Map<String, dynamic>>{};
   KnittingDraft? draft;
-  bool review = false, changed = false;
+  bool review = false, changed = false, checkingTotals = false;
+  Map<String, dynamic>? invoiceReview;
   String? validation;
   late List<KnitField> fields = [
     if (widget.action.needsJob && widget.job == null) jobField,
@@ -622,7 +878,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         false;
   }
 
-  void _review() {
+  Future<void> _review() async {
     if (!formKey.currentState!.validate()) return;
     try {
       for (final f in fields.where(
@@ -631,6 +887,10 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           'inputs',
           'weights',
           'Rolls',
+          'Jobs',
+          'UndeliveredRolls',
+          'DeliveredRolls',
+          'entries',
           'Deliveries',
         ].contains(f.kind),
       )) {
@@ -641,17 +901,53 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       if (values['target_job'] != null) {
         values['target_modified'] = references['target_job']?['modified'];
       }
+      if (values['plan'] != null) {
+        values['plan_modified'] = references['plan']?['modified'];
+      }
+      if (values['master'] != null) {
+        values['master_modified'] = references['master']?['modified'];
+      }
       if (values['quotation'] != null) {
         values['quotation_modified'] = references['quotation']?['modified'];
       }
       values.removeWhere((k, v) => v == null || v == '');
-      draft = KnittingDraft(widget.action.id, values);
+      values.remove('preview_hash');
+      final frozen = Map<String, dynamic>.from(
+        jsonDecode(jsonEncode(values)) as Map,
+      );
+      draft = KnittingDraft(widget.action.id, frozen);
       setState(() {
         review = true;
         validation = null;
+        checkingTotals = widget.action.id == 'invoice';
+        invoiceReview = null;
       });
+      if (widget.action.id == 'invoice') {
+        final modified =
+            widget.job?['modified'] ?? references['job']?['modified'];
+        final result = await widget.api.knittingInvoicePreview(
+          widget.workspace.company!,
+          frozen,
+          modified as String?,
+        );
+        if (!mounted) return;
+        setState(() {
+          invoiceReview = result;
+          checkingTotals = false;
+          draft = KnittingDraft(widget.action.id, {
+            ...frozen,
+            'preview_hash': result['preview_hash'],
+          }, requestId: draft!.requestId);
+        });
+      }
     } catch (e) {
-      setState(() => validation = e.toString());
+      if (mounted) {
+        setState(() {
+          validation = e.toString();
+          review = false;
+          checkingTotals = false;
+        });
+      }
     }
   }
 
@@ -744,6 +1040,23 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     ),
   );
   Widget _reviewPanel() {
+    if (checkingTotals) {
+      return const Panel(
+        border: true,
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Display('CHECKING ERP TOTALS', size: 28),
+              SizedBox(height: 10),
+              Text('Your invoice is being calculated. Nothing has been saved.'),
+            ],
+          ),
+        ),
+      );
+    }
     final d = draft!;
     final confirmed = d.state == CommandState.confirmed;
     return Panel(
@@ -753,11 +1066,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         children: [
           Row(
             children: [
-              Icon(
-                confirmed
-                    ? Icons.check_circle_outline
-                    : Icons.fact_check_outlined,
-                color: confirmed ? const Color(0xFF3E6B54) : WorkspaceTheme.ink,
+              AnimatedSwitcher(
+                duration: workspaceMotion(context),
+                child: Icon(
+                  key: ValueKey(confirmed),
+                  confirmed
+                      ? Icons.check_circle_outline
+                      : Icons.fact_check_outlined,
+                  color: confirmed
+                      ? const Color(0xFF3E6B54)
+                      : WorkspaceTheme.ink,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -775,7 +1094,63 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 : 'Check the source, ownership and quantities. Confirming will write to this company’s ERP.',
           ),
           const SizedBox(height: 20),
-          for (final e in d.values.entries)
+          if (invoiceReview != null) ...[
+            const SizedBox(height: 20),
+            Panel(
+              border: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Display('INVOICE · ${invoiceReview!['currency']}', size: 26),
+                  const SizedBox(height: 12),
+                  for (final row in invoiceReview!['items'] as List)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${row['item']}\n${row['quantity']} ${row['uom']} × ${row['rate']}',
+                            ),
+                          ),
+                          Text(row['amount'].toString()),
+                        ],
+                      ),
+                    ),
+                  const Divider(height: 24),
+                  for (final (key, label) in [
+                    ('net_total', 'Net total'),
+                    ('tax_total', 'Tax total'),
+                    ('grand_total', 'Total to post'),
+                  ])
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            invoiceReview![key].toString(),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          for (final e in d.values.entries.where(
+            (e) => e.key != 'preview_hash' && !e.key.endsWith('_modified'),
+          ))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
@@ -854,7 +1229,20 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   Widget _field(KnitField f, Map<String, dynamic> target) {
-    if (['programme', 'inputs'].contains(f.kind)) return _rowsField(f, target);
+    if (f.kind == 'toggle') {
+      return SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(f.label),
+        value: target[f.key] == true || target[f.key] == 1,
+        onChanged: (v) => setState(() {
+          target[f.key] = v;
+          changed = true;
+        }),
+      );
+    }
+    if (['programme', 'inputs', 'entries'].contains(f.kind)) {
+      return _rowsField(f, target);
+    }
     if (f.kind == 'weights') {
       return TextFormField(
         initialValue: (target[f.key] as List? ?? []).join(', '),
@@ -920,15 +1308,27 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     }
     if (![
       'text',
+      'signed_kg',
       'kg',
       'money',
       'integer',
       'date',
       'datetime',
     ].contains(f.kind)) {
-      final multi = ['Rolls', 'Deliveries'].contains(f.kind);
+      final multi = [
+        'Rolls',
+        'Jobs',
+        'UndeliveredRolls',
+        'DeliveredRolls',
+        'Deliveries',
+        'Defects',
+      ].contains(f.kind);
       final entity = switch (f.kind) {
         'Rolls' => 'ReleasedRoll',
+        'Jobs' => 'ClosingJob',
+        'UndeliveredRolls' => 'Roll',
+        'DeliveredRolls' => 'DeliveredRoll',
+        'Defects' => 'Defect',
         'Deliveries' => 'Delivery',
         _ => f.kind,
       };
@@ -955,8 +1355,42 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 );
                 if (row != null && mounted) {
                   setState(() {
-                    target[f.key] = multi ? row['names'] : row['name'];
+                    target[f.key] = f.kind == 'Jobs'
+                        ? (row['records'] as List)
+                              .map(
+                                (r) => <String, dynamic>{
+                                  'job': r['name'],
+                                  'modified': r['modified'],
+                                },
+                              )
+                              .toList()
+                        : multi
+                        ? row['names']
+                        : row['name'];
                     references[f.key] = row;
+                    if (f.key == 'plan') {
+                      for (final k in [
+                        'programme_line',
+                        'machine',
+                        'starts_at',
+                        'ends_at',
+                        'quantity_kg',
+                        'required_yarn_kg',
+                      ]) {
+                        values[k] = row[k];
+                      }
+                    }
+                    if (f.key == 'master') {
+                      final raw = row['specification'];
+                      final spec = raw is String ? jsonDecode(raw) : raw;
+                      values.addAll({
+                        'title': row['title'],
+                        'category': row['category'],
+                        'enabled': row['enabled'] != 0,
+                        if (spec is Map) ...Map<String, dynamic>.from(spec),
+                      });
+                    }
+
                     changed = true;
                   });
                   state.didChange(target[f.key]);
@@ -995,6 +1429,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       );
     }
     return TextFormField(
+      key: ValueKey(
+        '${f.key}-${references['master']?['name']}-${references['plan']?['name']}',
+      ),
       initialValue: target[f.key]?.toString(),
       decoration: InputDecoration(labelText: f.label),
       maxLines: f.key == 'notes' || f.key == 'remarks' ? 3 : 1,
@@ -1007,6 +1444,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           return f.optional ? null : 'Enter ${f.label.toLowerCase()}.';
         }
         try {
+          if (f.kind == 'signed_kg') {
+            Kg.parse(v.startsWith('-') ? v.substring(1) : v);
+          }
           if (f.kind == 'kg') {
             Kg.parse(v);
           }
@@ -1031,7 +1471,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   Widget _rowsField(KnitField f, Map<String, dynamic> target) {
     final rows = (target[f.key] ??= <Map<String, dynamic>>[]) as List;
     final programme = f.kind == 'programme';
-    final rowFields = programme
+    final rowFields = f.kind == 'entries'
+        ? const [
+            lineField,
+            machineField,
+            KnitField('shift', 'Shift'),
+            weightsField,
+            inputField,
+            lossField,
+            warehouseField,
+          ]
+        : programme
         ? const [
             KnitField('fabric', 'Fabric'),
             KnitField('colour', 'Colour', optional: true),
@@ -1135,7 +1585,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           }),
           icon: const Icon(Icons.add),
           label: Text(
-            programme ? 'Add fabric programme' : 'Add yarn consumption',
+            f.kind == 'entries'
+                ? 'Add production line'
+                : programme
+                ? 'Add fabric programme'
+                : 'Add yarn consumption',
           ),
         ),
       ],

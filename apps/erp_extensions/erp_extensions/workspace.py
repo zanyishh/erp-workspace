@@ -13,7 +13,8 @@ def context(company=None):
         frappe.throw("Sign in first.", frappe.PermissionError)
     if company and company not in {c.name for c in available}:
         frappe.throw("This account cannot open that business.", frappe.PermissionError)
-    selected = company or (available[0].name if available else None)
+    default = frappe.defaults.get_user_default("Company")
+    selected = company or (default if default in {c.name for c in available} else available[0].name if available else None)
     setup = permissions.profile(selected) if selected else None
     caps = permissions.capabilities() if setup and setup.state in ("Active", "Closing") else set()
     return {"version": 1, "companies": available, "company": selected,
@@ -37,7 +38,7 @@ def configure(company, settings):
     if found:
         # Serialise setup changes with in-flight domain operations using the same lock.
         doc = frappe.get_doc("Workspace Industry Setup", found.name, for_update=True)
-    if settings["state"] == "Inactive" and frappe.db.exists("Knitting Job", {"company": company, "status": "Running"}):
+    if settings["state"] == "Inactive" and frappe.db.get_value("Knitting Job", {"company": company, "status": "Running"}, "name", for_update=True):
         frappe.throw("Settle the open knitting jobs before deactivating the pack.")
     if "revision" in settings and int(settings["revision"]) != int(doc.revision or 0):
         frappe.throw("The setup changed. Reload its latest policy before applying your changes.")

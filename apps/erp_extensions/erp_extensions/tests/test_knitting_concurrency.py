@@ -1,0 +1,69 @@
+"""Real independent database connections. Synthetic non-valued custody only."""
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+import unittest
+
+import frappe
+from erp_extensions.tests import test_knitting as fixtures
+from erp_extensions.knitting import api
+
+
+class ConcurrencyTests(fixtures.KnittingTests):
+    # Run only these scenarios, not inherited fixture cases a second time.
+    def test_last_balance_and_duplicate_request_use_separate_connections(self):
+        self.fixtures(target="98.000")
+        lot = self.receive("90.000")
+        job, company = self.job, fixtures.COMPANY
+        modified = str(frappe.db.get_value("Knitting Job", job, "modified"))
+        payload = {"job": job, "programme_line": "P1", "weights_kg": ["49.000"], "loss_kg": "1.000",
+                   "inputs": [{"lot": lot, "quantity_kg": "50.000"}], "warehouse": self.warehouse}
+        frappe.db.commit()
+        try:
+            barrier = Barrier(2)
+            def worker(request):
+                frappe.init(site="native-test.localhost", sites_path=".")
+                frappe.connect()
+                frappe.set_user("Administrator")
+                try:
+                    barrier.wait(timeout=20)
+                    result = api.command(company, "produce", payload, request, modified)
+                    frappe.db.commit()
+                    return {"ok": result}
+                except Exception as error:
+                    frappe.db.rollback()
+                    return {"error": type(error).__name__, "message": str(error)}
+                finally:
+                    frappe.destroy()
+            request = "race-" + frappe.generate_hash(length=20)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = list(pool.map(worker, [request, request]))
+            self.assertTrue(all("ok" in result for result in first), first)
+            self.assertEqual(first[0]["ok"]["event"], first[1]["ok"]["event"])
+            frappe.db.rollback()
+            balance = api.snapshot(company, job)["jobs"][0]["balances"]
+            self.assertEqual(balance["yarn_kg"], "40.000")
+            self.assertEqual(balance["produced_kg"], "49.000")
+            # The remaining 40 kg cannot be consumed by another 50 kg request.
+            modified = str(frappe.db.get_value("Knitting Job", job, "modified"))
+            barrier = Barrier(2)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                second = list(pool.map(worker, ["race-a-" + frappe.generate_hash(length=16), "race-b-" + frappe.generate_hash(length=16)]))
+            self.assertTrue(all("error" in result for result in second), second)
+            frappe.db.rollback()
+            self.assertEqual(api.snapshot(company, job)["jobs"][0]["balances"]["yarn_kg"], "40.000")
+        finally:
+            # Remove only this test's committed synthetic custody aggregate, never an ERP voucher.
+            frappe.db.rollback()
+            for doctype in ("Knitting QC", "Knitting Roll", "Knitting Plan", "Knitting Ledger Entry", "Knitting Event"):
+                frappe.db.delete(doctype, {"job": job})
+            frappe.db.delete("Knitting Job", {"name": job})
+            frappe.db.delete("Knitting Material Lot", {"name": lot})
+            for item in self.items.values():
+                frappe.delete_doc("Item", item)
+            frappe.delete_doc("Customer", self.customer)
+            frappe.db.commit()
+
+# Inherited scenarios are already run by test_knitting; hide them from this class only.
+for name in list(vars(fixtures.KnittingTests)):
+    if name.startswith("test_"):
+        setattr(ConcurrencyTests, name, None)

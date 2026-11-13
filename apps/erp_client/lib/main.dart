@@ -233,7 +233,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   void _licenses() => showLicensePage(
     context: context,
     applicationName: 'ERP Workspace',
-    applicationVersion: '0.1.0',
+    applicationVersion: '0.2.0',
     applicationLegalese:
         'Independent open source client, powered by ERPNext and Frappe.',
   );

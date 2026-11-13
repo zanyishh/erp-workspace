@@ -10,7 +10,7 @@ CAPABILITIES = {
     "Knitting Planner": {"overview", "jobs", "planning", "factory", "reports"},
     "Knitting Accountant": {"overview", "jobs", "delivery", "billing", "financial_read", "reports"},
 }
-FINANCIAL_EVENTS = ("invoice", "deliver", "revise_job", "payment", "subcontract_bill", "estimate", "create_estimate", "cost")
+FINANCIAL_EVENTS = ("invoice", "credit_invoice", "bill_yarn", "create_yarn_order", "set_lot_charge", "deliver", "revise_job", "payment", "subcontract_bill", "estimate", "create_estimate", "cost")
 
 
 def companies(user=None):
@@ -29,20 +29,20 @@ def capabilities(user=None):
     return set().union(*(values for role, values in CAPABILITIES.items() if role in roles))
 
 
-def profile(company):
+def profile(company, *, current=False):
     if not frappe.db.exists("DocType", "Workspace Industry Setup"):
         return None
-    return frappe.db.get_value("Workspace Industry Setup", {"company": company}, ["name", "state", "settings", "revision"], as_dict=True)
+    return frappe.db.get_value("Workspace Industry Setup", {"company": company}, ["name", "state", "settings", "revision"], as_dict=True, for_update=current)
 
 
 def company_allowed(company, user=None):
     return company in {c.name for c in companies(user)}
 
 
-def require(company, capability, history=False):
+def require(company, capability, history=False, *, current=False):
     if not company_allowed(company) or capability not in capabilities():
         frappe.throw("This account cannot perform that action in this business.", frappe.PermissionError)
-    setup = profile(company)
+    setup = profile(company, current=current)
     if not setup or not history and setup.state not in ("Active", "Closing"):
         frappe.throw("Knitting is not active for this business.", frappe.PermissionError)
     if setup.state == "Closing" and capability == "new_job":
@@ -84,9 +84,9 @@ def visible_type(doctype, company=None):
 
 def guard_write(doc, method=None):
     if not is_pack(doc.doctype):
-        if doc.doctype in ("Stock Entry", "Sales Invoice", "Delivery Note", "Purchase Invoice", "Purchase Order", "Quotation"):
+        if doc.doctype in ("Stock Entry", "Sales Invoice", "Delivery Note", "Purchase Invoice", "Purchase Order", "Purchase Receipt", "Quotation"):
             current = doc.get("knitting_event") or doc.get("knitting_job")
-            previous = frappe.db.get_value(doc.doctype, doc.name, "knitting_event") if doc.name and not doc.is_new() else None
+            previous = frappe.db.get_value(doc.doctype, doc.name, "knitting_event") if doc.meta.has_field("knitting_event") and doc.name and not doc.is_new() else None
             if (current or previous) and not frappe.flags.get("knitting_service_write"):
                 frappe.throw("Review this source-linked document through its knitting workflow.", frappe.PermissionError)
         return

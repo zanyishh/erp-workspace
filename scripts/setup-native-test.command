@@ -14,5 +14,13 @@ if ! "${compose[@]}" exec -T backend bench --site native-test.localhost list-app
   "${compose[@]}" exec -T backend bench --site native-test.localhost install-app erp_extensions
 fi
 "${compose[@]}" exec -T backend bench --site native-test.localhost execute erp_extensions.setup.configure_test_site
+"${compose[@]}" exec -T backend bench --site native-test.localhost execute erp_extensions.knitting.install.install
+"${compose[@]}" exec -T backend bench --site native-test.localhost execute erp_extensions.knitting.demo.seed
 "${compose[@]}" --profile native-test up -d native-test-backend native-test-frontend
+mkdir -p .local/runtime
+ERP_SERVER_FINGERPRINT="$(python3 scripts/app-fingerprint.py server)"
+if [[ ! -f .local/runtime/server-fingerprint ]] || [[ "$(cat .local/runtime/server-fingerprint)" != "$ERP_SERVER_FINGERPRINT" ]]; then
+  "${compose[@]}" restart native-test-backend
+  printf '%s\n' "$ERP_SERVER_FINGERPRINT" > .local/runtime/server-fingerprint
+fi
 printf 'Isolated Flutter verification server: http://localhost:8081\n'

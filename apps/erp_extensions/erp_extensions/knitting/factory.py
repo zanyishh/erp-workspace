@@ -53,7 +53,7 @@ def plan(event, data, job):
         frappe.throw("The selected machine is not compatible with this programme.")
     if quantity > d.decimal(machine.capacity_kg) * Decimal(str((end - start).total_seconds())) / Decimal(8 * 3600):
         frappe.throw("The planned kg exceeds this machine's available capacity.")
-    days = frappe.get_all("Knitting Holiday", filters={"company": event.company, "date": ["between", [start.date(), (end - timedelta(microseconds=1)).date()]]}, fields=["machine"])
+    days = d.current_rows("Knitting Holiday", filters={"company": event.company, "date": ["between", [start.date(), (end - timedelta(microseconds=1)).date()]]}, fields=["machine"])
     if any(not row.machine or row.machine == machine.name for row in days):
         frappe.throw("The allocation overlaps a holiday or machine shutdown.")
     record = d.reference("Knitting Plan", data["plan"], event.company) if data.get("plan") else None
@@ -61,25 +61,35 @@ def plan(event, data, job):
         _check_version(record, data.get("plan_modified"))
         if record.job != job.name or record.state not in ("Planned", "Started"):
             frappe.throw("Choose an active allocation from this job.")
-    existing = frappe.get_all("Knitting Plan", filters={"company": event.company, "state": ["in", ["Planned", "Started"]]},
-                             fields=["name", "job", "machine", "starts_at", "ends_at", "quantity_kg"])
+    existing = d.current_rows("Knitting Plan", filters={"company": event.company, "state": ["in", ["Planned", "Started"]]},
+                             fields=["name", "job", "machine", "starts_at", "ends_at", "quantity_kg", "produced_kg", "programme_line"])
     for row in existing:
         if record and row.name == record.name:
             continue
         if row.machine == machine.name and row.starts_at < end and row.ends_at > start:
             frappe.throw("Another allocation already occupies that machine/time.")
-    allocated = sum((Decimal(r.quantity_kg) for r in existing if r.job == job.name and (not record or r.name != record.name)), d.ZERO)
-    if allocated + quantity > Decimal(job.target_kg):
+    allocated = sum((Decimal(r.quantity_kg) - Decimal(r.produced_kg or "0") for r in existing if r.job == job.name and (not record or r.name != record.name)), d.ZERO)
+    already = Decimal(record.produced_kg or "0") if record else d.ZERO
+    balance = d.balances(job.name)
+    produced = Decimal(balance["produced_kg"]) + Decimal(balance["fabric_transfer_in_kg"])
+    if quantity < already or allocated + quantity - already > Decimal(job.target_kg) - produced:
         frappe.throw("The plan exceeds this job's programme quantity.")
-    for row in frappe.get_all("Knitting Event", filters={"company": event.company, "kind": "stoppage", "cancelled": 0}, fields=["payload"]):
+    for row in d.current_rows("Knitting Event", filters={"company": event.company, "kind": "stoppage", "cancelled": 0}, fields=["payload"]):
         value = d.json_value(row.payload, {})
         if value.get("machine") == machine.name and get_datetime(value["starts_at"]) < end and get_datetime(value["ends_at"]) > start:
             frappe.throw("The allocation overlaps recorded machine stoppage.")
+    line_produced = d.programme_produced(job, line["id"])
+    line_planned = sum((Decimal(r.quantity_kg) - Decimal(r.produced_kg or "0") for r in existing if r.job == job.name and r.programme_line == line["id"] and (not record or r.name != record.name)), d.ZERO)
+    if record and already and record.programme_line != line["id"] or line_planned + quantity - already > Decimal(line["target_kg"]) - line_produced:
+        frappe.throw("The allocation exceeds this fabric line's remaining programme.")
     previous = record.as_dict() if record else None
     record = record or frappe.new_doc("Knitting Plan")
     record.update({"company": event.company, "job": job.name, "machine": machine.name, "starts_at": start,
-                   "ends_at": end, "quantity_kg": d.kg(quantity), "state": "Planned", "event": event.name})
-    record.save()
+                   "ends_at": end, "quantity_kg": d.kg(quantity), "programme_line": line["id"], "required_yarn_kg": d.kg(d.decimal(data["required_yarn_kg"], positive=True)) if data.get("required_yarn_kg") else None, "produced_kg": record.produced_kg or "0.000", "state": "Planned", "event": event.name})
+    if record.is_new():
+        record = d.insert("Knitting Plan", **{k: record.get(k) for k in ("company", "job", "machine", "starts_at", "ends_at", "quantity_kg", "programme_line", "required_yarn_kg", "produced_kg", "state", "event")})
+    else:
+        record.save()
     return {"plan": record.name, "machine": machine.name, "quantity_kg": d.kg(quantity), "previous": previous}
 
 
@@ -221,7 +231,7 @@ def subcontract_bill(event, data, job):
 
 def close_subcontract(event, data, job):
     sub = subcontract(data, job, event.company)
-    entries = frappe.get_all("Knitting Ledger Entry", filters={"company": event.company, "job": job.name, "custodian": "SC:" + sub.name}, fields=["quantity_kg"])
+    entries = d.current_rows("Knitting Ledger Entry", filters={"company": event.company, "job": job.name, "custodian": "SC:" + sub.name}, fields=["quantity_kg"])
     remaining = sum((Decimal(r.quantity_kg) for r in entries), d.ZERO)
     received = sum((Decimal(d.json_value(r.result, {})["quantity_kg"]) for r in sc_events(sub, "subcontract_receive")), d.ZERO)
     billed = sum((Decimal(d.json_value(r.result, {})["quantity_kg"]) for r in sc_events(sub, "subcontract_bill")), d.ZERO)
@@ -275,7 +285,7 @@ def create_estimate(event, data, job):
         frappe.throw("Estimate the knitting service with a non-stock item.")
     quantity, rate = d.decimal(data.get("target_kg"), positive=True), d.decimal(data.get("rate"), precision=2)
     lines = data.get("programme")
-    if not isinstance(lines, list) or sum((d.decimal(p["target_kg"], positive=True) for p in lines), d.ZERO) != quantity:
+    if d.validate_programme(lines) != quantity:
         frappe.throw("Estimate programme lines must equal its quantity.")
     quote = frappe.get_doc({"doctype": "Quotation", "company": event.company, "quotation_to": "Customer", "party_name": customer.name,
         "knitting_event": event.name, "knitting_programme": frappe.as_json(lines), "knitting_material_mode": data.get("material_mode", "Customer"),
@@ -331,7 +341,7 @@ def create_rate(event, data, job):
 
 ACTIONS = {"create_machine": ("factory", create_machine), "holiday": ("planning", holiday), "plan": ("planning", plan),
     "create_component": ("factory", create_component), "replace_component": ("factory", replace_component), "stoppage": ("factory", stoppage),
-    "create_subcontract": ("factory", create_subcontract), "subcontract_issue": ("materials", subcontract_issue),
+    "create_subcontract": ("billing", create_subcontract), "subcontract_issue": ("materials", subcontract_issue),
     "subcontract_receive": ("factory", subcontract_receive), "subcontract_return": ("materials", subcontract_return),
     "subcontract_bill": ("billing", subcontract_bill), "close_subcontract": ("factory", close_subcontract),
     "issue_consumable": ("factory", issue_consumable), "return_consumable": ("factory", return_consumable),
@@ -340,3 +350,103 @@ ACTIONS = {"create_machine": ("factory", create_machine), "holiday": ("planning"
 
 JOB_OPTIONAL = {"create_machine", "holiday", "create_component", "replace_component", "stoppage", "create_estimate", "accept_estimate", "job_from_estimate",
                 "issue_consumable", "return_consumable", "create_rate"}
+
+
+MASTER_CATEGORIES = ("Fabric", "Yarn mill", "Yarn colour", "Yarn count", "Yarn variety", "Coordinator", "Elastane", "Construction", "Dia", "Machine type", "Gauge", "Ingredient", "Feeders", "Knit type", "Machine make", "QC defect", "Stoppage reason", "Stoppage group", "Shift", "Component setting", "Label setting", "Terms group")
+
+
+def save_master(event, data, job):
+    from erp_extensions.api import _check_version
+    if data.get("category") not in MASTER_CATEGORIES or not str(data.get("title", "")).strip() or len(str(data["title"])) > 140:
+        frappe.throw("Choose a supported master category and a clear name.")
+    settings = data.get("settings") or {k: data[k] for k in ("severity", "value", "description", "boundary_kg", "unit") if data.get(k)}
+    if not isinstance(settings, dict) or set(settings) - {"severity", "value", "description", "boundary_kg", "order", "unit"}:
+        frappe.throw("Use the supported master settings.")
+    if settings.get("boundary_kg"):
+        d.decimal(settings["boundary_kg"], positive=True)
+    record = d.reference("Knitting Master", data["master"], event.company) if data.get("master") else None
+    if record:
+        _check_version(record, data.get("master_modified"))
+        record.title, record.category = data["title"], data["category"]
+        record.enabled, record.specification = int(data.get("enabled", 1)), frappe.as_json(settings)
+        record.save()
+    else:
+        if d.current_rows("Knitting Master", filters={"company": event.company, "category": data["category"], "title": data["title"]}, fields=["name"]):
+            frappe.throw("That master already exists. Select it to make a reviewed change.")
+        record = d.insert("Knitting Master", company=event.company, category=data["category"], title=data["title"], enabled=1, specification=frappe.as_json(settings))
+    return {"master": record.name, "title": record.title, "category": record.category}
+
+
+ACTIONS["save_master"] = ("configure", save_master)
+JOB_OPTIONAL.update({"save_master", "adjust_yarn"})
+
+
+def move_yarn(event, data, job):
+    lot = d.reference("Knitting Material Lot", data.get("lot"), event.company)
+    quantity = d.decimal(data.get("quantity_kg"), positive=True)
+    godown = d.warehouse(data.get("target_warehouse"), event.company)
+    if godown == lot.warehouse or quantity > d.lot_balance(lot.name, job.name if job else None) or not data.get("reason"):
+        frappe.throw("Choose another godown, available yarn and a transfer reason.")
+    voucher = posting.stock(event, "Material Transfer", [{"item_code": lot.item, "qty": quantity, "s_warehouse": lot.warehouse, "t_warehouse": godown}]) if lot.material_owner == "Owned" else None
+    target = d.insert("Knitting Material Lot", company=event.company, item=lot.item, material_owner=lot.material_owner, party=lot.party,
+        warehouse=godown, source_lot=lot.name, specification=lot.specification, charge_item=lot.charge_item, charge_rate=lot.charge_rate)
+    d.ledger(event, lot, -quantity, job.name if job else None, voucher=voucher)
+    d.ledger(event, target, quantity, job.name if job else None, voucher=voucher)
+    return {"lot": target.name, "source_lot": lot.name, "quantity_kg": d.kg(quantity), "target_warehouse": godown,
+        "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
+
+
+ACTIONS["move_yarn"] = ("materials", move_yarn)
+JOB_OPTIONAL.update({"move_yarn", "return_yarn"})
+
+
+def set_lot_charge(event, data, job):
+    lot = d.reference("Knitting Material Lot", data.get("lot"), event.company)
+    item = d.reference("Item", data.get("charge_item"))
+    if lot.material_owner != "Owned" or item.is_stock_item or not data.get("reason"):
+        frappe.throw("Choose owned auxiliary material, a non-stock charge item and the change reason.")
+    lot.charge_item, lot.charge_rate = item.name, d.decimal(data.get("charge_rate"), precision=2)
+    lot.save()
+    return {"lot": lot.name, "charge_item": lot.charge_item, "charge_rate": d.money(lot.charge_rate), "reason": data["reason"]}
+
+
+ACTIONS["set_lot_charge"] = ("billing", set_lot_charge)
+JOB_OPTIONAL.add("set_lot_charge")
+
+
+def close_jobs(event, data, job):
+    import hashlib
+    from erp_extensions.api import _check_version
+    rows = data.get("jobs")
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 100 or any(not isinstance(r, dict) for r in rows) or len({r.get("job") for r in rows}) != len(rows):
+        frappe.throw("Choose one to 100 distinct current jobs.")
+    completed = []
+    for row in rows:
+        source = d.reference("Knitting Job", row.get("job"), event.company)
+        _check_version(source, row.get("modified"))
+        if source.status != "Running":
+            frappe.throw("Only running jobs can be completed.")
+        result = d.close_job(event, row, source)
+        child = d.insert("Knitting Event", company=event.company, job=source.name, kind="close_job",
+            request_key=hashlib.sha256((event.request_key + source.name).encode()).hexdigest(), payload_hash=event.payload_hash,
+            actor=event.actor, occurred_at=event.occurred_at, payload=frappe.as_json({"job": source.name, "batch": event.name}), result=frappe.as_json(result))
+        completed.append({"job": source.name, "event": child.name})
+    return {"completed": completed}
+
+
+ACTIONS["close_jobs"] = ("lifecycle", close_jobs)
+JOB_OPTIONAL.add("close_jobs")
+
+
+
+def reopen_subcontract(event, data, job):
+    sub = d.reference("Knitting Subcontract", data.get("subcontract"), event.company)
+    if sub.job != job.name or sub.status != "Completed" or not data.get("reason"):
+        frappe.throw("Choose a completed subcontract and record the reopening reason.")
+    sub.status = "Open"
+    sub.save()
+    return {"subcontract": sub.name, "status": sub.status, "reason": data["reason"]}
+
+
+ACTIONS["reopen_subcontract"] = ("lifecycle", reopen_subcontract)
+JOB_OPTIONAL.add("cancel_event")

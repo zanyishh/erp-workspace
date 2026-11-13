@@ -145,7 +145,7 @@ def _result(doc):
     data = _native_identities(doc.copy_with_fieldlevel_read_permissions().as_dict(), doc.meta)
     if doc.is_new() and doc.flags.native_origin:
         data["__native_origin"] = doc.flags.native_origin
-    return {"doc": data, "permissions": permissions, "related_actions":[] if guarded else _related_actions(doc),
+    return {"doc": data, "permissions": permissions, "related_actions":_related_actions(doc),
         "workflow": workflow, "transitions": [{"action": t.action, "next_state": t.next_state} for t in transitions]}
 
 
@@ -727,6 +727,9 @@ MAPPINGS = {
 def _related_actions(doc):
     if doc.is_new() or doc.meta.issingle:
         return []
+    from erp_extensions.knitting.permissions import is_pack
+    if is_pack(doc.doctype) or doc.get("knitting_event") or doc.get("knitting_job"):
+        return ["Payment Entry"] if doc.doctype in ("Sales Invoice", "Purchase Invoice") and cint(doc.docstatus) == 1 and frappe.has_permission("Payment Entry", "create") else []
     actions = []
     if frappe.has_permission(doc.doctype, "create"):
         actions.append("Duplicate")

@@ -5,6 +5,8 @@ void main() {
   test('kg remain exact and reject rounding, exponent and nonfinite input', () {
     expect((Kg.parse('0.1') + Kg.parse('0.2')).toString(), '0.300');
     expect(Kg.parse('999999999.999').toString(), '999999999.999');
+    expect(Kg.parse('1000000000.000').toString(), '1000000000.000');
+    expect(() => Kg.parse('1000000000.001'), throwsFormatException);
     for (final v in ['NaN', 'Infinity', '1e3', '0.0001', '', '-1']) {
       expect(() => Kg.parse(v), throwsFormatException);
     }

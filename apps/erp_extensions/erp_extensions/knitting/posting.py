@@ -37,7 +37,7 @@ def delivery(event, job, rolls):
     return submit(doc)
 
 
-def invoice(event, job, rows):
+def invoice(event, job, rows, *, preview=False):
     company, defaults = common(event)
     config = settings(event.company)
     doc = frappe.get_doc({"doctype": "Sales Invoice", "company": event.company, "customer": job.customer,
@@ -50,4 +50,4 @@ def invoice(event, job, rows):
         if config.get("income_account"):
             values["income_account"] = config["income_account"]
         doc.append("items", values)
-    return submit(doc)
+    return doc if preview else submit(doc)

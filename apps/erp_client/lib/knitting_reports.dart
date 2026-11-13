@@ -43,6 +43,9 @@ class _KnittingReportsState extends State<KnittingReports> {
     'fabric': 'Fabric in house',
     'rolls': 'Roll traceability',
     'planning': 'Machine allocations',
+    'shortages': '72-hour yarn coverage',
+    'changes': '24-hour job changes',
+    'unplanned': 'Planning status',
     'production': 'Production & loss',
     'quality': 'Quality history',
     'subcontract': 'Subcontract reconciliation',
@@ -94,7 +97,7 @@ class _KnittingReportsState extends State<KnittingReports> {
           context,
           widget.api,
           widget.company,
-          'Roll',
+          'LabelRoll',
         );
         if (row == null) return;
         f['roll'] = row['name'];
@@ -248,7 +251,9 @@ class _KnittingReportsState extends State<KnittingReports> {
                 decoration: const InputDecoration(labelText: 'Action'),
                 items: [
                   const DropdownMenuItem(value: '', child: Text('All actions')),
-                  for (final action in knitActions)
+                  for (final action in {
+                    for (final a in knitActions) a.id: a,
+                  }.values)
                     DropdownMenuItem(
                       value: action.id,
                       child: Text(

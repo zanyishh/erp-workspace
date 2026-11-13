@@ -42,9 +42,11 @@ def tally_review(company, rows):
 
 
 def render(company, format, value=None):
-    permissions.require(company, "reports", history=True)
     f = reports.filters(value)
     if format == "roll_label":
+        caps = permissions.capabilities()
+        capability = next((key for key in ("production", "quality", "reports") if key in caps), "reports")
+        permissions.require(company, capability, history=True)
         doc = d.reference("Knitting Roll", f.get("roll"), company)
         doc.check_permission("print")
         from frappe.utils.pdf import get_pdf
@@ -59,6 +61,7 @@ def render(company, format, value=None):
         <p>Fiscal reference {fiscal_token(doc.produced_at)}</p></body></html>'''
         content = get_pdf(text, options={"page-width": "110mm", "page-height": "150mm", "disable-javascript": ""})
         return {"name": doc.name + "-label.pdf", "mime": "application/pdf", "content": base64.b64encode(content).decode()}
+    permissions.require(company, "reports", history=True)
     report = f.get("report", "jobs")
     if format in ("gst_review", "tally_review"):
         report = "billing"

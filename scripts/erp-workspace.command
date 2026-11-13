@@ -5,8 +5,11 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 cd "$(dirname "$0")/.."
 scripts/setup-native-test.command
 APP_PATH="$PWD/apps/erp_client/build/macos/Build/Products/Release/ERP Workspace.app"
-if [[ ! -d "$APP_PATH" ]] || ! codesign --verify --deep --strict "$APP_PATH" 2>/dev/null; then
+mkdir -p .local/runtime
+ERP_CLIENT_FINGERPRINT="$(python3 scripts/app-fingerprint.py client)"
+if [[ ! -f .local/runtime/client-fingerprint ]] || [[ "$(cat .local/runtime/client-fingerprint)" != "$ERP_CLIENT_FINGERPRINT" ]] || [[ ! -d "$APP_PATH" ]] || ! codesign --verify --deep --strict "$APP_PATH" 2>/dev/null; then
   (cd apps/erp_client && flutter build macos --release)
+  python3 scripts/app-fingerprint.py client > .local/runtime/client-fingerprint
 fi
 codesign --verify --deep --strict "$APP_PATH"
 for attempt in {1..30}; do

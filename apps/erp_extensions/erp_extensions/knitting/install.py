@@ -11,6 +11,7 @@ def field(name, kind="Data", options=None, **kw):
 
 BASE = [field("company", "Link", "Company", reqd=1, in_list_view=1)]
 SCHEMAS = {
+    "Knitting Master": [*BASE, field("category", reqd=1), field("title", reqd=1, in_list_view=1), field("enabled", "Check", default=1), field("specification", "JSON")],
     "Workspace Industry Setup": [field("company", "Link", "Company", reqd=1, unique=1),
         field("state", "Select", "Setup\nActive\nClosing\nInactive", reqd=1), field("settings", "JSON"), field("revision", "Int")],
     "Knitting Job": [*BASE, field("customer", "Link", "Customer", reqd=1, in_list_view=1),
@@ -18,7 +19,7 @@ SCHEMAS = {
         field("fabric_owner", "Link", "Customer"), field("due_date", "Date"),
         field("status", "Select", "Running\nCompleted\nCancelled", in_list_view=1),
         field("programme", "JSON"), field("target_kg"), field("revision", "Int"),
-        field("service_item", "Link", "Item", permlevel=1), field("rate", "Currency", permlevel=1), field("pricing", "JSON", permlevel=1),
+        field("charge_policy", "Select", "Included\nSeparate", permlevel=1), field("service_item", "Link", "Item", permlevel=1), field("rate", "Currency", permlevel=1), field("pricing", "JSON", permlevel=1),
         field("quotation", "Link", "Quotation"), field("notes", "Small Text")],
     "Knitting Machine": [*BASE, field("title", reqd=1, in_list_view=1), field("workstation", "Link", "Workstation"),
         field("dia"), field("gauge"), field("knit_type"), field("capacity_kg"), field("enabled", "Check", default=1)],
@@ -26,7 +27,7 @@ SCHEMAS = {
         field("material_owner", "Select", "Customer\nOwned"), field("warehouse", "Link", "Warehouse"),
         field("source_lot"), field("specification", "JSON"), field("charge_item", "Link", "Item", permlevel=1),
         field("charge_rate", "Currency", permlevel=1)],
-    "Knitting Event": [*BASE, field("job", "Link", "Knitting Job"), field("kind", in_list_view=1),
+    "Knitting Event": [*BASE, field("job", "Link", "Knitting Job"), field("target_job", "Link", "Knitting Job"), field("kind", in_list_view=1),
         field("request_key", unique=1), field("payload_hash"), field("actor", "Link", "User"),
         field("occurred_at", "Datetime"), field("payload", "JSON", permlevel=1), field("result", "JSON", permlevel=1),
         field("reverses", "Link", "Knitting Event"), field("cancelled", "Check"), field("voucher_type"), field("voucher_name")],
@@ -34,7 +35,7 @@ SCHEMAS = {
         field("event", "Link", "Knitting Event", reqd=1), field("material_owner", "Select", "Customer\nOwned"),
         field("party", "Link", "Customer"), field("custodian"), field("warehouse", "Link", "Warehouse"),
         field("quantity_kg", reqd=1), field("units"), field("voucher_type"), field("voucher_name")],
-    "Knitting Roll": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("programme_line"),
+    "Knitting Roll": [*BASE, field("charges", "JSON", permlevel=1), field("job", "Link", "Knitting Job", reqd=1), field("programme_line"),
         field("job_revision", "Int"), field("weight_kg", reqd=1), field("fabric_item", "Link", "Item"),
         field("warehouse", "Link", "Warehouse"), field("machine", "Link", "Knitting Machine"),
         field("operator", "Link", "User"), field("shift"), field("produced_at", "Datetime"),
@@ -44,7 +45,7 @@ SCHEMAS = {
     "Knitting QC": [*BASE, field("roll", "Link", "Knitting Roll", reqd=1), field("job", "Link", "Knitting Job"),
         field("checker", "Link", "User"), field("decision", "Select", "Released\nOn Hold\nRework\nRejected"),
         field("defects", "JSON"), field("remarks", "Small Text"), field("event", "Link", "Knitting Event")],
-    "Knitting Plan": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("machine", "Link", "Knitting Machine", reqd=1),
+    "Knitting Plan": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("machine", "Link", "Knitting Machine", reqd=1), field("programme_line"), field("required_yarn_kg"), field("produced_kg", default="0.000"),
         field("starts_at", "Datetime", reqd=1), field("ends_at", "Datetime", reqd=1), field("quantity_kg", reqd=1),
         field("state", "Select", "Planned\nStarted\nCompleted\nCancelled"), field("event", "Link", "Knitting Event")],
     "Knitting Subcontract": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("supplier", "Link", "Supplier", reqd=1),
@@ -99,7 +100,8 @@ def install():
     create_custom_fields({name: [
         field("knitting_event", "Link", "Knitting Event", read_only=1, no_copy=1),
         field("knitting_job", "Link", "Knitting Job", read_only=1, no_copy=1),
-    ] for name in ("Stock Entry", "Delivery Note", "Sales Invoice", "Purchase Invoice", "Purchase Order", "Quotation")})
+    ] for name in ("Stock Entry", "Delivery Note", "Sales Invoice", "Purchase Invoice", "Purchase Order", "Purchase Receipt", "Quotation")})
+    create_custom_fields({"Purchase Invoice Item": [field("knitting_receipt", "Link", "Knitting Event", read_only=1, no_copy=1)]})
     create_custom_fields({"Sales Invoice Item": [field("knitting_delivery", "Link", "Knitting Event", read_only=1, no_copy=1)]})
     create_custom_fields({"Quotation": [field("knitting_programme", "JSON", read_only=1),
         field("knitting_material_mode", "Select", "Customer\nOwned", read_only=1)]})

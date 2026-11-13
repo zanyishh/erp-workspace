@@ -380,6 +380,13 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                           objectMap,
                         ))
                           ExpansionTile(
+                            expansionAnimationStyle:
+                                MediaQuery.disableAnimationsOf(context)
+                                ? AnimationStyle.noAnimation
+                                : const AnimationStyle(
+                                    duration: Duration(milliseconds: 180),
+                                    curve: Curves.easeOutCubic,
+                                  ),
                             tilePadding: EdgeInsets.zero,
                             title: Text('Edited by ${version['owner']}'),
                             subtitle: Text(version['creation'].toString()),

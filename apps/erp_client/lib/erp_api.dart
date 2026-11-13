@@ -293,6 +293,15 @@ class ErpApi {
     'request_id': requestId,
     'modified': modified,
   });
+  Future<Map<String, dynamic>> knittingInvoicePreview(
+    String company,
+    Map<String, dynamic> values,
+    String? modified,
+  ) => _industry('knitting.api', 'invoice_preview', {
+    'company': company,
+    'payload': values,
+    'modified': modified,
+  });
   Future<Map<String, dynamic>> knittingCommandStatus(
     String company,
     String requestId,

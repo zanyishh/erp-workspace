@@ -5,16 +5,20 @@ class Kg implements Comparable<Kg> {
   Kg._(this.milli);
   final BigInt milli;
   factory Kg.parse(String value) {
-    if (!RegExp(r'^\d{1,9}(\.\d{1,3})?$').hasMatch(value)) {
+    if (!RegExp(r'^\d{1,10}(\.\d{1,3})?$').hasMatch(value)) {
       throw const FormatException(
         'Use kilograms with up to three decimal places.',
       );
     }
     final parts = value.split('.');
-    return Kg._(
+    final result = Kg._(
       BigInt.parse(parts[0]) * BigInt.from(1000) +
           BigInt.parse((parts.length == 2 ? parts[1] : '').padRight(3, '0')),
     );
+    if (result.milli > BigInt.parse('1000000000000')) {
+      throw const FormatException('The quantity exceeds the ERP limit.');
+    }
+    return result;
   }
   Kg operator +(Kg other) => Kg._(milli + other.milli);
   @override

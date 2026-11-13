@@ -231,7 +231,8 @@ class KnittingTests(unittest.TestCase):
         job = next(j for j in snapshot["jobs"] if j["name"] == self.job)
         self.assertEqual(job["balances"], {"received_kg": "100.000", "consumed_kg": "90.000", "returned_kg": "5.000",
             "yarn_kg": "5.000", "produced_kg": "88.000", "delivered_kg": "88.000", "billed_kg": "88.000",
-            "fabric_kg": "0.000", "unbilled_kg": "0.000", "loss_kg": "2.000", "subcontract_kg": "0.000"})
+            "fabric_kg": "0.000", "unbilled_kg": "0.000", "loss_kg": "2.000", "subcontract_kg": "0.000",
+            "fabric_transfer_in_kg": "0.000", "fabric_transfer_out_kg": "0.000", "yarn_transfer_in_kg": "0.000", "yarn_transfer_out_kg": "0.000"})
         self.assertEqual(frappe.db.count("Stock Ledger Entry", {"item_code": self.items["yarn"]}), 0)
         with self.assertRaises(frappe.ValidationError):
             self.call("close_job", {"job": self.job})
@@ -612,3 +613,217 @@ class KnittingTests(unittest.TestCase):
             result = api.report(COMPANY, "rolls", {"job": self.job, "to_date": day})
             row = next(r for r in result["rows"] if r["name"] == rolls[0])
             self.assertEqual(row["state"], state)
+
+    def test_bulk_production_is_atomic_and_correction_restores_custody(self):
+        self.fixtures(target="88.000")
+        lot = self.receive()
+        row = {"programme_line": "P1", "weights_kg": ["44.000"], "inputs": [{"lot": lot, "quantity_kg": "45.000"}], "loss_kg": "1.000", "warehouse": self.warehouse}
+        result = self.call("produce_bulk", {"job": self.job, "entries": [row, row]})
+        self.assertEqual(result["data"]["quantity_kg"], "88.000")
+        self.assertEqual(len(result["data"]["rolls"]), 2)
+        self.call("cancel_event", {"job": self.job, "event": result["event"], "reason": "Wrong roll weights in synthetic entry"})
+        value = self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["balances"]
+        self.assertEqual(value["yarn_kg"], "100.000")
+        self.assertEqual(value["produced_kg"], "0.000")
+        before = frappe.db.count("Knitting Event")
+        with self.assertRaises(frappe.ValidationError):
+            self.call("produce_bulk", {"job": self.job, "entries": [row, {**row, "weights_kg": ["45.000"]}]})
+        self.assertEqual(frappe.db.count("Knitting Event"), before)
+        self.assertEqual(self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["balances"]["yarn_kg"], "100.000")
+
+    def test_reviewed_stock_adjustment_and_industry_masters_are_scoped(self):
+        self.fixtures()
+        lot = self.receive()
+        self.call("adjust_yarn", {"job": self.job, "lot": lot, "quantity_kg": "-1.000", "reason": "Synthetic physical count"})
+        self.assertEqual(self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["balances"]["yarn_kg"], "99.000")
+        self.call("save_master", {"category": "QC defect", "title": "Needle line", "settings": {"severity": "Major"}})
+        masters = self.knitting().lookup(COMPANY, "Master", "Needle line")["rows"]
+        self.assertEqual(masters[0]["title"], "Needle line")
+        frappe.set_user("knit-operator@example.invalid")
+        with self.assertRaises(frappe.PermissionError):
+            self.call("adjust_yarn", {"job": self.job, "lot": lot, "quantity_kg": "1.000", "reason": "Not authorised"})
+
+    def test_fabric_transfer_keeps_owner_requires_reinspection_and_reconciles_both_jobs(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        self.release(rolls)
+        original = frappe.get_doc("Knitting Job", self.job)
+        target = self.call("create_job", {"customer": self.customer, "target_kg": "88.000", "material_mode": "Customer", "rate": "100.00", "programme": frappe.parse_json(original.programme)})["data"]["job"]
+        result = self.call("transfer_fabric", {"job": self.job, "target_job": target, "target_modified": str(frappe.db.get_value("Knitting Job", target, "modified")), "target_programme_line": "P1", "rolls": rolls, "reason": "Synthetic order reassignment"})
+        snap = self.knitting().snapshot(COMPANY, target)["jobs"][0]
+        self.assertEqual(snap["balances"]["fabric_transfer_in_kg"], "88.000")
+        self.assertEqual(snap["balances"]["fabric_kg"], "88.000")
+        self.assertEqual(frappe.db.get_value("Knitting Roll", rolls[0], "state"), "Awaiting QC")
+        with self.assertRaises(frappe.ValidationError):
+            self.call("produce", {"job": self.job, "programme_line": "P1", "weights_kg": ["1.000"], "inputs": [{"lot": frappe.db.get_value("Knitting Material Lot", {"company": COMPANY, "party": self.customer}, "name"), "quantity_kg": "1.000"}], "loss_kg": "0.000", "warehouse": self.warehouse})
+        with self.assertRaises(frappe.ValidationError):
+            self.call("cancel_event", {"job": self.job, "event": frappe.db.get_value("Knitting Roll", rolls[0], "production"), "reason": "Transferred roll depends on production"})
+        report = self.knitting().report(COMPANY, "jobs", {"job": target})
+        self.assertEqual(report["rows"][0]["fabric_kg"], "88.000")
+        self.call("cancel_event", {"job": self.job, "event": result["event"], "reason": "Undo reassignment before inspection"})
+        self.assertEqual(frappe.db.get_value("Knitting Roll", rolls[0], "job"), self.job)
+
+    def test_machine_progress_replan_and_production_correction_remain_consistent(self):
+        from frappe.utils import add_days, now_datetime
+        self.fixtures()
+        lot = self.receive()
+        machine = self.call("create_machine", {"title": "Progress test", "dia": "30", "gauge": "24", "knit_type": "Tubular", "capacity_kg": "200.000"})["data"]["machine"]
+        starts = add_days(now_datetime(), 2)
+        plan = self.call("plan", {"job": self.job, "programme_line": "P1", "machine": machine, "starts_at": str(starts), "ends_at": str(add_days(starts, 1)), "quantity_kg": "88.000", "required_yarn_kg": "90.000"})["data"]["plan"]
+        production = self.call("produce", {"job": self.job, "programme_line": "P1", "machine": machine, "weights_kg": ["44.000", "44.000"], "inputs": [{"lot": lot, "quantity_kg": "90.000"}], "loss_kg": "2.000", "warehouse": self.warehouse})
+        record = frappe.get_doc("Knitting Plan", plan)
+        self.assertEqual(record.state, "Completed")
+        self.assertEqual(record.produced_kg, "88.000")
+        with self.assertRaises(frappe.ValidationError):
+            self.call("plan", {"job": self.job, "programme_line": "P1", "machine": machine, "starts_at": str(add_days(starts, 3)), "ends_at": str(add_days(starts, 4)), "quantity_kg": "1.000"})
+        self.call("cancel_event", {"job": self.job, "event": production["event"], "reason": "Correct synthetic production"})
+        self.assertEqual(frappe.db.get_value("Knitting Plan", plan, "state"), "Planned")
+        self.assertEqual(frappe.db.get_value("Knitting Plan", plan, "produced_kg"), "0.000")
+
+    def test_source_invoice_keeps_native_payment_action_and_partial_credit_reopens_only_credited_kg(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
+        from erp_extensions import api as native
+        source = native.document("Sales Invoice", invoice["data"]["invoice"])
+        self.assertIn("Payment Entry", source["related_actions"])
+        self.assertNotIn("Duplicate", source["related_actions"])
+        credit = self.call("credit_invoice", {"job": self.job, "invoice_event": invoice["event"], "quantity_kg": "44.000", "reason": "Synthetic partial credit"})
+        self.assertEqual(credit["data"]["amount"], "-4400.00")
+        self.assertEqual(self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["balances"]["unbilled_kg"], "44.000")
+        with self.assertRaises(frappe.ValidationError):
+            self.call("credit_invoice", {"job": self.job, "invoice_event": invoice["event"], "quantity_kg": "45.000", "reason": "Over credit"})
+        self.call("return_fabric", {"job": self.job, "delivery": delivery["event"], "rolls": [rolls[0]], "reason": "Synthetic fabric return"})
+        balances = self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["balances"]
+        self.assertEqual(balances["fabric_kg"], "44.000")
+        self.assertEqual(balances["unbilled_kg"], "0.000")
+        self.assertTrue(frappe.get_doc("Sales Invoice", credit["data"]["invoice"]).is_return)
+
+    def test_knitting_invoice_native_payment_settles_receivable_through_original_controller(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})["data"]["invoice"]
+        from erp_extensions import api as native
+        source = frappe.get_doc("Sales Invoice", invoice)
+        mapped = native.new_from("Sales Invoice", invoice, "Payment Entry", str(source.modified))
+        values = mapped["doc"]
+        cash = frappe.db.get_value("Account", {"company": COMPANY, "account_type": "Cash", "is_group": 0}, "name")
+        values.update(paid_to=cash, paid_to_account_currency="INR", reference_no="SYNTHETIC-PAYMENT", reference_date=frappe.utils.today())
+        def payload(schema, data):
+            result = {k: data[k] for k in ("doctype", "name", "modified", "__islocal", "__native_origin") if k in data}
+            for field in schema["fields"]:
+                key = field["fieldname"]
+                if key not in data or field["read_only"] or field["hidden"]:
+                    continue
+                result[key] = [payload(schema["children"][field["options"]], row) for row in data[key]] if field["fieldtype"] in ("Table", "Table MultiSelect") else data[key]
+            return result
+        payment = native.save(payload(native.schema("Payment Entry"), values), "Submit")
+        self.assertEqual(payment["doc"]["docstatus"], 1)
+        self.assertEqual(frappe.db.get_value("Sales Invoice", invoice, "outstanding_amount"), 0)
+        rows = frappe.get_all("GL Entry", filters={"voucher_no": payment["doc"]["name"], "is_cancelled": 0}, fields=["debit", "credit"])
+        self.assertEqual(sum(r.debit - r.credit for r in rows), 0)
+
+    def test_current_planning_outlook_uses_declared_input_demand(self):
+        from frappe.utils import now_datetime, add_to_date
+        self.fixtures()
+        self.receive("80.000")
+        machine = self.call("create_machine", {"title": "Coverage test", "dia": "30", "gauge": "24", "knit_type": "Tubular", "capacity_kg": "200.000"})["data"]["machine"]
+        start = add_to_date(now_datetime(), hours=1)
+        self.call("plan", {"job": self.job, "programme_line": "P1", "machine": machine, "starts_at": str(start), "ends_at": str(add_to_date(start, hours=8)), "quantity_kg": "88.000", "required_yarn_kg": "90.000"})
+        coverage = self.knitting().report(COMPANY, "shortages", {"job": self.job})["rows"][0]
+        self.assertEqual(coverage["shortage_kg"], "10.000")
+        self.assertEqual(coverage["coverage"], "Short")
+        plan = self.knitting().report(COMPANY, "unplanned", {"job": self.job})["rows"][0]
+        self.assertEqual(plan["unplanned_kg"], "0.000")
+        self.assertEqual(plan["status"], "Fully planned")
+
+    def test_yarn_purchase_receipt_and_bill_use_original_purchase_controllers_once(self):
+        self.fixtures(mode="Owned")
+        supplier = frappe.get_doc({"doctype": "Supplier", "supplier_name": "Synthetic yarn supplier " + frappe.generate_hash(length=8), "supplier_type": "Company", "supplier_group": frappe.db.get_value("Supplier Group", {"is_group": 0}, "name")}).insert().name
+        order = self.call("create_yarn_order", {"supplier": supplier, "item": self.items["yarn"], "quantity_kg": "100.000", "rate": "10.00"})
+        receipt = self.call("receive_yarn", {"job": self.job, "item": self.items["yarn"], "material_owner": "Owned", "quantity_kg": "100.000", "warehouse": self.warehouse, "purchase_order": order["data"]["purchase_order"]})
+        self.assertEqual(receipt["data"]["voucher_type"], "Purchase Receipt")
+        bill = self.call("bill_yarn", {"receipt": receipt["event"], "quantity_kg": "100.000"})
+        self.assertEqual(frappe.get_doc("Purchase Invoice", bill["data"]["invoice"]).docstatus, 1)
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.items["yarn"], "warehouse": self.warehouse}, "actual_qty"), 100)
+        with self.assertRaises(frappe.ValidationError):
+            self.call("bill_yarn", {"receipt": receipt["event"], "quantity_kg": "1.000"})
+        self.assertEqual(frappe.db.get_value("Purchase Order Item", {"parent": order["data"]["purchase_order"]}, "received_qty"), 100)
+
+    def test_auxiliary_charge_defaults_and_delivered_prices_survive_policy_changes(self):
+        self.fixtures(target="90.000", lycra_charge="Separate")
+        yarn = self.receive("90.000")
+        lycra = self.call("receive_yarn", {"job": self.job, "item": self.items["lycra"], "material_owner": "Owned", "quantity_kg": "2.000", "valuation_rate": "50.00", "warehouse": self.warehouse, "charge_item": self.items["material_charge"], "charge_rate": "50.00"})["data"]["lot"]
+        production = self.call("produce", {"job": self.job, "programme_line": "P1", "weights_kg": ["45.000", "45.000"], "inputs": [{"lot": yarn, "quantity_kg": "90.000"}, {"lot": lycra, "quantity_kg": "2.000"}], "loss_kg": "2.000", "warehouse": self.warehouse})
+        self.release(production["data"]["rolls"])
+        delivery = self.call("deliver", {"job": self.job, "rolls": production["data"]["rolls"]})
+        self.enable(lycra_charge="Included")
+        invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
+        self.assertEqual(invoice["data"]["amount"], "9100.00")
+
+    def test_invoice_preview_uses_original_totals_without_writing_and_confirm_checks_preview(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        api = self.knitting()
+        self.assertTrue(callable(getattr(api, "invoice_preview", None)), "A non-writing invoice review is required")
+        payload = {"job": self.job, "deliveries": [delivery["event"]]}
+        before = {kind: frappe.db.count(kind) for kind in ("Sales Invoice", "GL Entry", "Knitting Event", "Item Price")}
+        modified = str(frappe.db.get_value("Knitting Job", self.job, "modified"))
+        preview = api.invoice_preview(COMPANY, payload, modified)
+        self.assertEqual(preview["grand_total"], "8800.00")
+        self.assertEqual(preview["currency"], "INR")
+        self.assertEqual({kind: frappe.db.count(kind) for kind in before}, before)
+        with self.assertRaises(frappe.ValidationError):
+            self.call("invoice", {**payload, "preview_hash": "wrong-preview"})
+        invoice = self.call("invoice", {**payload, "preview_hash": preview["preview_hash"]})
+        self.assertEqual(invoice["data"]["amount"], preview["grand_total"])
+
+    def test_revised_programme_uses_the_same_public_schema_as_a_new_job(self):
+        self.fixtures()
+        line = frappe.parse_json(frappe.get_doc("Knitting Job", self.job).programme)[0]
+        with self.assertRaises(frappe.ValidationError):
+            self.call("revise_job", {"job": self.job, "reason": "Schema check", "programme": [{**line, "rate": "private value"}]})
+        with self.assertRaises(frappe.ValidationError):
+            self.call("revise_job", {"job": self.job, "reason": "Schema check", "programme": [{**line, "gsm": ["NaN"]}]})
+
+    def test_owned_fabric_credit_return_restores_stock_once_and_reconciles_margin(self):
+        self.fixtures(mode="Owned")
+        rolls = self.produce(self.receive(owner="Owned"))
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
+        self.call("credit_invoice", {"job": self.job, "invoice_event": invoice["event"], "quantity_kg": "44.000", "reason": "Synthetic owned return"})
+        self.call("return_fabric", {"job": self.job, "delivery": delivery["event"], "rolls": [rolls[0]], "reason": "Synthetic owned return"})
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.items["fabric"], "warehouse": self.warehouse}, "actual_qty"), 44)
+        self.assertEqual(frappe.db.get_value("Bin", {"item_code": self.items["yarn"], "warehouse": self.warehouse}, "actual_qty"), 10)
+        margin = self.knitting().report(COMPANY, "margin", {"job": self.job})["summary"]
+        self.assertEqual(margin["net_amount"], "4400.00")
+        self.assertEqual(margin["posted_cost"], "450.00")
+
+    def test_multi_job_completion_is_one_version_checked_atomic_action(self):
+        self.fixtures(target="1.000")
+        first = self.job
+        second = self.call("create_job", {"customer": self.customer, "target_kg": "1.000", "rate": "100.00", "programme": [{"id": "P1", "fabric": "Single jersey", "target_kg": "1.000"}]})["data"]["job"]
+        for job in (first, second):
+            lot = self.call("receive_yarn", {"job": job, "item": self.items["yarn"], "material_owner": "Customer", "party": self.customer, "quantity_kg": "1.000", "warehouse": self.warehouse})["data"]["lot"]
+            roll = self.call("produce", {"job": job, "programme_line": "P1", "weights_kg": ["1.000"], "inputs": [{"lot": lot, "quantity_kg": "1.000"}], "loss_kg": "0.000", "warehouse": self.warehouse})["data"]["rolls"][0]
+            self.call("quality", {"job": job, "roll": roll, "decision": "Released"})
+            delivery = self.call("deliver", {"job": job, "rolls": [roll]})
+            self.call("invoice", {"job": job, "deliveries": [delivery["event"]]})
+        rows = [{"job": job, "modified": str(frappe.db.get_value("Knitting Job", job, "modified"))} for job in (first, second)]
+        self.call("revise_job", {"job": second, "reason": "Stale batch test", "rate": "110.00"})
+        with self.assertRaises(frappe.TimestampMismatchError):
+            self.call("close_jobs", {"jobs": rows})
+        self.assertEqual(frappe.db.get_value("Knitting Job", first, "status"), "Running")
+        rows[1]["modified"] = str(frappe.db.get_value("Knitting Job", second, "modified"))
+        result = self.call("close_jobs", {"jobs": rows})
+        self.assertEqual(len(result["data"]["completed"]), 2)
+        for job in (first, second):
+            self.assertEqual(frappe.db.get_value("Knitting Job", job, "status"), "Completed")
+            self.assertEqual(frappe.db.count("Knitting Event", {"job": job, "kind": "close_job"}), 1)
