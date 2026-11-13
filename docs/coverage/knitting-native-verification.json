@@ -1,0 +1,150 @@
+{
+  "date": "2026-11-13",
+  "product_commit": "75e01a8",
+  "branch": "feature/knitting-industry-pack",
+  "environment": {
+    "site": "native-test.localhost",
+    "server": "http://localhost:8081",
+    "company": "ERP Native Verification",
+    "synthetic_only": true,
+    "customer_live_access": false
+  },
+  "checks": {
+    "backend": {
+      "passed": 109,
+      "failed": 0
+    },
+    "flutter": {
+      "passed": 112,
+      "failed": 0
+    },
+    "metadata": {
+      "passed": 4,
+      "failed": 0
+    },
+    "flutter_analysis": "clean",
+    "git_diff_check": "passed"
+  },
+  "review": {
+    "reviewed_range": "be0aaf0..29f9088",
+    "fresh_reviewers": 1,
+    "material_findings": 18,
+    "implemented_dispositions": 18,
+    "second_review": false,
+    "all_18_red_green_histories_evidenced": false,
+    "resolution": "docs/coverage/knitting-review-resolution.md"
+  },
+  "builds": {
+    "macos_arm64_release": {
+      "status": "passed",
+      "path": "apps/erp_client/build/macos/Build/Products/Release/ERP Workspace.app/Contents/MacOS/ERP Workspace",
+      "bytes": 86736,
+      "sha256": "2d2979b6928548ca20651e79263f8e510e29784877405d67b81972f23976e55b"
+    },
+    "ios_arm64_simulator_debug": {
+      "status": "passed",
+      "path": "apps/erp_client/build/ios/iphonesimulator/Runner.app/Runner",
+      "bytes": 40136,
+      "sha256": "24a351f1509aaeb3592be8d8b945d1afe0b7fadef5ee8b0e096ab66477fa3e93"
+    },
+    "android_arm64_debug": {
+      "status": "passed",
+      "path": "apps/erp_client/build/app/outputs/flutter-apk/app-debug.apk",
+      "bytes": 117088775,
+      "sha256": "dae74ff3e1b4a7e3219d37177c4c3a607224068f5f81a102e881339032628cb6"
+    }
+  },
+  "http_cycle": {
+    "job": "KN-NTEST-JOB-2026-00003",
+    "invoice": "ACC-SINV-2026-00002",
+    "grand_total": "8800.00",
+    "currency": "INR",
+    "command_receipt_lookup": true,
+    "actual_invoice_pdf": true
+  },
+  "native_cycle": {
+    "job": "KN-NTEST-JOB-2026-00004",
+    "programme": "P1794585321267440",
+    "receipt_event": "KN-NTEST-EVT-2026-00022",
+    "lot": "KN-NTEST-LOT-2026-00003",
+    "production_event": "KN-NTEST-EVT-2026-00023",
+    "rolls": [
+      "KN-NTEST-ROLL-2026-00005",
+      "KN-NTEST-ROLL-2026-00006"
+    ],
+    "qc_events": [
+      "KN-NTEST-EVT-2026-00024",
+      "KN-NTEST-EVT-2026-00025"
+    ],
+    "delivery_event": "KN-NTEST-EVT-2026-00026",
+    "invoice": "ACC-SINV-2026-00003",
+    "invoice_event": "KN-NTEST-EVT-2026-00027",
+    "return_event": "KN-NTEST-EVT-2026-00028",
+    "first_completion_event": "KN-NTEST-EVT-2026-00029",
+    "reopen_event": "KN-NTEST-EVT-2026-00030",
+    "final_completion_event": "KN-NTEST-EVT-2026-00031",
+    "received_kg": "100.000",
+    "received_units": "2",
+    "consumed_kg": "90.000",
+    "produced_kg": "88.000",
+    "loss_kg": "2.000",
+    "delivered_kg": "88.000",
+    "billed_kg": "88.000",
+    "returned_kg": "10.000",
+    "returned_remaining_units": "2",
+    "remaining_yarn_kg": "0.000",
+    "remaining_fabric_kg": "0.000",
+    "unbilled_kg": "0.000",
+    "subcontract_kg": "0.000",
+    "invoice_total": "8800.00",
+    "currency": "INR",
+    "tax_fixture": "explicit zero tax",
+    "outstanding": "8800.00",
+    "state": "Completed",
+    "reconciliation_visually_confirmed": true,
+    "source_billing_visually_confirmed": true,
+    "submitted_invoice_native_editor": true,
+    "actual_pdf_rendered_in_app": true,
+    "handoff": "App left full screen on completed job; original demo running job 00001 retained"
+  },
+  "screenshots": [
+    {
+      "path": ".local/verification/knitting-native/completed-job.png",
+      "sha256": "48f3b8f9dfa73f5acb80a46b6e6d08ad96353161ce886b7112ec821d982b7d6f"
+    },
+    {
+      "path": ".local/verification/knitting-native/general-overview.png",
+      "sha256": "46400c7c74f5f21a9edb503385fa23d2a30a57897e88fe9ad5ac1d511a33a680"
+    },
+    {
+      "path": ".local/verification/knitting-native/invoice-pdf.png",
+      "sha256": "e6f929e5eb3829540d03350887c6dc7ef803575047ff7fea4276256fd74cd91c"
+    },
+    {
+      "path": ".local/verification/knitting-native/reconciliation.png",
+      "sha256": "a1d7c698e03c9a70cf48e73194060ab11d45c1a7c137f1e0ea088db4e70cc890"
+    },
+    {
+      "path": ".local/verification/knitting-native/saved-confirmation.png",
+      "sha256": "b72641468f4a90a7de027d07365287211304e0ab9706346c7c62864b08d93e27"
+    }
+  ],
+  "evidence_directory": ".local/verification/knitting-release-2026-11-13",
+  "scope": {
+    "observed_vendor_routes": 232,
+    "individual_vendor_routes_certified": 0,
+    "matrix": "docs/coverage/knitting-scope.json"
+  },
+  "not_verified": [
+    "Windows build",
+    "physical iPhone/Android execution",
+    "release signing and distribution",
+    "chosen statutory/payment providers",
+    "vendor import/export parity",
+    "customer formulas and migration",
+    "hardware/printers/scanners",
+    "full-site disaster recovery",
+    "production-scale throughput",
+    "motion frame timings"
+  ]
+}

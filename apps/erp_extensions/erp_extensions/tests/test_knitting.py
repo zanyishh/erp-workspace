@@ -364,6 +364,48 @@ class KnittingTests(unittest.TestCase):
             self.call('cancel_event', {'job':self.job,'event':receipt['event'],'reason':'Has active bill'})
         self.assertEqual(frappe.db.get_value('Purchase Invoice',bill['data']['invoice'],'docstatus'),1)
 
+    def test_consumable_lot_cannot_issue_stock_from_a_different_funded_godown(self):
+        self.fixtures()
+        first = self.receive('5.000','Owned','lycra')
+        other = frappe.get_doc({'doctype':'Warehouse','warehouse_name':'Synthetic second '+frappe.generate_hash(length=6),'company':COMPANY,'is_group':0}).insert().name
+        second = self.call('receive_yarn',{'job':self.job,'item':self.items['lycra'],'quantity_kg':'5.000',
+            'material_owner':'Owned','warehouse':other,'valuation_rate':'50.00'})['data']['lot']
+        before = frappe.db.count('Stock Entry')
+        with self.assertRaises(frappe.ValidationError):
+            self.call('issue_consumable',{'job':self.job,'lot':first,'item':self.items['lycra'],'quantity':'2.000','warehouse':other,'reason':'Wrong godown'})
+        self.assertEqual(frappe.db.count('Stock Entry'),before)
+        d = importlib.import_module('erp_extensions.knitting.domain')
+        self.assertEqual(d.lot_balance(first,self.job),5)
+        self.assertEqual(d.lot_balance(second,self.job),5)
+        for warehouse in (self.warehouse,other):
+            self.assertEqual(frappe.db.get_value('Bin',{'item_code':self.items['lycra'],'warehouse':warehouse},'actual_qty'),5)
+
+    def test_open_general_yarn_purchase_blocks_deactivation(self):
+        self.fixtures()
+        frappe.db.set_value('Knitting Job',self.job,'status','Completed')
+        self.call('create_yarn_order',{'supplier':self.supplier(),'item':self.items['yarn'],'quantity_kg':'10.000','rate':'10.00'})
+        with self.assertRaises(frappe.ValidationError): self.workspace().configure(COMPANY,{'state':'Inactive'})
+
+    def test_subcontract_job_filter_does_not_include_another_jobs_order(self):
+        self.fixtures()
+        source = frappe.get_doc('Knitting Job',self.job)
+        second = self.call('create_job',{'customer':self.customer,'target_kg':'88.000','programme':frappe.parse_json(source.programme)})['data']['job']
+        supplier = self.supplier()
+        first = self.call('create_subcontract',{'job':self.job,'supplier':supplier,'target_kg':'88.000','rate':'10.00'})['data']['subcontract']
+        self.call('create_subcontract',{'job':second,'supplier':supplier,'target_kg':'88.000','rate':'10.00'})
+        report = self.knitting().report(COMPANY,'subcontract',{'job':self.job})
+        self.assertEqual([r['subcontract'] for r in report['rows']],[first])
+
+    def test_grouped_billing_subtracts_credited_quantity(self):
+        self.fixtures()
+        rolls = self.produce(self.receive()); self.release(rolls)
+        delivery = self.call('deliver',{'job':self.job,'rolls':rolls})
+        invoice = self.call('invoice',{'job':self.job,'deliveries':[delivery['event']]})
+        self.call('credit_invoice',{'job':self.job,'invoice_event':invoice['event'],'quantity_kg':'44.000','reason':'Synthetic grouped credit'})
+        report = self.knitting().report(COMPANY,'billing',{'job':self.job,'group_by':'customer'})
+        self.assertEqual(report['rows'][0]['quantity_kg'],'44.000')
+        self.assertEqual(report['rows'][0]['grand_total'],'4400.00')
+
     def test_general_custody_and_setup_transition_cannot_strand_material(self):
         self.fixtures()
         with self.assertRaises(frappe.ValidationError):

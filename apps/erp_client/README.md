@@ -17,9 +17,9 @@ flutter run -d macos
 
 The overview reads company details, catalog/customer/supplier/warehouse counts, dated order counts, posted invoice totals in company currency, daily invoice activity and unpaid invoice counts. Periods include the current calendar day. Permission-denied data is marked unavailable; connection failures are errors rather than fabricated zeros.
 
-Eight overview module browsers and the full permitted catalogue use native Flutter lists and editors. Create/Edit, linked search, child rows, save/submit/cancel/approval, report results/export and files/activity no longer require a browser. Read [current workflow coverage and explicit remaining work](../../docs/setup/NATIVE_WORKFLOWS.md). Complete ERPNext parity is still in progress; AI and UX enhancement are deferred.
+Eight overview module browsers and the full permitted catalogue use native Flutter lists and editors. Create/Edit, linked search, child rows, save/submit/cancel/approval, report results/export and files/activity no longer require a browser. Read [current workflow coverage and explicit remaining work](../../docs/setup/NATIVE_WORKFLOWS.md). The optional Knitting workspace adds native jobs, material custody, production/QC, planning, subcontract, delivery, invoicing, credits/returns, reports and industry setup. Shared controls, typography, confirmations and reduced-motion behavior apply across core and industry pages. See [release evidence and remaining gates](../../docs/setup/KNITTING_V1.md). Complete upstream browser-script parity is not claimed; AI remains deferred.
 
-The local evaluation company currently contains no business transactions. Empty charts and lists are intentional. Stock is a shared item catalog; dated transactions use the selected company and reporting period. Customer and supplier masters are shared under ERPNext permissions. The warehouse illustration is decorative, not a model of the user's actual property.
+The native verification company contains clearly named synthetic demo records; automated knitting scenarios use a separate verification company. Empty views remain honest when no permitted records exist. Stock is a shared item catalog; dated transactions use the selected company and reporting period. Customer and supplier masters are shared under ERPNext permissions. The warehouse illustration is decorative, not a model of the user's actual property.
 
 ## Design and licensing
 
@@ -29,10 +29,12 @@ The code is GPL-3.0; see [LICENSE](LICENSE) and the workspace [NOTICE](../../NOT
 
 ## Verification
 
+The knitting v1 verification has 112 passing Flutter checks and clean analysis. The final Mac ARM64 release, iPhone simulator debug and Android ARM64 debug builds pass; the native Mac walkthrough includes production, QC, delivery, reviewed invoicing, yarn return, completion, source reconciliation and an in-app invoice PDF. Backend and platform limits are recorded in the [release evidence](../../docs/setup/KNITTING_V1.md).
+
 ```sh
 flutter analyze
 flutter test
-flutter build macos --debug
+flutter build macos --release
 flutter build ios --simulator --debug
 flutter build apk --debug --target-platform android-arm64
 ```

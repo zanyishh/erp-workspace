@@ -1,8 +1,8 @@
 # ERP workspace
 
-This workspace holds the preserved ERPNext backend and the first native Flutter client, **ERP Workspace**, for macOS, Windows, iOS and Android. Its foundation connects native document forms, wider module navigation, reports and collaboration to ERPNext. The complete conversion remains in progress. AI is deferred; industry extensions and app-wide UI consistency are the next proposed increment.
+This workspace holds the preserved ERPNext backend and the native Flutter client, **ERP Workspace**, with an optional company-enabled knitting industry pack. General ERP remains available; knitting adds its own scoped factory workflow and records. AI is deferred.
 
-The next proposed increment adds optional company-enabled industry packs, beginning with knitting, and a consistent design system across core and industry screens. See the [industry and knitting design](docs/superpowers/specs/2026-11-13-industry-packs-and-knitting-design.md), [whole-app experience contract](docs/design/WORKSPACE_EXPERIENCE.md) and [planned acceptance cycle](docs/coverage/knitting-acceptance.md). This design is awaiting product approval; knitting features are not implemented or verified yet. Implementation and tests must not access the customer's live system.
+The first knitting version is implemented and locally verified: 109 backend, 112 Flutter and 4 metadata checks pass, and a synthetic job-to-invoice cycle was completed through the native Mac app. See the [knitting release evidence and remaining gates](docs/setup/KNITTING_V1.md), [industry design](docs/superpowers/specs/2026-11-13-industry-packs-and-knitting-design.md), [whole-app experience contract](docs/design/WORKSPACE_EXPERIENCE.md) and [scope matrix](docs/coverage/knitting-scope.json). This is an independent product workflow, not a claim of complete vendor-screen or upstream browser-script parity. Implementation and tests never access the customer's live system.
 
 ## Flutter application
 
