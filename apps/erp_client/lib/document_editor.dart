@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'design.dart';
 import 'document_activity.dart';
@@ -29,21 +30,36 @@ class _DocumentEditorState extends State<DocumentEditor> {
   final _form = GlobalKey<_NativeDocumentFormState>();
   bool _freshAccess = false;
   late Future<(NativeSchema, NativeDocument)> _future = _load();
+  Future<NativeDocument> _document() {
+    final current = _form.currentState?._doc ?? widget.initial;
+    if (!_freshAccess && widget.initial != null) {
+      return Future.value(widget.initial!);
+    }
+    final origin = current?.data['__native_origin'];
+    if (current?.isNew == true && origin is Map) {
+      return widget.api.newFromNative(
+        origin['doctype'] as String,
+        origin['name'] as String,
+        origin['action'] as String,
+        origin['modified'] as String,
+      );
+    }
+    return widget.api.nativeDocument(
+      widget.doctype,
+      name: current == null
+          ? widget.name
+          : current.isNew
+          ? null
+          : current.data['name'] as String?,
+      company: widget.company,
+      treeParent: widget.treeParent,
+    );
+  }
+
   Future<(NativeSchema, NativeDocument)> _load() async {
     final results = await Future.wait([
       widget.api.nativeSchema(widget.doctype),
-      widget.initial != null && !_freshAccess
-          ? Future.value(widget.initial!)
-          : widget.api.nativeDocument(
-              widget.doctype,
-              name: _freshAccess && _form.currentState != null
-                  ? (_form.currentState!._doc.isNew
-                        ? null
-                        : _form.currentState!._data['name'] as String?)
-                  : widget.name,
-              company: widget.company,
-              treeParent: widget.treeParent,
-            ),
+      _document(),
     ]);
     return (results[0] as NativeSchema, results[1] as NativeDocument);
   }
@@ -53,11 +69,14 @@ class _DocumentEditorState extends State<DocumentEditor> {
     api: widget.api,
     revalidate: () async {
       _freshAccess = true;
+      final revision = widget.api.accessRevision;
       final fresh = _load();
-      setState(() {
-        _future = fresh;
-      });
       await fresh;
+      if (mounted && widget.api.accessRevision == revision) {
+        setState(() {
+          _future = fresh;
+        });
+      }
     },
     child: FutureBuilder<(NativeSchema, NativeDocument)>(
       future: _future,
@@ -185,30 +204,110 @@ class NativeDocumentForm extends StatefulWidget {
 class _NativeDocumentFormState extends State<NativeDocumentForm> {
   late NativeDocument _doc = widget.initial;
   late Map<String, dynamic> _data = _doc.editCopy();
+  late Map<String, dynamic> _base;
+
   Map<String, String> _errors = {};
   bool _busy = false, _dirty = false, _leaving = false;
   String? _error, _notice;
   int _revision = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _base = widget.initial.data;
+  }
+
+  @override
   void didUpdateWidget(covariant NativeDocumentForm old) {
     super.didUpdateWidget(old);
     if (!identical(old.initial, widget.initial)) {
-      final allowed = widget.schema.payload(_data);
       _doc = widget.initial;
-      _data = {
-        ..._doc.editCopy(),
-        if (_dirty && (_doc.can('write') || _doc.can('create')))
-          for (final f in widget.schema.fields.where(
-            (f) => !f.readOnly && !f.hidden && !f.layout,
-          ))
-            if (allowed.containsKey(f.name)) f.name: allowed[f.name],
-      };
+      final fresh = _doc.editCopy();
+      if (_dirty &&
+          _doc.can(_doc.isNew ? 'create' : 'write') &&
+          fresh['docstatus'] != 2) {
+        _retainDraft(widget.schema, _base, _data, fresh);
+      }
+      _data = fresh;
+      _base = _doc.data;
+      _dirty = jsonEncode(fresh) != jsonEncode(_base);
       _errors = {};
       _error = null;
       _revision++;
-      _notice =
-          'Access refreshed. Review your retained draft and current source values before saving.';
+      _notice = _dirty
+          ? 'Access refreshed. Review your retained edits before saving.'
+          : 'Access refreshed. Showing current values.';
+    }
+  }
+
+  // Reapply only edits still allowed by the fresh schema. A draft can contain
+  // partially typed numbers, so parsing belongs to validation and save.
+  void _retainDraft(
+    NativeSchema schema,
+    Map<String, dynamic> base,
+    Map<String, dynamic> draft,
+    Map<String, dynamic> fresh, {
+    Map<String, dynamic> parent = const {},
+  }) {
+    final status = (parent.isEmpty ? fresh : parent)['docstatus'];
+    for (final field in schema.visibleFields(fresh, parent: parent)) {
+      final key = field.name;
+      if (field.layout ||
+          field.locked(fresh, parent) ||
+          status == 1 && !field.allowOnSubmit ||
+          !draft.containsKey(key) ||
+          jsonEncode(draft[key]) == jsonEncode(base[key])) {
+        continue;
+      }
+      if (!field.table) {
+        fresh[key] = draft[key];
+        continue;
+      }
+      final child = schema.children[field.options];
+      if (child == null) continue;
+      final previous = [for (final r in base[key] as List? ?? []) objectMap(r)];
+      final current = [for (final r in fresh[key] as List? ?? []) objectMap(r)];
+      final oldByName = {
+        for (final r in previous)
+          if (r['name'] != null) r['name']: r,
+      };
+      final currentByName = {
+        for (final r in current)
+          if (r['name'] != null) r['name']: r,
+      };
+      final rows = <Map<String, dynamic>>[];
+      for (final (i, value) in (draft[key] as List? ?? []).indexed) {
+        final row = objectMap(value);
+        final name = row['name'];
+        final old = name != null
+            ? oldByName[name]
+            : i < previous.length && previous[i]['name'] == null
+            ? previous[i]
+            : null;
+        final now = name != null
+            ? currentByName[name]
+            : i < current.length && current[i]['name'] == null
+            ? current[i]
+            : null;
+        if (old != null && now == null) continue;
+        final target =
+            now ??
+            {
+              'doctype': child.doctype,
+              '__islocal': 1,
+              'name': ?name,
+            };
+        _retainDraft(child, old ?? {}, row, target, parent: fresh);
+        rows.add(target);
+      }
+      fresh[key] = [
+        ...rows,
+        for (final row in current)
+          if (row['name'] != null &&
+              !oldByName.containsKey(row['name']) &&
+              !rows.contains(row))
+            row,
+      ];
     }
   }
 
@@ -275,6 +374,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
         _data = result.editCopy();
         _revision++;
         _dirty = prepare || party;
+        if (!_dirty) _base = result.data;
         _notice = party
             ? 'Party details updated'
             : prepare
@@ -356,8 +456,11 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
       },
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: WorkspaceTheme.canvas,
-          title: Display(widget.schema.doctype.toUpperCase(), size: 27),
+          title: Text(
+            widget.schema.doctype,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -367,154 +470,190 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: WorkspaceTheme.light,
+                        ),
                       )
                     : const Text('Save'),
               ),
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 40),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 10,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+        body: SafeArea(
+          top: false,
+          child: WorkspaceBackdrop(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 40),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1120),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        _doc.isNew
-                            ? 'New ${widget.schema.doctype}'
-                            : _doc.data['name']?.toString() ??
-                                  widget.schema.doctype,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      StatusChip(
-                        _dirty
-                            ? 'Unsaved changes'
-                            : status == 2
-                            ? 'Cancelled'
-                            : status == 1
-                            ? 'Submitted'
-                            : _doc.isNew
-                            ? 'New'
-                            : 'Draft',
-                      ),
-                      if (widget.onRelated != null &&
-                          _doc.relatedActions.isNotEmpty)
-                        PopupMenuButton<String>(
-                          enabled: !_busy,
-                          onSelected: _related,
-                          itemBuilder: (_) => [
-                            for (final action in _doc.relatedActions)
-                              PopupMenuItem(value: action, child: Text(action)),
-                          ],
-                          child: const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text('Create / copy ▾'),
+                      if (_data['company'] is String &&
+                          (_data['company'] as String).isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            _data['company'] as String,
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
-                      if (!_doc.isNew && widget.onActivity != null)
-                        TextButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => widget.onActivity!(_data),
-                          icon: const Icon(Icons.history, size: 18),
-                          label: const Text('Files & activity'),
-                        ),
-                      if (widget.onPartyDefaults != null &&
-                          canSave &&
-                          status == 0)
-                        TextButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => _perform('Save', party: true),
-                          icon: const Icon(Icons.person_outline, size: 18),
-                          label: const Text('Load party details'),
-                        ),
-                      if (widget.onPrepare != null && canSave && status == 0)
-                        TextButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => _perform('Save', prepare: true),
-                          icon: const Icon(Icons.calculate_outlined, size: 18),
-                          label: const Text('Update calculations'),
-                        ),
-                      if (widget.schema.submittable &&
-                          status == 0 &&
-                          !_doc.isNew &&
-                          _doc.can('submit') &&
-                          _doc.workflow.isEmpty)
-                        TextButton(
-                          onPressed: _busy ? null : () => _perform('Submit'),
-                          child: const Text('Submit'),
-                        ),
-                      if (status == 1 &&
-                          _doc.can('cancel') &&
-                          _doc.workflow.isEmpty)
-                        TextButton(
-                          onPressed: _busy ? null : () => _perform('Cancel'),
-                          child: const Text('Cancel document'),
-                        ),
-                      if (widget.onTransition != null)
-                        for (final transition in _doc.transitions)
-                          TextButton(
-                            onPressed: _busy
-                                ? null
-                                : () => _perform(
-                                    transition['action'] as String,
-                                    workflow: true,
+                      Wrap(
+                        spacing: 16,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            _doc.isNew
+                                ? 'New ${widget.schema.doctype}'
+                                : _doc.data['name']?.toString() ??
+                                      widget.schema.doctype,
+                            style: displayStyle(32),
+                          ),
+                          StatusChip(
+                            _dirty
+                                ? 'Unsaved changes'
+                                : status == 2
+                                ? 'Cancelled'
+                                : status == 1
+                                ? 'Submitted'
+                                : _doc.isNew
+                                ? 'New'
+                                : widget.schema.submittable
+                                ? 'Draft'
+                                : 'Saved',
+                          ),
+                        ],
+                      ),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (widget.onRelated != null &&
+                              _doc.relatedActions.isNotEmpty)
+                            PopupMenuButton<String>(
+                              enabled: !_busy,
+                              onSelected: _related,
+                              itemBuilder: (_) => [
+                                for (final action in _doc.relatedActions)
+                                  PopupMenuItem(
+                                    value: action,
+                                    child: Text(action),
                                   ),
-                            child: Text(transition['action'] as String),
+                              ],
+                              child: const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: Text('Create / copy ▾'),
+                              ),
+                            ),
+                          if (!_doc.isNew && widget.onActivity != null)
+                            TextButton.icon(
+                              onPressed: _busy
+                                  ? null
+                                  : () => widget.onActivity!(_data),
+                              icon: const Icon(Icons.history, size: 18),
+                              label: const Text('Files & activity'),
+                            ),
+                          if (widget.onPartyDefaults != null &&
+                              canSave &&
+                              status == 0)
+                            TextButton.icon(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _perform('Save', party: true),
+                              icon: const Icon(Icons.person_outline, size: 18),
+                              label: const Text('Load party details'),
+                            ),
+                          if (widget.onPrepare != null &&
+                              canSave &&
+                              status == 0)
+                            TextButton.icon(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _perform('Save', prepare: true),
+                              icon: const Icon(
+                                Icons.calculate_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Update calculations'),
+                            ),
+                          if (widget.schema.submittable &&
+                              status == 0 &&
+                              !_doc.isNew &&
+                              _doc.can('submit') &&
+                              _doc.workflow.isEmpty)
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _perform('Submit'),
+                              child: const Text('Submit'),
+                            ),
+                          if (status == 1 &&
+                              _doc.can('cancel') &&
+                              _doc.workflow.isEmpty)
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _perform('Cancel'),
+                              child: const Text('Cancel document'),
+                            ),
+                          if (widget.onTransition != null)
+                            for (final transition in _doc.transitions)
+                              TextButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _perform(
+                                        transition['action'] as String,
+                                        workflow: true,
+                                      ),
+                                child: Text(transition['action'] as String),
+                              ),
+                        ],
+                      ),
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: WorkspaceTheme.ink,
+                              height: 1.5,
+                            ),
                           ),
+                        ),
+                      if (_notice != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            _notice!,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      const SizedBox(height: 18),
+                      Panel(
+                        frosted: true,
+                        border: true,
+                        child: DocumentFields(
+                          key: ValueKey(_revision),
+                          schema: widget.schema,
+                          data: _data,
+                          errors: _errors,
+                          editable: !_busy && canSave,
+                          onLink: widget.onLink,
+                          onNewRow: widget.onNewRow,
+                          onItemDefaults: widget.onItemDefaults,
+                          onChanged: () => setState(() {
+                            _dirty = true;
+                            _notice = null;
+                          }),
+                        ),
+                      ),
                     ],
                   ),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(
-                          color: WorkspaceTheme.ink,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  if (_notice != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        _notice!,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  const SizedBox(height: 18),
-                  Panel(
-                    border: true,
-                    child: DocumentFields(
-                      key: ValueKey(_revision),
-                      schema: widget.schema,
-                      data: _data,
-                      errors: _errors,
-                      editable: !_busy && canSave,
-                      onLink: widget.onLink,
-                      onNewRow: widget.onNewRow,
-                      onItemDefaults: widget.onItemDefaults,
-                      onChanged: () => setState(() {
-                        _dirty = true;
-                        _notice = null;
-                      }),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

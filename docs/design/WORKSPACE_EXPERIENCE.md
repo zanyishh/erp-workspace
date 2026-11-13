@@ -16,7 +16,7 @@ Keep Manrope for body, labels and values; use Barlow Condensed SemiBold for shor
 | Spacing | 4, 8, 12, 16, 24, 32; consistent 24 desktop outer margin and 16 gutters; compact station mode increases touch spacing |
 | Shape | Primary panels 24 radius; nested surfaces 18; form controls 12 to 14; pills circular ends; consistent one-pixel borders |
 | Controls | Minimum 44 by 44 touch target; clear focus; icons accompany a label or accessible name; one visual style for each action level |
-| Elevation | Flat resting surfaces; subtle hover/focus elevation; no blanket heavy shadow or glass effect |
+| Elevation | Translucent cards on a stationary warm/cool background. Use clipped backdrop blur on focal cards and overlays, with a solid fill in high contrast. Use lightweight painted surfaces in repeated table rows |
 | Density | Comfortable by default; compact table mode for office use. No smaller font solely to squeeze data |
 
 ## Shared navigation and page anatomy

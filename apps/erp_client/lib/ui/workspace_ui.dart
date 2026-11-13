@@ -20,40 +20,33 @@ class WorkspacePage extends StatelessWidget {
   final List<Widget> actions;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title)),
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1600),
-        child: Padding(
-          padding: EdgeInsets.all(
-            MediaQuery.sizeOf(context).width < 600 ? 16 : 28,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 20,
-                runSpacing: 12,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Display(title.toUpperCase(), size: 38),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(color: WorkspaceTheme.muted),
-                      ),
-                    ],
-                  ),
-                  Wrap(spacing: 8, runSpacing: 8, children: actions),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Expanded(child: child),
-            ],
+    appBar: AppBar(title: Text(subtitle)),
+    body: WorkspaceBackdrop(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1440),
+          child: Padding(
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width < 600 ? 16 : 24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    Display(title, size: 34),
+                    if (actions.isNotEmpty)
+                      Wrap(spacing: 8, runSpacing: 8, children: actions),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(child: child),
+              ],
+            ),
           ),
         ),
       ),

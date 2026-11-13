@@ -17,6 +17,8 @@ abstract final class WorkspaceTheme {
     brightness: Brightness.light,
     fontFamily: 'Manrope',
     scaffoldBackgroundColor: canvas,
+    splashFactory: InkRipple.splashFactory,
+    visualDensity: VisualDensity.standard,
     colorScheme: ColorScheme.fromSeed(
       seedColor: charcoal,
       primary: charcoal,
@@ -190,13 +192,15 @@ class WorkspaceRouteTransition extends PageTransitionsBuilder {
     Widget child,
   ) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
+    final opacity = animation.drive(CurveTween(curve: Curves.easeOutCubic));
     return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
+      opacity: opacity,
+      child: SlideTransition(
+        position: opacity.drive(
+          Tween(begin: const Offset(.025, 0), end: Offset.zero),
+        ),
+        child: child,
       ),
-      child: child,
     );
   }
 }

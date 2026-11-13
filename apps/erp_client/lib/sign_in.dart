@@ -62,113 +62,115 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: LayoutBuilder(
-        builder: (context, b) => SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: b.maxHeight),
-            child: Padding(
-              padding: EdgeInsets.all(b.maxWidth > 780 ? 32 : 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    children: [
-                      const Display('WORKSPACE.', size: 30),
-                      TextButton(
-                        onPressed: widget.onLicenses,
-                        child: const Text(
-                          'Open source · Licenses',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: WorkspaceTheme.muted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: b.maxWidth > 900 ? 66 : 24),
-                  if (b.maxWidth >= 900)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+    body: WorkspaceBackdrop(
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, viewport) {
+            final wide = viewport.maxWidth >= 900;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                wide ? 40 : 18,
+                20,
+                wide ? 40 : 18,
+                24,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (viewport.maxHeight - 44)
+                      .clamp(0, double.infinity)
+                      .toDouble(),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1120),
+                      child: Column(
+                        children: [
+                          Row(
                             children: [
-                              const StatusChip('Powered by ERPNext'),
-                              const SizedBox(height: 28),
-                              const Display(
-                                'YOUR BUSINESS.\nONE CLEAR VIEW.',
-                                size: 70,
+                              const Icon(
+                                Icons.dashboard_customize_rounded,
+                                size: 24,
                               ),
-                              const SizedBox(height: 18),
-                              const Text(
-                                'Everything you run, brought together.\nA quieter place to make things happen.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  height: 1.8,
-                                  color: WorkspaceTheme.muted,
-                                ),
+                              const SizedBox(width: 9),
+                              const Expanded(
+                                child: Display('ERP Workspace', size: 27),
                               ),
-                              const SizedBox(height: 15),
-                              Image.asset(
-                                'assets/images/warehouse.png',
-                                height: 295,
-                                width: double.infinity,
-                                fit: BoxFit.contain,
+                              TextButton(
+                                onPressed: widget.onLicenses,
+                                child: const Text('Licenses'),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 65),
-                        Expanded(flex: 4, child: _form()),
-                      ],
-                    )
-                  else ...[
-                    const Display('YOUR BUSINESS.\nONE CLEAR VIEW.', size: 43),
-                    const SizedBox(height: 12),
-                    Image.asset(
-                      'assets/images/warehouse.png',
-                      height: 165,
-                      fit: BoxFit.contain,
+                          const SizedBox(height: 16),
+                          if (wide)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(26),
+                              child: Stack(
+                                alignment: Alignment.centerRight,
+                                children: [
+                                  Positioned.fill(
+                                    child: DecoratedBox(
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFCDD6D2),
+                                            Color(0xFFEBE5DC),
+                                            Color(0xFFD6B9A8),
+                                          ],
+                                        ),
+                                      ),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: FractionallySizedBox(
+                                          widthFactor: .68,
+                                          child: Image.asset(
+                                            'assets/images/warehouse.png',
+                                            fit: BoxFit.contain,
+                                            excludeFromSemantics: true,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: SizedBox(width: 370, child: _form()),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            _form(),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _form(),
                   ],
-                  const SizedBox(height: 32),
-                  const Text(
-                    'An independent open source workspace, connected to ERPNext.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 10, color: WorkspaceTheme.muted),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     ),
   );
   Widget _form() => Panel(
     dark: true,
+    frosted: true,
     padding: const EdgeInsets.all(25),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const StatusChip('Welcome back', dark: true),
-        const SizedBox(height: 25),
-        const Display('MAKE YOURSELF\nAT WORK.', size: 42, light: true),
-        const SizedBox(height: 13),
+        const Display('Sign in', size: 40, light: true),
+        const SizedBox(height: 8),
         const Text(
-          'Sign in with your ERPNext account.',
-          style: TextStyle(fontSize: 12, color: Color(0xFFBCC3B6)),
+          'Use your company’s ERPNext account.',
+          style: TextStyle(color: Color(0xFFD7DFD7)),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 22),
         _label('ERPNext address'),
         TextField(
           controller: _server,
@@ -258,11 +260,6 @@ class _SignInScreenState extends State<SignInScreen> {
                     ],
                   ),
           ),
-        ),
-        const SizedBox(height: 15),
-        const Text(
-          'Your password stays in memory for this session.',
-          style: TextStyle(fontSize: 10, color: Color(0xFFBCC3B6)),
         ),
       ],
     ),

@@ -58,6 +58,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   Future<ErpSnapshot>? _snapshot;
   ReportingPeriod _period = ReportingPeriod.month;
   ErpModule? _module;
+  bool _generalInMill = false;
+  bool get _atMill => _workspace?.enabled == true && !_generalInMill;
   ErpSnapshot? _lastData;
   int _revision = 0;
   WorkspaceContext? _workspace;
@@ -79,6 +81,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       api.onSessionExpired = () => _recoverSession(api);
       setState(() {
         _api = api;
+        _generalInMill = false;
         _workspace = workspace;
         _module = null;
         _snapshot = _overviewFor(api, workspace);
@@ -105,6 +108,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       }
       if (!mounted || !identical(_api, api)) return false;
       setState(() {
+        if (_workspace?.company != fresh.company || !fresh.enabled) {
+          _generalInMill = false;
+        }
         _workspace = fresh;
         _lastData = null;
         _module = null;
@@ -146,7 +152,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<ErpSnapshot>? _overviewFor(ErpApi api, WorkspaceContext workspace) =>
-      workspace.enabled || workspace.needsIndustrySelection
+      (workspace.enabled && !_generalInMill) || workspace.needsIndustrySelection
       ? null
       : _guard(api, api.snapshot(_period, selectedCompany: workspace.company));
 
@@ -154,6 +160,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     final api = _api;
     if (!mounted || api == null) return;
     setState(() {
+      _generalInMill = false;
       _workspace = value;
       _lastData = null;
       _module = null;
@@ -164,9 +171,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   void _refresh() {
     final api = _api;
-    if (api == null ||
-        _workspace?.enabled == true ||
-        _workspace?.needsIndustrySelection == true) {
+    if (api == null || _atMill || _workspace?.needsIndustrySelection == true) {
       return;
     }
     setState(() {
@@ -275,6 +280,25 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
   }
 
+  void _showGeneral() {
+    final workspace = _workspace;
+    final api = _api;
+    if (workspace == null || api == null) return;
+    setState(() {
+      _generalInMill = true;
+      _module = null;
+      _lastData = null;
+      _snapshot = _overviewFor(api, workspace);
+    });
+  }
+
+  void _backToMill() => setState(() {
+    _generalInMill = false;
+    _module = null;
+    _lastData = null;
+    _snapshot = null;
+  });
+
   void _select(ErpModule? module) => setState(() => _module = module);
   void _moduleMenu() =>
       showWorkspacePicker(context, _select, onAll: () => _catalog());
@@ -327,7 +351,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Display('MAKE SOMETHING HAPPEN.', size: 32),
+                const Display('Create a document', size: 32),
                 const SizedBox(height: 10),
                 const Text(
                   'Choose a document to create in your workspace.',
@@ -511,6 +535,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
           fresh = await api.workspaceContext();
         }
         if (!mounted || !identical(api, _api)) return;
+        if (_workspace?.company != fresh.company || !fresh.enabled) {
+          _generalInMill = false;
+        }
         final snapshot = _overviewFor(api, fresh);
         setState(() {
           _workspace = fresh;
@@ -521,7 +548,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         });
         await snapshot;
       },
-      child: _workspace!.enabled
+      child: _atMill
           ? KnittingScreen(
               key: ValueKey(_workspace!.company),
               api: api,
@@ -540,6 +567,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               },
               onCompany: _company,
               onRecords: _catalog,
+              onGeneral: _showGeneral,
               onAccount: _settings,
             )
           : _workspace!.needsIndustrySelection
@@ -570,54 +598,110 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                             ? state.data
                             : null;
                         if (data != null) _lastData = data;
-                        return Column(
-                          children: [
-                            _header(data, api),
-                            Expanded(
-                              child:
-                                  state.connectionState != ConnectionState.done
-                                  ? const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: WorkspaceTheme.ink,
-                                      ),
-                                    )
-                                  : state.hasError
-                                  ? MessagePanel(
-                                      title: 'LET’S RECONNECT',
-                                      message: state.error.toString(),
-                                      action: _refresh,
-                                    )
-                                  : _module == null
-                                  ? OverviewScreen(
-                                      data: data!,
-                                      onModule: _select,
-                                      onNew: _newDocument,
-                                    )
-                                  : ModuleBrowser(
-                                      key: ValueKey(
-                                        '${_module!.name}-${_period.name}-$_revision',
-                                      ),
-                                      module: _module!,
-                                      company: data!.company,
-                                      currency: data.currency,
-                                      loader: (query, start) => _guard(
-                                        api,
-                                        api.records(
-                                          _module!,
-                                          company: data.company,
-                                          period: _period,
-                                          query: query,
-                                          start: start,
+                        return WorkspaceBackdrop(
+                          child: Column(
+                            children: [
+                              _header(),
+                              Expanded(
+                                child: KeyedSubtree(
+                                  key: ValueKey((
+                                    _workspace!.company,
+                                    api.accessRevision,
+                                    _period,
+                                    _revision,
+                                  )),
+                                  child: AnimatedSwitcher(
+                                    duration:
+                                        MediaQuery.disableAnimationsOf(context)
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 190),
+                                    switchInCurve: Curves.easeOutCubic,
+                                    transitionBuilder: (panel, anim) =>
+                                        FadeTransition(
+                                          opacity: anim,
+                                          child: SlideTransition(
+                                            position: anim.drive(
+                                              Tween(
+                                                begin: const Offset(.015, 0),
+                                                end: Offset.zero,
+                                              ),
+                                            ),
+                                            child: panel,
+                                          ),
                                         ),
-                                      ),
-                                      onRecord: (r) =>
-                                          _edit(r.module.doctype, name: r.name),
-                                      onCreate: () => _edit(_module!.doctype),
-                                      onBrowseAll: () => _catalog(),
+                                    layoutBuilder: (current, previous) => Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        for (final panel in previous)
+                                          ExcludeFocus(
+                                            child: ExcludeSemantics(
+                                              child: IgnorePointer(
+                                                child: panel,
+                                              ),
+                                            ),
+                                          ),
+                                        ?current,
+                                      ],
                                     ),
-                            ),
-                          ],
+                                    child:
+                                        state.connectionState !=
+                                            ConnectionState.done
+                                        ? const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: WorkspaceTheme.ink,
+                                            ),
+                                          )
+                                        : state.hasError
+                                        ? MessagePanel(
+                                            title:
+                                                'Could not load this workspace',
+                                            message: state.error.toString(),
+                                            action: _refresh,
+                                          )
+                                        : _module == null
+                                        ? OverviewScreen(
+                                            data: data!,
+                                            range: _period.range(
+                                              DateTime.now(),
+                                            ),
+                                            onRecord: (r) => _edit(
+                                              r.module.doctype,
+                                              name: r.name,
+                                            ),
+                                            onModule: _select,
+                                            onNew: _newDocument,
+                                          )
+                                        : ModuleBrowser(
+                                            key: ValueKey(
+                                              '${_module!.name}-${_period.name}-$_revision',
+                                            ),
+                                            module: _module!,
+                                            company: data!.company,
+                                            currency: data.currency,
+                                            loader: (query, start) => _guard(
+                                              api,
+                                              api.records(
+                                                _module!,
+                                                company: data.company,
+                                                period: _period,
+                                                query: query,
+                                                start: start,
+                                              ),
+                                            ),
+                                            onRecord: (r) => _edit(
+                                              r.module.doctype,
+                                              name: r.name,
+                                            ),
+                                            onCreate: () =>
+                                                _edit(_module!.doctype),
+                                            onBrowseAll: () => _catalog(),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         );
                       },
                     ),
@@ -628,214 +712,129 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     );
   }
 
-  Widget _header(ErpSnapshot? data, ErpApi api) => LayoutBuilder(
-    builder: (context, b) {
-      final wide = b.maxWidth >= 1180;
-      final utilities = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleControl(
-            icon: Icons.history,
-            label: 'Recent invoice activity',
-            onPressed: _activity,
-          ),
-          CircleControl(
-            icon: Icons.search,
-            label: 'Search workspaces',
-            onPressed: _moduleMenu,
-          ),
-          CircleControl(
-            icon: Icons.refresh,
-            label: 'Refresh workspace',
-            onPressed: _refresh,
-          ),
-          const SizedBox(width: 5),
-          Tooltip(
-            message: 'Account and settings',
-            child: IconButton(
-              onPressed: _settings,
-              icon: CircleAvatar(
-                radius: 15,
-                backgroundColor: WorkspaceTheme.palePeach,
-                child: Text(
-                  api.userName.isEmpty ? 'A' : api.userName[0].toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: WorkspaceTheme.ink,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-      final navigation = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Pill(
-              _module?.label ?? 'Business overview',
-              icon: _module == null
-                  ? Icons.space_dashboard_outlined
-                  : moduleIcon(_module!),
-              onPressed: _moduleMenu,
-            ),
-          ),
-          const SizedBox(width: 5),
-          CircleControl(
-            icon: Icons.home_outlined,
-            label: 'Business overview',
-            onPressed: () => _select(null),
-          ),
-          if (wide) ...[
-            CircleControl(
-              icon: Icons.inventory_2_outlined,
-              label: 'Browse inventory',
-              onPressed: () => _select(ErpModule.stock),
-            ),
-            CircleControl(
-              icon: Icons.grid_view_outlined,
-              label: 'Browse projects',
-              onPressed: () => _select(ErpModule.projects),
-            ),
-          ],
-        ],
-      );
-      Widget stats() => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _topMetric(
-            'Catalog\nitems',
-            data == null ? '—' : tally(data.count(ErpModule.stock)),
-          ),
-          _topMetric(
-            'Sales\norders',
-            data == null ? '—' : tally(data.count(ErpModule.selling)),
-          ),
-          _topMetric(
-            'Warehouse\nlocations',
-            data == null ? '—' : tally(data.warehouses),
-          ),
-          _topMetric(
-            'Customer\naccounts',
-            data == null ? '—' : tally(data.customers),
-            last: true,
-          ),
-        ],
-      );
-      return Container(
-        padding: EdgeInsets.fromLTRB(wide ? 24 : 16, 14, wide ? 24 : 16, 9),
-        decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: WorkspaceTheme.border, width: .6),
-          ),
+  Widget _header() => LayoutBuilder(
+    builder: (context, bounds) {
+      final small =
+          bounds.maxWidth < 1080 ||
+          MediaQuery.textScalerOf(context).scale(14) > 18;
+      final company = TextButton.icon(
+        onPressed: _company,
+        icon: const Icon(Icons.business_outlined, size: 17),
+        label: Text(
+          _workspace?.company ?? 'Select company',
+          overflow: TextOverflow.ellipsis,
         ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: _company,
-                      icon: const Icon(Icons.business_outlined, size: 16),
-                      label: Text(
-                        _workspace?.company ?? 'Select company',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      style: TextButton.styleFrom(
-                        alignment: Alignment.centerLeft,
-                      ),
-                    ),
-                  ),
-                  if (_workspace?.canConfigure == true)
-                    IconButton(
-                      onPressed: _industrySetup,
-                      tooltip: 'Industry setup',
-                      icon: const Icon(Icons.tune, size: 20),
-                    ),
-                ],
-              ),
+      );
+      final navigation = TextButton.icon(
+        onPressed: _moduleMenu,
+        icon: const Icon(Icons.grid_view_rounded, size: 17),
+        label: Text(
+          _module?.label ?? 'Workspaces',
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+      final tools = PopupMenuButton<VoidCallback>(
+        tooltip: 'Workspace options',
+        icon: const Icon(Icons.more_horiz),
+        onSelected: (action) => action(),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: _refresh,
+            child: const Text('Refresh workspace'),
+          ),
+          PopupMenuItem(
+            value: _activity,
+            child: const Text('Recent invoice activity'),
+          ),
+          if (_workspace?.canConfigure == true)
+            PopupMenuItem(
+              value: _industrySetup,
+              child: const Text('Industry setup'),
             ),
-            if (wide)
-              Row(
-                children: [
-                  const Display('WORKSPACE.', size: 26),
-                  const SizedBox(width: 23),
-                  navigation,
-                  const SizedBox(width: 18),
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: stats(),
+          PopupMenuItem(
+            value: _settings,
+            child: const Text('Account and settings'),
+          ),
+          PopupMenuItem(
+            value: _licenses,
+            child: const Text('Open source licenses'),
+          ),
+        ],
+      );
+      final brand = TextButton.icon(
+        onPressed: () => _select(null),
+        icon: const Icon(Icons.dashboard_customize_rounded, size: 22),
+        label: const Display('General ERP', size: 24),
+      );
+      final back = TextButton.icon(
+        onPressed: _backToMill,
+        icon: const Icon(Icons.keyboard_return, size: 16),
+        label: const Text('Back to mill'),
+      );
+      final catalog = TextButton.icon(
+        onPressed: _catalog,
+        icon: const Icon(Icons.library_books_outlined, size: 17),
+        label: const Text('All modules'),
+      );
+      return Padding(
+        padding: EdgeInsets.fromLTRB(small ? 10 : 22, 10, small ? 10 : 22, 2),
+        child: Panel(
+          frosted: true,
+          radius: 16,
+          padding: EdgeInsets.symmetric(
+            horizontal: small ? 6 : 12,
+            vertical: 3,
+          ),
+          child: small
+              ? Column(
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(child: brand),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: company,
+                          ),
+                        ),
+                        tools,
+                      ],
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          if (_generalInMill) back,
+                          navigation,
+                          catalog,
+                          _periodPicker(),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _periodPicker(),
-                  const SizedBox(width: 8),
-                  utilities,
-                ],
-              )
-            else ...[
-              Row(
-                children: [
-                  const Expanded(child: Display('WORKSPACE.', size: 27)),
-                  utilities,
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(child: navigation),
-                  const SizedBox(width: 8),
-                  _periodPicker(),
-                ],
-              ),
-              const SizedBox(height: 10),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: stats(),
-              ),
-            ],
-          ],
+                  ],
+                )
+              : Row(
+                  children: [
+                    brand,
+                    const SizedBox(width: 10),
+                    const SizedBox(height: 18, child: VerticalDivider()),
+                    if (_generalInMill) back,
+                    navigation,
+                    catalog,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: company,
+                      ),
+                    ),
+                    _periodPicker(),
+                    tools,
+                  ],
+                ),
         ),
       );
     },
   );
-  Widget _topMetric(String label, String value, {bool last = false}) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13),
-        decoration: BoxDecoration(
-          border: last
-              ? null
-              : const Border(right: BorderSide(color: WorkspaceTheme.border)),
-        ),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 9,
-                height: 1.4,
-                color: WorkspaceTheme.muted,
-              ),
-            ),
-            const SizedBox(width: 9),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -1,
-              ),
-            ),
-          ],
-        ),
-      );
   Widget _periodPicker() => PopupMenuButton<ReportingPeriod>(
     initialValue: _period,
     onSelected: (p) {

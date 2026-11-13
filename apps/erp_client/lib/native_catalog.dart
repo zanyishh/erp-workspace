@@ -56,41 +56,43 @@ class _NativeCatalogScreenState extends State<NativeCatalogScreen> {
     child: Scaffold(
       appBar: AppBar(
         title: Display(
-          widget.create ? 'NEW DOCUMENT' : 'ALL MODULES & SETTINGS',
+          widget.create ? 'New document' : 'All modules & settings',
           size: 27,
         ),
       ),
-      body: FutureBuilder<NativeCatalog>(
-        future: _future,
-        builder: (context, state) {
-          if (state.hasData) {
-            return NativeCatalogView(
-              catalog: state.data!,
-              onType: _open,
-              onReport: (name) => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => NativeReportScreen(
-                    api: widget.api,
-                    name: name,
-                    company: widget.company,
+      body: WorkspaceBackdrop(
+        child: FutureBuilder<NativeCatalog>(
+          future: _future,
+          builder: (context, state) {
+            if (state.hasData) {
+              return NativeCatalogView(
+                catalog: state.data!,
+                onType: _open,
+                onReport: (name) => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => NativeReportScreen(
+                      api: widget.api,
+                      name: name,
+                      company: widget.company,
+                    ),
                   ),
                 ),
-              ),
-              create: widget.create,
-            );
-          }
-          if (state.hasError) {
-            return MessagePanel(
-              title: 'COULD NOT LOAD MODULES',
-              message: state.error.toString(),
-              action: () => setState(() {
-                _future = widget.api.nativeCatalog(company: widget.company);
-              }),
-            );
-          }
-          return const Center(child: CircularProgressIndicator());
-        },
+                create: widget.create,
+              );
+            }
+            if (state.hasError) {
+              return MessagePanel(
+                title: 'COULD NOT LOAD MODULES',
+                message: state.error.toString(),
+                action: () => setState(() {
+                  _future = widget.api.nativeCatalog(company: widget.company);
+                }),
+              );
+            }
+            return const Center(child: CircularProgressIndicator());
+          },
+        ),
       ),
     ),
   );
@@ -115,113 +117,255 @@ class NativeCatalogView extends StatefulWidget {
 class _NativeCatalogViewState extends State<NativeCatalogView> {
   String _query = '';
   bool _reports = false;
+  String _module = '';
+
   @override
   Widget build(BuildContext context) {
-    final types = widget.catalog.types
-        .where(
-          (t) =>
-              (!widget.create || t.canCreate) &&
-              '${t.name} ${t.module}'.toLowerCase().contains(
-                _query.toLowerCase(),
-              ),
-        )
-        .toList();
+    final allowed = widget.catalog.types.where(
+      (type) => !widget.create || type.canCreate && !type.single,
+    );
+    final showReports = !widget.create && widget.onReport != null;
+    final modules = {
+      for (final type in allowed) type.module,
+      if (showReports)
+        for (final report in widget.catalog.reports)
+          report['module']?.toString() ?? 'Other',
+    }.toList()..sort();
+    final module = modules.contains(_module) ? _module : '';
+    final query = _query.trim().toLowerCase();
+    bool matches(String name, String group) =>
+        (module.isEmpty || module == group) &&
+        '$name $group'.toLowerCase().contains(query);
+    final types = allowed.where((t) => matches(t.name, t.module)).toList();
     final reports = widget.catalog.reports
         .where(
-          (r) => '${r['name']} ${r['module']}'.toLowerCase().contains(
-            _query.toLowerCase(),
-          ),
+          (r) =>
+              matches(r['name'] as String, r['module']?.toString() ?? 'Other'),
         )
         .toList();
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.onReport != null && !widget.create) ...[
-            SegmentedButton<bool>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: false, label: Text('Records')),
-                ButtonSegment(value: true, label: Text('Reports')),
-              ],
-              selected: {_reports},
-              onSelectionChanged: (selection) =>
-                  setState(() => _reports = selection.first),
-            ),
-            const SizedBox(height: 16),
+    final count = _reports ? reports.length : types.length;
+
+    return LayoutBuilder(
+      builder: (context, box) {
+        final desktop = box.maxWidth >= 900;
+        Widget moduleFilter() => PopupMenuButton<String>(
+          tooltip: 'Filter by module',
+          initialValue: module,
+          onSelected: (value) => setState(() => _module = value),
+          itemBuilder: (_) => [
+            for (final name in ['', ...modules])
+              PopupMenuItem(
+                value: name,
+                child: Text(name.isEmpty ? 'All modules' : name),
+              ),
           ],
-          TextField(
-            decoration: const InputDecoration(
-              hintText: 'Search every module, record type or setting…',
-              prefixIcon: Icon(Icons.search),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.filter_list, size: 18),
+                const SizedBox(width: 8),
+                Flexible(child: Text(module.isEmpty ? 'All modules' : module)),
+                const Icon(Icons.arrow_drop_down),
+              ],
             ),
-            onChanged: (value) => setState(() => _query = value),
           ),
-          const SizedBox(height: 14),
-          Text(
-            _reports
-                ? '${reports.length} available reports'
-                : '${types.length} available record types',
-            style: const TextStyle(color: WorkspaceTheme.muted, fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: (_reports ? reports.isEmpty : types.isEmpty)
-                ? const Center(child: Text('No matching record types.'))
-                : ListView.builder(
-                    itemCount: _reports ? reports.length : types.length,
-                    itemBuilder: (context, i) {
-                      if (_reports) {
-                        final report = reports[i];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 7),
-                          child: Material(
-                            color: WorkspaceTheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            child: ListTile(
-                              leading: const Icon(
-                                Icons.table_chart_outlined,
-                                size: 21,
-                              ),
-                              title: Text(report['name'] as String),
-                              subtitle: Text(
-                                report['module']?.toString() ?? '',
-                              ),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () =>
-                                  widget.onReport!(report['name'] as String),
+        );
+
+        final list = CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (desktop)
+                          Display(
+                            module.isEmpty ? 'All modules' : module,
+                            size: 34,
+                          )
+                        else
+                          moduleFilter(),
+                        if (showReports)
+                          SegmentedButton<bool>(
+                            showSelectedIcon: false,
+                            style: SegmentedButton.styleFrom(
+                              selectedBackgroundColor: WorkspaceTheme.charcoal,
+                              selectedForegroundColor: WorkspaceTheme.light,
                             ),
+                            segments: const [
+                              ButtonSegment(
+                                value: false,
+                                label: Text('Records'),
+                              ),
+                              ButtonSegment(
+                                value: true,
+                                label: Text('Reports'),
+                              ),
+                            ],
+                            selected: {_reports},
+                            onSelectionChanged: (value) =>
+                                setState(() => _reports = value.first),
                           ),
-                        );
-                      }
-                      final t = types[i];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 7),
-                        child: Material(
-                          color: WorkspaceTheme.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          child: ListTile(
-                            leading: Icon(
-                              t.single
-                                  ? Icons.settings_outlined
-                                  : Icons.description_outlined,
-                              size: 21,
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: _reports
+                            ? 'Search reports or modules…'
+                            : 'Search record types or modules…',
+                        prefixIcon: const Icon(Icons.search),
+                      ),
+                      onChanged: (value) => setState(() => _query = value),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _reports
+                          ? '$count available reports'
+                          : '$count available record types',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (count == 0)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(30),
+                  child: Text(
+                    _reports
+                        ? 'No matching reports.'
+                        : 'No matching record types.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            else
+              SliverList.separated(
+                itemCount: count,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final type = _reports ? null : types[i];
+                  final report = _reports ? reports[i] : null;
+                  final name = type?.name ?? report!['name'] as String;
+                  final group =
+                      type?.module ?? report!['module']?.toString() ?? 'Other';
+                  return Material(
+                    color: WorkspaceTheme.surface,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      minVerticalPadding: 6,
+                      minTileHeight: module.isEmpty ? 60 : 50,
+                      leading: Icon(
+                        _reports
+                            ? Icons.table_chart_outlined
+                            : type!.single
+                            ? Icons.settings_outlined
+                            : Icons.description_outlined,
+                        size: 20,
+                      ),
+                      title: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: module.isNotEmpty && type?.single != true
+                          ? null
+                          : Text(
+                              type?.single == true
+                                  ? (module.isEmpty
+                                        ? '$group · Settings'
+                                        : 'Settings')
+                                  : group,
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            title: Text(t.name),
-                            subtitle: Text(
-                              '${t.module}${t.single ? ' · Settings' : ''}',
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => widget.onType(t),
+                      trailing: const Icon(Icons.chevron_right, size: 18),
+                      onTap: () => type == null
+                          ? widget.onReport!(name)
+                          : widget.onType(type),
+                    ),
+                  );
+                },
+              ),
+          ],
+        );
+        return Padding(
+          padding: EdgeInsets.all(desktop ? 24 : 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (desktop) ...[
+                SizedBox(
+                  width: 222,
+                  child: Panel(
+                    dark: true,
+                    frosted: true,
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(12, 10, 12, 12),
+                          child: Display('Modules', size: 26, light: true),
+                        ),
+                        Expanded(
+                          child: ListView(
+                            children: [
+                              for (final name in ['', ...modules])
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: Material(
+                                    color: module == name
+                                        ? WorkspaceTheme.palePeach
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: ListTile(
+                                      dense: true,
+                                      minTileHeight: 44,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
+                                      minVerticalPadding: 4,
+                                      selected: module == name,
+                                      textColor: WorkspaceTheme.light,
+                                      selectedColor: WorkspaceTheme.ink,
+                                      title: Text(
+                                        name.isEmpty ? 'All modules' : name,
+                                      ),
+                                      onTap: () =>
+                                          setState(() => _module = name),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   ),
+                ),
+                const SizedBox(width: 22),
+              ],
+              Expanded(child: list),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -241,6 +385,7 @@ class NativeRecordScreen extends StatefulWidget {
 }
 
 class _NativeRecordScreenState extends State<NativeRecordScreen> {
+  late NativeType _type = widget.type;
   late Future<List<Map<String, dynamic>>> _future = _load();
   Timer? _debounce;
   String _query = '';
@@ -283,17 +428,31 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
   Widget build(BuildContext context) => AccessGate(
     api: widget.api,
     revalidate: () async {
+      final revision = widget.api.accessRevision;
+      final catalog = await widget.api.nativeCatalog(company: widget.company);
+      if (!mounted || widget.api.accessRevision != revision) return;
+      final type = catalog.types
+          .where((t) => t.name == widget.type.name)
+          .firstOrNull;
+      if (type == null) {
+        throw const ErpException('This record type is no longer available.');
+      }
       final fresh = _load();
       setState(() {
+        _type = type;
         _future = fresh;
       });
       await fresh;
     },
     child: Scaffold(
       appBar: AppBar(
-        title: Display(widget.type.name.toUpperCase(), size: 27),
+        title: Text(
+          widget.type.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
-          if (widget.type.tree)
+          if (_type.tree)
             IconButton(
               tooltip: 'Browse hierarchy',
               onPressed: () async {
@@ -302,7 +461,7 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
                   MaterialPageRoute<void>(
                     builder: (_) => NativeTreeScreen(
                       api: widget.api,
-                      type: widget.type,
+                      type: _type,
                       company: widget.company,
                     ),
                   ),
@@ -316,7 +475,7 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
             onPressed: () => _reload(),
             icon: const Icon(Icons.refresh),
           ),
-          if (widget.type.canCreate)
+          if (_type.canCreate)
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: FilledButton.icon(
@@ -327,113 +486,178 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                hintText: 'Search ${widget.type.name.toLowerCase()}…',
-                prefixIcon: const Icon(Icons.search),
-              ),
-              onChanged: (value) {
-                _query = value;
-                _debounce?.cancel();
-                _debounce = Timer(
-                  const Duration(milliseconds: 350),
-                  () => _reload(reset: true),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: _future,
-                builder: (context, state) {
-                  if (state.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (state.hasError) {
-                    return MessagePanel(
-                      title: 'COULD NOT LOAD',
-                      message: state.error.toString(),
-                      action: () => _reload(),
+      body: SafeArea(
+        top: false,
+        child: WorkspaceBackdrop(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    [
+                      _type.module,
+                      if (widget.company != null) widget.company!,
+                    ].join('  /  '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search ${widget.type.name.toLowerCase()}…',
+                    prefixIcon: const Icon(Icons.search),
+                  ),
+                  onChanged: (value) {
+                    _query = value;
+                    _debounce?.cancel();
+                    _debounce = Timer(
+                      const Duration(milliseconds: 350),
+                      () => _reload(reset: true),
                     );
-                  }
-                  final rows = state.data ?? [];
-                  if (rows.isEmpty) {
-                    return MessagePanel(
-                      title: _start > 0 ? 'END OF LIST' : 'NO RECORDS',
-                      message: _start > 0
-                          ? 'There are no more records in this view.'
-                          : 'Create a record or try another search.',
-                      label: _start > 0 ? 'Back to first page' : 'Refresh',
-                      action: () => _reload(reset: true),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: ListView.separated(
-                          itemCount: rows.length,
-                          separatorBuilder: (_, i) => const SizedBox(height: 7),
-                          itemBuilder: (context, i) {
-                            final row = rows[i];
-                            final titles = row.entries
-                                .where(
-                                  (e) => e.key != 'name' && e.key != 'modified',
-                                )
-                                .map((e) => e.value?.toString() ?? '')
-                                .where((v) => v.isNotEmpty);
-                            return Material(
-                              color: WorkspaceTheme.surface,
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                title: Text(
-                                  titles.isEmpty
-                                      ? row['name'].toString()
-                                      : titles.first,
-                                ),
-                                subtitle: Text(row['name'].toString()),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => _open(row['name'] as String),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      Row(
+                  },
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _future,
+                    builder: (context, state) {
+                      if (state.connectionState != ConnectionState.done) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (state.hasError) {
+                        return MessagePanel(
+                          title: 'COULD NOT LOAD',
+                          message: state.error.toString(),
+                          action: () => _reload(),
+                        );
+                      }
+                      final rows = state.data ?? [];
+                      if (rows.isEmpty) {
+                        return MessagePanel(
+                          title: _start > 0 ? 'END OF LIST' : 'NO RECORDS',
+                          message: _start > 0
+                              ? 'There are no more records in this view.'
+                              : _query.isNotEmpty
+                              ? 'Try another name or document number.'
+                              : 'No ${widget.type.name} records are available in this view.',
+                          label: _start > 0 ? 'Back to first page' : 'Refresh',
+                          action: () => _reload(reset: true),
+                        );
+                      }
+                      return Column(
                         children: [
-                          Text('Showing ${_start + 1}–${_start + rows.length}'),
-                          const Spacer(),
-                          IconButton(
-                            tooltip: 'Previous page',
-                            onPressed: _start == 0
-                                ? null
-                                : () {
-                                    _start = (_start - 50).clamp(0, _start);
-                                    _reload();
-                                  },
-                            icon: const Icon(Icons.chevron_left),
+                          Expanded(
+                            child: Panel(
+                              frosted: true,
+                              padding: EdgeInsets.zero,
+                              child: ListView.separated(
+                                itemCount: rows.length,
+                                separatorBuilder: (_, i) =>
+                                    const Divider(height: 1),
+                                itemBuilder: (context, i) {
+                                  final row = rows[i];
+                                  final titles = row.entries
+                                      .where(
+                                        (e) =>
+                                            e.key != 'name' &&
+                                            e.key != 'modified',
+                                      )
+                                      .map((e) => e.value?.toString() ?? '')
+                                      .where((v) => v.isNotEmpty);
+                                  final name = row['name'] as String;
+                                  final title = titles.firstOrNull ?? name;
+                                  final date = row['modified']
+                                      ?.toString()
+                                      .split(' ')
+                                      .first;
+                                  final wide =
+                                      MediaQuery.sizeOf(context).width >= 700;
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                      minVerticalPadding: 6,
+                                      title: Text(
+                                        title,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      subtitle: title == name
+                                          ? null
+                                          : Text(name),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (wide && date != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 12,
+                                              ),
+                                              child: Text(
+                                                date,
+                                                semanticsLabel:
+                                                    'Modified $date',
+                                                style: Theme.of(
+                                                  context,
+                                                ).textTheme.bodySmall,
+                                              ),
+                                            ),
+                                          const Icon(
+                                            Icons.chevron_right,
+                                            size: 18,
+                                          ),
+                                        ],
+                                      ),
+                                      onTap: () => _open(name),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
-                          IconButton(
-                            tooltip: 'Next page',
-                            onPressed: rows.length < 50
-                                ? null
-                                : () {
-                                    _start += 50;
-                                    _reload();
-                                  },
-                            icon: const Icon(Icons.chevron_right),
+                          Row(
+                            children: [
+                              Text(
+                                'Showing ${_start + 1}–${_start + rows.length}',
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                tooltip: 'Previous page',
+                                onPressed: _start == 0
+                                    ? null
+                                    : () {
+                                        _start = (_start - 50).clamp(0, _start);
+                                        _reload();
+                                      },
+                                icon: const Icon(Icons.chevron_left),
+                              ),
+                              IconButton(
+                                tooltip: 'Next page',
+                                onPressed: rows.length < 50
+                                    ? null
+                                    : () {
+                                        _start += 50;
+                                        _reload();
+                                      },
+                                icon: const Icon(Icons.chevron_right),
+                              ),
+                            ],
                           ),
                         ],
-                      ),
-                    ],
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     ),

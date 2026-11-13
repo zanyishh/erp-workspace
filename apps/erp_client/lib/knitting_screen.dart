@@ -1,5 +1,6 @@
 import 'ui/access_gate.dart';
 import 'knitting_workspace_layout.dart';
+import 'mill_overview.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'file_actions.dart';
@@ -22,11 +23,12 @@ class KnittingScreen extends StatefulWidget {
     this.onCompany,
     this.onAccount,
     this.onRecords,
+    this.onGeneral,
   });
   final ErpApi api;
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onContextChanged;
-  final VoidCallback? onCompany, onAccount, onRecords;
+  final VoidCallback? onCompany, onAccount, onRecords, onGeneral;
   @override
   State<KnittingScreen> createState() => _KnittingScreenState();
 }
@@ -37,17 +39,22 @@ class _KnittingScreenState extends State<KnittingScreen> {
   late Future<KnittingSnapshot> future = widget.api.knittingSnapshot(
     workspace.company!,
   );
-  String page = 'Jobs', search = '';
+  late String page = workspace.destinations.firstOrNull ?? 'Jobs';
+  String search = '';
+  String? queueFilter;
   Map<String, dynamic>? selected;
   @override
   void didUpdateWidget(covariant KnittingScreen old) {
     super.didUpdateWidget(old);
     workspace = widget.workspace;
     if (old.workspace.company != workspace.company ||
-        old.workspace.revision != workspace.revision) {
+        old.workspace.revision != workspace.revision ||
+        old.workspace.accessFingerprint != workspace.accessFingerprint ||
+        !workspace.destinations.contains(page)) {
       selected = null;
-      page = 'Jobs';
+      page = workspace.destinations.firstOrNull ?? 'Jobs';
       search = '';
+      queueFilter = null;
       future = widget.api.knittingSnapshot(
         workspace.company!,
         job: selected?['name'] as String?,
@@ -64,9 +71,11 @@ class _KnittingScreenState extends State<KnittingScreen> {
     widget.onContextChanged(fresh);
     setState(() {
       workspace = fresh;
-      if (!fresh.enabled) {
+      if (!fresh.destinations.contains(page)) {
         selected = null;
-        page = fresh.canConfigure ? 'Setup' : 'Jobs';
+        search = '';
+        queueFilter = null;
+        page = fresh.destinations.firstOrNull ?? 'Jobs';
       }
     });
     if (!fresh.enabled) {
@@ -86,12 +95,14 @@ class _KnittingScreenState extends State<KnittingScreen> {
       workspace = fresh;
       selected = null;
       setupDirty = false;
-      page = fresh.enabled ? 'Jobs' : 'Setup';
+      queueFilter = null;
+      page = fresh.destinations.firstOrNull ?? 'Setup';
       if (fresh.enabled) future = widget.api.knittingSnapshot(fresh.company!);
     });
   }
 
-  Future<void> destination(String value) async {
+  Future<void> destination(String value, {String? filter}) async {
+    if (!workspace.destinations.contains(value)) return;
     if (page == 'Setup' && setupDirty) {
       final discard = await showDialog<bool>(
         context: context,
@@ -113,14 +124,24 @@ class _KnittingScreenState extends State<KnittingScreen> {
       if (discard != true || !mounted) return;
     }
     setState(() {
+      if (selected != null && (value == 'Overview' || value == 'Jobs')) {
+        selected = null;
+        future = widget.api.knittingSnapshot(workspace.company!);
+      }
       page = value;
       search = '';
+      queueFilter = filter;
       setupDirty = false;
     });
   }
 
   KnitAction? get primary {
     final id = switch (page) {
+      'Overview' when workspace.allows('production') => 'produce',
+      'Overview' when workspace.allows('quality') => 'quality',
+      'Overview' when workspace.allows('planning') => 'plan',
+      'Overview' when workspace.allows('billing') => 'invoice',
+      'Overview' => 'create_job',
       'Jobs' => 'create_job',
       'Yarn' => 'receive_yarn',
       'Planning' => 'plan',
@@ -245,7 +266,8 @@ class _KnittingScreenState extends State<KnittingScreen> {
     api: widget.api,
     revalidate: () async {
       selected = null;
-      page = 'Jobs';
+      page = workspace.destinations.firstOrNull ?? 'Jobs';
+      queueFilter = null;
       final fresh = _reload();
       setState(() {
         future = fresh;
@@ -259,6 +281,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
       onCompany: setupDirty ? null : widget.onCompany,
       onAccount: setupDirty ? null : widget.onAccount,
       onRecords: setupDirty ? null : widget.onRecords,
+      onGeneral: setupDirty ? null : widget.onGeneral,
       actions: [
         if (page == 'Delivery' && workspace.allows('delivery'))
           OutlinedButton.icon(
@@ -300,7 +323,11 @@ class _KnittingScreenState extends State<KnittingScreen> {
                     api: widget.api,
                     workspace: workspace,
                     onSaved: changedContext,
-                    onDirty: (value) => setupDirty = value,
+                    onDirty: (value) {
+                      if (mounted && value != setupDirty) {
+                        setState(() => setupDirty = value);
+                      }
+                    },
                   )
                 : FutureBuilder<KnittingSnapshot>(
                     future: future,
@@ -336,19 +363,36 @@ class _KnittingScreenState extends State<KnittingScreen> {
                             .where((j) => j['name'] == selected!['name']);
                         if (matches.isNotEmpty) selected = matches.first;
                       }
+                      void openJob(Map<String, dynamic> job) => setState(() {
+                        selected = job;
+                        page = 'Jobs';
+                        search = '';
+                        queueFilter = null;
+                        future = widget.api.knittingSnapshot(
+                          workspace.company!,
+                          job: job['name'] as String,
+                        );
+                      });
+                      if (page == 'Overview') {
+                        return MillOverview(
+                          api: widget.api,
+                          snapshot: snap,
+                          workspace: workspace,
+                          onDestination: destination,
+                          onJob: openJob,
+                        );
+                      }
                       return KnittingWorkbench(
+                        key: ValueKey(page),
+                        queueFilter: queueFilter,
+                        onFilter: (value) =>
+                            setState(() => queueFilter = value),
                         snapshot: snap,
                         page: page,
                         selected: selected,
                         query: search,
                         onQuery: (v) => setState(() => search = v),
-                        onJob: (j) => setState(() {
-                          selected = j;
-                          future = widget.api.knittingSnapshot(
-                            workspace.company!,
-                            job: j['name'] as String,
-                          );
-                        }),
+                        onJob: openJob,
                         onBack: () => setState(() {
                           selected = null;
                           page = 'Jobs';
@@ -413,9 +457,13 @@ class KnittingWorkbench extends StatelessWidget {
     required this.onSource,
     required this.workspace,
     required this.onFind,
+    this.queueFilter,
+    this.onFilter,
   });
   final KnittingSnapshot snapshot;
   final String page, query;
+  final String? queueFilter;
+  final ValueChanged<String?>? onFilter;
   final Map<String, dynamic>? selected;
   final ValueChanged<String> onQuery;
   final ValueChanged<Map<String, dynamic>> onJob;
@@ -436,6 +484,11 @@ class KnittingWorkbench extends StatelessWidget {
                           a['job'] == selected!['name'] &&
                           a['quantity_kg'] != '0.000',
                     )) &&
+            (queueFilter == null ||
+                (key == 'jobs'
+                    ? r['status'] == queueFilter
+                    : (key == 'rolls' || key == 'plans') &&
+                          r['state'] == queueFilter)) &&
             r.values.join(' ').toLowerCase().contains(query.toLowerCase()),
       )
       .toList();
@@ -506,9 +559,11 @@ class KnittingWorkbench extends StatelessWidget {
             runSpacing: 12,
             children: [
               for (final (key, label) in [
-                ('yarn_kg', 'Yarn in custody'),
+                if (workspace.allows('materials'))
+                  ('yarn_kg', 'Yarn in custody'),
                 ('fabric_kg', 'Fabric in house'),
-                ('unbilled_kg', 'Awaiting invoice'),
+                if (workspace.allows('billing'))
+                  ('unbilled_kg', 'Awaiting invoice'),
                 ('loss_kg', 'Process loss'),
               ])
                 SizedBox(
@@ -535,9 +590,6 @@ class KnittingWorkbench extends StatelessWidget {
                   )
                   .toList(),
             ),
-        ] else if (page == 'Jobs') ...[
-          KnittingJobOverview(snapshot: snapshot),
-          const SizedBox(height: 20),
         ],
         if (page != 'Jobs' || record == null)
           Row(
@@ -564,6 +616,29 @@ class KnittingWorkbench extends StatelessWidget {
             ],
           ),
         const SizedBox(height: 16),
+        if (record == null && page == 'Jobs' && onFilter != null)
+          Wrap(
+            spacing: 6,
+            runSpacing: 5,
+            children: [
+              for (final status in ['All jobs', 'Running', 'Completed'])
+                ChoiceChip(
+                  label: Text(status),
+                  selected: (queueFilter ?? 'All jobs') == status,
+                  onSelected: (_) =>
+                      onFilter!(status == 'All jobs' ? null : status),
+                ),
+            ],
+          )
+        else if (queueFilter != null && onFilter != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: InputChip(
+              label: Text(queueFilter!),
+              onDeleted: () => onFilter!(null),
+              deleteButtonTooltipMessage: 'Clear queue filter',
+            ),
+          ),
         if (page == 'Jobs' &&
             record == null &&
             actions.any((a) => a.id != 'create_job'))
@@ -607,14 +682,14 @@ class KnittingWorkbench extends StatelessWidget {
         ],
         const SizedBox(height: 16),
         if (page == 'Jobs' && record == null) ...[
-          Text(
-            '${jobs.length} recent jobs · Search all records with Find any job',
-            style: const TextStyle(color: WorkspaceTheme.muted, fontSize: 11),
+          MillJobRegister(
+            jobs: jobs,
+            onJob: onJob,
+            showOutput: workspace.allows('production'),
+            caption:
+                '${jobs.length} of ${snapshot.rows('jobs').length} recent jobs',
+            empty: 'No jobs match this view.',
           ),
-          const SizedBox(height: 12),
-          for (final job in jobs) _jobCard(job),
-          if (jobs.isEmpty)
-            _empty('No jobs match this view. Create a job to begin.'),
         ] else
           ..._sections(),
       ],
@@ -665,39 +740,9 @@ class KnittingWorkbench extends StatelessWidget {
     return 0;
   }
 
-  Widget _jobCard(Map<String, dynamic> job) => Padding(
-    padding: const EdgeInsets.only(bottom: 10),
-    child: Panel(
-      border: true,
-      padding: EdgeInsets.zero,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 22,
-          vertical: 12,
-        ),
-        title: Text(
-          job['name'].toString(),
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          '${job['customer']}\n${job['target_kg']} kg · ${job['material_mode']} · ${job['due_date'] ?? 'No due date'}',
-        ),
-        isThreeLine: true,
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            StatusChip(job['status'].toString()),
-            const Icon(Icons.arrow_forward, size: 16),
-          ],
-        ),
-        onTap: () => onJob(job),
-      ),
-    ),
-  );
   List<Widget> _sections() {
-    const all = false;
     return [
-      if (all || page == 'Yarn')
+      if (page == 'Yarn')
         _section(
           'YARN LOTS',
           rows('lots')
@@ -710,7 +755,7 @@ class KnittingWorkbench extends StatelessWidget {
               )
               .toList(),
         ),
-      if (all || page == 'Planning')
+      if (page == 'Planning')
         _section(
           'MACHINE QUEUE',
           rows('plans')
@@ -723,7 +768,7 @@ class KnittingWorkbench extends StatelessWidget {
               )
               .toList(),
         ),
-      if (all || ['Production', 'Quality', 'Delivery'].contains(page))
+      if (['Production', 'Quality', 'Delivery'].contains(page))
         _section(
           'ROLLS & QUALITY',
           rows('rolls')
@@ -736,7 +781,7 @@ class KnittingWorkbench extends StatelessWidget {
               )
               .toList(),
         ),
-      if (all || page == 'Factory') ...[
+      if (page == 'Factory') ...[
         _section(
           'INDUSTRY MASTERS',
           snapshot
@@ -808,8 +853,8 @@ class KnittingWorkbench extends StatelessWidget {
               .toList(),
         ),
       ],
-      if (all ||
-          ['Billing', 'Delivery', 'Production', 'Quality'].contains(page) ||
+      if (queueFilter == null &&
+              ['Billing', 'Delivery', 'Production', 'Quality'].contains(page) ||
           page == 'Jobs' && selected != null)
         _section(
           'POSTED ACTIVITY',

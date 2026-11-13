@@ -30,7 +30,7 @@ class _CompanyApi extends ErpApi {
     'capabilities': ifMill(name),
   });
   List<String> ifMill(String name) =>
-      (name == 'Mill' || activated) ? ['jobs', 'production'] : [];
+      (name == 'Mill' || activated) ? ['overview', 'jobs', 'production'] : [];
 
   @override
   Future<void> login(String username, String password) async {}
@@ -103,9 +103,19 @@ void main() {
       final api = _CompanyApi('Mill');
       await enter(tester, api);
       expect(find.byType(KnittingScreen), findsOneWidget);
+      expect(find.text('Mill overview'), findsOneWidget);
       expect(find.byType(OverviewScreen), findsNothing);
       expect(api.generalReads, 0);
       expect(find.text('Billing'), findsNothing);
+      await tester.tap(find.text('General ERP'));
+      await tester.pumpAndSettle();
+      expect(find.byType(OverviewScreen), findsOneWidget);
+      expect(api.switches, isEmpty);
+      expect(api.generalReads, 1);
+      await tester.tap(find.text('Back to mill'));
+      await tester.pumpAndSettle();
+      expect(find.byType(KnittingScreen), findsOneWidget);
+      expect(api.switches, isEmpty);
       await tester.tap(find.text('Mill'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Books'));
@@ -116,6 +126,20 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('general shell exposes its module browser at compact widths', (
+    tester,
+  ) async {
+    final api = _CompanyApi('Books');
+    await enter(tester, api);
+    for (final width in [834.0, 390.0]) {
+      tester.view.physicalSize = Size(width, 850);
+      await tester.pumpAndSettle();
+      expect(find.byType(OverviewScreen), findsOneWidget);
+      expect(find.text('All modules').hitTestable(), findsOneWidget);
+      expect(find.text('Back to mill'), findsNothing);
+    }
+  });
 
   testWidgets(
     'choosing Knitting ERP opens the mill without loading the general dashboard',

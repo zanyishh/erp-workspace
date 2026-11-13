@@ -1,5 +1,34 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'design.dart';
+
+/// A stationary field of light gives translucent surfaces a common backdrop.
+class WorkspaceBackdrop extends StatelessWidget {
+  const WorkspaceBackdrop({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFF0E8DC), Color(0xFFE3E9E5), Color(0xFFD6DFDA)],
+        stops: [0, .48, 1],
+      ),
+    ),
+    child: DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(.85, -.94),
+          radius: .92,
+          colors: [Color(0xC1F5CCB4), Color(0x00F5CCB4)],
+        ),
+      ),
+      child: child,
+    ),
+  );
+}
 
 class Panel extends StatelessWidget {
   const Panel({
@@ -8,23 +37,81 @@ class Panel extends StatelessWidget {
     this.dark = false,
     this.padding = const EdgeInsets.all(20),
     this.border = false,
+    this.frosted = false,
+    this.radius = 20,
   });
   final Widget child;
-  final bool dark, border;
+  final bool dark, border, frosted;
+  final double radius;
   final EdgeInsetsGeometry padding;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      color: dark ? WorkspaceTheme.charcoal : WorkspaceTheme.surface,
-      borderRadius: BorderRadius.circular(24),
-      border: border ? Border.all(color: WorkspaceTheme.border) : null,
-    ),
-    child: DefaultTextStyle.merge(
-      style: TextStyle(color: dark ? WorkspaceTheme.light : WorkspaceTheme.ink),
-      child: child,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final corners = BorderRadius.circular(radius);
+    final highContrast = MediaQuery.highContrastOf(context);
+    final useBlur = frosted && !highContrast;
+    final fill = dark
+        ? [
+            Color(frosted ? 0xCE35423C : 0xF4343936),
+            Color(frosted ? 0xDC141D19 : 0xF01C221F),
+          ]
+        : [
+            Color(frosted ? 0xBFFFFFFC : 0xEFFFFFFC),
+            Color(frosted ? 0xA4F0F4EE : 0xC5F4F6F0),
+          ];
+    final content = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: corners,
+        color: highContrast
+            ? (dark ? WorkspaceTheme.charcoal : Colors.white)
+            : null,
+        gradient: highContrast
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: fill,
+              ),
+        border: Border.all(
+          color: dark
+              ? const Color(0xFF505854)
+              : border
+              ? const Color(0xFFD0D7CF)
+              : const Color(0xEFFFFFFF),
+        ),
+      ),
+      child: Padding(
+        padding: padding,
+        child: DefaultTextStyle.merge(
+          style: TextStyle(
+            color: dark ? WorkspaceTheme.light : WorkspaceTheme.ink,
+          ),
+          child: child,
+        ),
+      ),
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: corners,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x100D1F16),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: corners,
+        child: useBlur
+            ? BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: content,
+              )
+            : content,
+      ),
+    );
+  }
 }
 
 class Display extends StatelessWidget {
@@ -225,7 +312,7 @@ class StatusChip extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 11,
               color: dark ? WorkspaceTheme.light : WorkspaceTheme.muted,
             ),
           ),

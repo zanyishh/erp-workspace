@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'design.dart';
 import 'document_editor.dart';
 import 'file_actions.dart';
 import 'document_fields.dart';
@@ -63,8 +64,9 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
     if (_busy || _queued) return;
     setState(() => _busy = true);
     try {
+      final pending = _result;
       await widget.api.queueReport(widget.name, _filters(schema));
-      if (mounted) {
+      if (mounted && identical(_result, pending)) {
         _queued = true;
         _run(schema);
       }
@@ -133,6 +135,7 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
               children: [
                 Panel(
                   border: true,
+                  frosted: true,
                   child: ExpansionTile(
                     expansionAnimationStyle:
                         MediaQuery.disableAnimationsOf(context)
@@ -149,7 +152,12 @@ class _NativeReportScreenState extends State<NativeReportScreen> {
                         schema: schema,
                         data: _values!,
                         errors: _errors,
-                        onChanged: () => setState(() {}),
+                        onChanged: () => setState(() {
+                          _result = null;
+                          _queued = false;
+                          _errors = {};
+                          _error = null;
+                        }),
                         onLink: (type, query, field) => widget.api.searchLinks(
                           type,
                           query,
@@ -341,34 +349,44 @@ class NativeReportTable extends StatelessWidget {
   final NativeReportResult result;
   final void Function(String doctype, String name) onDocument;
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => SingleChildScrollView(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: math.max(box.maxWidth, result.columns.length * 170.0),
-          child: PaginatedDataTable(
-            showCheckboxColumn: false,
-            showEmptyRows: false,
-            rowsPerPage: math.max(1, math.min(25, result.rows.length)),
-            availableRowsPerPage: const [25],
-            columnSpacing: 20,
-            columns: [
-              for (final col in result.columns)
-                DataColumn(
-                  label: SizedBox(
-                    width: 140,
-                    child: Text(plainReportText(col.label), maxLines: 2),
-                  ),
-                ),
-            ],
-            source: _ReportRows(result, onDocument),
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: PaginatedDataTable(
+      key: ObjectKey(result),
+      showCheckboxColumn: false,
+      showEmptyRows: false,
+      rowsPerPage: math.max(1, math.min(25, result.rows.length)),
+      availableRowsPerPage: const [25],
+      horizontalMargin: 16,
+      columnSpacing: 20,
+      headingRowHeight: 48,
+      columns: [
+        for (final col in result.columns)
+          DataColumn(
+            numeric: _numericColumn(col),
+            label: SizedBox(
+              width: 140,
+              child: Text(
+                plainReportText(col.label),
+                maxLines: 2,
+                textAlign: _numericColumn(col)
+                    ? TextAlign.right
+                    : TextAlign.left,
+              ),
+            ),
           ),
-        ),
-      ),
+      ],
+      source: _ReportRows(result, onDocument),
     ),
   );
 }
+
+bool _numericColumn(NativeReportColumn col) => const {
+  'Currency',
+  'Int',
+  'Float',
+  'Percent',
+  'Duration',
+}.contains(col.type);
 
 class _ReportRows extends DataTableSource {
   _ReportRows(this.result, this.onDocument);
@@ -386,34 +404,39 @@ class _ReportRows extends DataTableSource {
     final row = result.rows[index];
     return DataRow.byIndex(
       index: index,
-      cells: [
-        for (final col in result.columns)
-          DataCell(
-            SizedBox(
-              width: 140,
-              child: Text(
-                plainReportText(row[col.fieldname]),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-            onTap: () {
-              final raw = row[col.fieldname];
-              final type = col.type == 'Dynamic Link'
-                  ? row[col.options]?.toString() ?? ''
-                  : col.type == 'Link'
-                  ? col.options
-                  : '';
-              if (type.isNotEmpty &&
-                  raw is String &&
-                  raw.isNotEmpty &&
-                  !raw.startsWith('<')) {
-                onDocument(type, raw);
-              }
-            },
+      cells: [for (final col in result.columns) _cell(col, row)],
+    );
+  }
+
+  DataCell _cell(NativeReportColumn col, Map<String, dynamic> row) {
+    final value = row[col.fieldname];
+    final type = col.type == 'Dynamic Link'
+        ? row[col.options]?.toString()
+        : col.type == 'Link'
+        ? col.options
+        : null;
+    final linked =
+        type != null &&
+        type.isNotEmpty &&
+        value is String &&
+        value.isNotEmpty &&
+        !value.startsWith('<');
+    return DataCell(
+      SizedBox(
+        width: 140,
+        child: Text(
+          plainReportText(value),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: _numericColumn(col) ? TextAlign.right : TextAlign.left,
+          style: TextStyle(
+            fontSize: 13,
+            color: WorkspaceTheme.ink,
+            decoration: linked ? TextDecoration.underline : null,
           ),
-      ],
+        ),
+      ),
+      onTap: linked ? () => onDocument(type, value) : null,
     );
   }
 }

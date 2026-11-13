@@ -229,180 +229,221 @@ class _EntryPage extends StatelessWidget {
           child: Divider(height: 1),
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              controller: scroll,
-              padding: EdgeInsets.all(narrow ? 14 : 32),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1250),
-                  child: narrow
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _cover(true),
-                            const SizedBox(height: 14),
-                            child,
-                          ],
-                        )
-                      : Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Flexible(flex: 3, child: _cover(false)),
-                            const SizedBox(width: 24),
-                            Expanded(flex: 7, child: child),
-                          ],
-                        ),
-                ),
-              ),
-            ),
-          ),
-          if (error != null)
-            Material(
-              color: const Color(0xFFFBE9DB),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Text(
-                  error!,
-                  style: const TextStyle(color: Color(0xFF842E20)),
-                  semanticsLabel: error,
-                ),
-              ),
-            ),
-          if (footer != null)
-            DecoratedBox(
-              decoration: const BoxDecoration(
-                color: _paper,
-                border: Border(top: BorderSide(color: WorkspaceTheme.border)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: narrow ? 16 : 32,
-                    vertical: 9,
+      body: WorkspaceBackdrop(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scroll,
+                padding: EdgeInsets.all(narrow ? 14 : 32),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1250),
+                    child: narrow
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _cover(context, true),
+                              const SizedBox(height: 14),
+                              child,
+                            ],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Flexible(flex: 3, child: _cover(context, false)),
+                              const SizedBox(width: 24),
+                              Expanded(flex: 7, child: child),
+                            ],
+                          ),
                   ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1250),
-                      child: Row(
-                        children: [
-                          if (MediaQuery.sizeOf(context).width >= 460) ...[
-                            Icon(
-                              confirmed
-                                  ? Icons.check_circle_outline
-                                  : review
-                                  ? Icons.fact_check_outlined
-                                  : Icons.edit_outlined,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              stage,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (error != null)
+              Material(
+                color: const Color(0xFFFBE9DB),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    error!,
+                    style: const TextStyle(color: Color(0xFF842E20)),
+                    semanticsLabel: error,
+                  ),
+                ),
+              ),
+            if (footer != null)
+              DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: _paper,
+                  border: Border(top: BorderSide(color: WorkspaceTheme.border)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: narrow ? 16 : 32,
+                      vertical: 9,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1250),
+                        child: Row(
+                          children: [
+                            if (MediaQuery.sizeOf(context).width >= 460) ...[
+                              Icon(
+                                confirmed
+                                    ? Icons.check_circle_outline
+                                    : review
+                                    ? Icons.fact_check_outlined
+                                    : Icons.edit_outlined,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              AnimatedSwitcher(
+                                duration: workspaceMotion(context),
+                                transitionBuilder: (child, animation) =>
+                                    FadeTransition(
+                                      opacity: animation,
+                                      child: child,
+                                    ),
+                                child: Text(
+                                  stage,
+                                  key: ValueKey(stage),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: footer,
                               ),
                             ),
                           ],
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: footer,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _cover(bool compact) {
+  Widget _cover(BuildContext context, bool compact) {
     final detail = [
       company,
       if (job?['customer'] != null) job!['customer'],
       if (job?['name'] != null) job!['name'],
     ].join('  ·  ');
-    final content = Padding(
-      padding: EdgeInsets.all(compact ? 18 : 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final alignment = switch (action.group) {
+      'Yarn' => Alignment.centerLeft,
+      'Factory' || 'Planning' || 'Production' => Alignment.centerRight,
+      _ => Alignment.center,
+    };
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
         children: [
-          Text(
-            action.title,
-            style: displayStyle(compact ? 34 : 45, color: _paper),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            detail,
-            style: TextStyle(
-              color: WorkspaceTheme.palePeach,
-              height: 1.5,
-              fontSize: compact ? 12 : 13,
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/knitting-studio.jpg',
+              fit: BoxFit.cover,
+              alignment: alignment,
+              excludeFromSemantics: true,
             ),
           ),
-        ],
-      ),
-    );
-    Widget photo() => Image.asset(
-      'assets/images/knitting-studio.jpg',
-      fit: BoxFit.cover,
-      alignment: const Alignment(.42, .32),
-      excludeFromSemantics: true,
-    );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: ColoredBox(
-        color: WorkspaceTheme.charcoal,
-        child: compact
-            ? Stack(
+          Padding(
+            padding: EdgeInsets.fromLTRB(10, compact ? 28 : 132, 10, 10),
+            child: Panel(
+              dark: true,
+              frosted: true,
+              radius: 13,
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 14 : 18,
+                vertical: compact ? 12 : 18,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Positioned.fill(
-                    left: 0,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FractionallySizedBox(
-                        widthFactor: .38,
-                        heightFactor: 1,
-                        child: photo(),
-                      ),
+                  Text(
+                    action.title,
+                    style: displayStyle(
+                      compact ? 30 : 37,
+                      color: WorkspaceTheme.light,
                     ),
                   ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            WorkspaceTheme.charcoal,
-                            WorkspaceTheme.charcoal,
-                            WorkspaceTheme.charcoal.withValues(alpha: .1),
+                  const SizedBox(height: 8),
+                  Text(
+                    detail,
+                    style: const TextStyle(
+                      color: WorkspaceTheme.palePeach,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(height: 20),
+                    Semantics(
+                      label: confirmed
+                          ? 'Entry posted'
+                          : review
+                          ? 'Review before posting'
+                          : 'Editing entry',
+                      child: ExcludeSemantics(
+                        child: Row(
+                          children: [
+                            for (var i = 0; i < 3; i++)
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: i == 2 ? 0 : 4,
+                                  ),
+                                  child: AnimatedContainer(
+                                    duration: workspaceMotion(context),
+                                    height: 3,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      color:
+                                          i <=
+                                              (confirmed
+                                                  ? 2
+                                                  : review
+                                                  ? 1
+                                                  : 0)
+                                          ? WorkspaceTheme.palePeach
+                                          : const Color(0xFF5C6862),
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
-                          stops: const [0, .59, .98],
                         ),
                       ),
                     ),
-                  ),
-                  FractionallySizedBox(widthFactor: .74, child: content),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AspectRatio(aspectRatio: 1.4, child: photo()),
-                  content,
+                    const SizedBox(height: 6),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Entry', style: TextStyle(fontSize: 11)),
+                        Text('Review', style: TextStyle(fontSize: 11)),
+                        Text('Posted', style: TextStyle(fontSize: 11)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -443,21 +484,20 @@ class _EntrySection extends StatelessWidget {
   final String title;
   final Widget child;
   @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 16 : 22),
-    decoration: BoxDecoration(
-      color: _paper,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: WorkspaceTheme.border),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(title, style: displayStyle(26)),
-        const SizedBox(height: 18),
-        child,
-      ],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Panel(
+      radius: 17,
+      border: true,
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 16 : 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: displayStyle(26)),
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
     ),
   );
 }

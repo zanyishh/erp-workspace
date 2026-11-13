@@ -75,10 +75,14 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Display(widget.module.label.toUpperCase(), size: 43),
+                    Text(
+                      widget.module.label,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    Display(widget.module.doctype, size: 38),
                     const SizedBox(height: 7),
                     Text(
-                      '${widget.module.description} · ${widget.company}',
+                      widget.company,
                       style: const TextStyle(
                         fontSize: 12,
                         color: WorkspaceTheme.muted,
@@ -91,6 +95,7 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                   icon: Icons.apps,
                   onPressed: widget.onBrowseAll,
                   outline: true,
+                  light: true,
                 ),
               ],
             ),
@@ -101,19 +106,24 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                   child: TextField(
                     controller: _search,
                     decoration: InputDecoration(
-                      hintText: 'Search ${widget.module.label.toLowerCase()}…',
+                      hintText: compact
+                          ? 'Search records…'
+                          : 'Search name or document number…',
                       prefixIcon: const Icon(Icons.search, size: 19),
-                      suffixIcon: IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: () {
-                          _search.clear();
-                          _debounce?.cancel();
-                          _reload(reset: true);
-                        },
-                        icon: const Icon(Icons.close, size: 15),
-                      ),
+                      suffixIcon: _search.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear search',
+                              onPressed: () {
+                                _search.clear();
+                                _debounce?.cancel();
+                                _reload(reset: true);
+                              },
+                              icon: const Icon(Icons.close, size: 15),
+                            ),
                     ),
                     onChanged: (_) {
+                      setState(() {});
                       _debounce?.cancel();
                       _debounce = Timer(
                         const Duration(milliseconds: 350),
@@ -190,68 +200,62 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                     children: [
                       Expanded(
                         child: Panel(
-                          dark: !compact,
-                          padding: EdgeInsets.all(compact ? 0 : 8),
+                          frosted: true,
+                          padding: EdgeInsets.zero,
                           child: Column(
                             children: [
                               if (!compact)
-                                const Padding(
-                                  padding: EdgeInsets.fromLTRB(20, 9, 20, 14),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 4,
-                                        child: Text(
-                                          'RECORD',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: WorkspaceTheme.light,
-                                            letterSpacing: 1,
-                                          ),
-                                        ),
+                                ColoredBox(
+                                  color: WorkspaceTheme.charcoal,
+                                  child: DefaultTextStyle(
+                                    style: const TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 12,
+                                      color: WorkspaceTheme.light,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 14,
                                       ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          'DOCUMENT',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: WorkspaceTheme.light,
-                                            letterSpacing: 1,
+                                      child: Row(
+                                        children: [
+                                          const Expanded(
+                                            flex: 4,
+                                            child: Text('Record'),
                                           ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          'STATUS',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: WorkspaceTheme.light,
-                                            letterSpacing: 1,
+                                          const Expanded(
+                                            flex: 3,
+                                            child: Text('Document number'),
                                           ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: 120,
-                                        child: Text(
-                                          'DETAIL',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: WorkspaceTheme.light,
-                                            letterSpacing: 1,
+                                          const Expanded(
+                                            flex: 2,
+                                            child: Text('Status'),
                                           ),
-                                        ),
+                                          SizedBox(
+                                            width: 120,
+                                            child: Text(
+                                              widget.module.amountField == null
+                                                  ? 'Last modified'
+                                                  : widget.module ==
+                                                        ErpModule.manufacturing
+                                                  ? 'Quantity'
+                                                  : 'Amount',
+                                              textAlign: TextAlign.right,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 28),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               Expanded(
                                 child: ListView.separated(
                                   itemCount: rows.length,
                                   separatorBuilder: (_, i) =>
-                                      SizedBox(height: compact ? 9 : 5),
+                                      const Divider(height: 1),
                                   itemBuilder: (context, i) =>
                                       _record(rows[i], compact),
                                 ),
@@ -298,12 +302,6 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                 },
               ),
             ),
-            const SizedBox(height: 7),
-            const Text(
-              'Select a record to view or edit it.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: WorkspaceTheme.muted),
-            ),
           ],
         ),
       );
@@ -316,18 +314,17 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
   );
   Widget _record(ErpRecord record, bool compact) {
     final detail = record.amount == null
-        ? 'Open document'
+        ? record.data['modified']?.toString().split(' ').first ?? '—'
         : widget.module == ErpModule.manufacturing
         ? '${record.amount!.toString().replaceFirst(RegExp(r'\.0$'), '')} units'
         : money(record.amount!, record.currency ?? widget.currency);
     return Material(
-      color: WorkspaceTheme.surface,
-      borderRadius: BorderRadius.circular(compact ? 18 : 13),
+      color: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => widget.onRecord(record),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: compact
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,16 +347,23 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                     Text(
                       record.name,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: WorkspaceTheme.muted,
                       ),
                     ),
                     const SizedBox(height: 13),
                     Row(
                       children: [
-                        StatusChip(record.status),
-                        const Spacer(),
-                        Text(detail, style: const TextStyle(fontSize: 11)),
+                        if (record.status.isNotEmpty)
+                          Flexible(child: StatusChip(record.status)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            detail,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -374,11 +378,10 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                          fontSize: 14,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Expanded(
                       flex: 3,
                       child: Text(
@@ -386,7 +389,7 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: WorkspaceTheme.muted,
                         ),
                       ),
@@ -395,7 +398,9 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                       flex: 2,
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: StatusChip(record.status),
+                        child: record.status.isEmpty
+                            ? const Text('—')
+                            : StatusChip(record.status),
                       ),
                     ),
                     SizedBox(
@@ -404,11 +409,13 @@ class _ModuleBrowserState extends State<ModuleBrowser> {
                         detail,
                         textAlign: TextAlign.right,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.chevron_right, size: 16),
                   ],
                 ),
         ),

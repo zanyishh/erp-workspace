@@ -95,6 +95,86 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'mill overview uses confirmed output and exact source identities',
+    (tester) async {
+      tester.view.physicalSize = const Size(1440, 1024);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = TestKnitApi();
+      addTearDown(api.close);
+      final mill = WorkspaceContext.fromJson({
+        'company': 'Demo',
+        'knitting_enabled': true,
+        'setup_state': 'Active',
+        'capabilities': [
+          'overview',
+          'jobs',
+          'production',
+          'quality',
+          'delivery',
+        ],
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          home: KnittingScreen(
+            api: api,
+            workspace: mill,
+            onContextChanged: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Mill overview'), findsOneWidget);
+      expect(find.text('Posted production'), findsOneWidget);
+      expect(find.text('Job yarn in store'), findsNothing);
+      expect(find.text('Awaiting invoice'), findsNothing);
+      await tester.tap(find.byTooltip('View production entries'));
+      await tester.pumpAndSettle();
+      expect(find.text('PR-007'), findsOneWidget);
+      expect(find.text('PR-0071'), findsNothing);
+      expect(find.text('PR-CANCELLED'), findsNothing);
+      expect(find.text('18.125 kg'), findsWidgets);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Nov 12 · 0.875 kg'));
+      await tester.pumpAndSettle();
+      expect(find.text('0.875 kg'), findsOneWidget);
+      await tester.tap(find.byTooltip('View production entries'));
+      await tester.pumpAndSettle();
+      expect(find.text('PR-0071'), findsOneWidget);
+      expect(find.text('PR-007'), findsNothing);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Awaiting inspection'));
+      await tester.pumpAndSettle();
+      expect(find.text('ROLL-A'), findsOneWidget);
+      expect(find.text('ROLL-B'), findsNothing);
+      await tester.tap(find.byTooltip('Clear queue filter'));
+      await tester.pumpAndSettle();
+      expect(find.text('ROLL-B'), findsOneWidget);
+      await tester.tap(find.text('Overview'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('View production entries'));
+      await tester.pumpAndSettle();
+      api.publishContext(mill);
+      api.publishContext(
+        WorkspaceContext.fromJson({
+          'company': 'Demo',
+          'knitting_enabled': true,
+          'access_fingerprint': 'jobs-only',
+          'capabilities': ['jobs'],
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PR-007'), findsNothing);
+      expect(find.text('Production entries'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final width in [390.0, 834.0, 1440.0]) {
     for (final page in [
       'Jobs',
@@ -248,6 +328,9 @@ class TestKnitApi extends ErpApi {
   int writes = 0;
   Map<String, dynamic>? posted;
   @override
+  Future<WorkspaceContext> workspaceContext({String? company}) async =>
+      contextFor(company!)!;
+  @override
   Future<KnittingSnapshot> knittingSnapshot(
     String company, {
     String? job,
@@ -256,6 +339,28 @@ class TestKnitApi extends ErpApi {
     return KnittingSnapshot.fromJson({
       'version': 1,
       'company': company,
+      'events': [
+        for (final (id, day, amount, cancelled) in [
+          ('PR-007', '2026-11-13', '18.125', 0),
+          ('PR-0071', '2026-11-12', '0.875', 0),
+          ('PR-CANCELLED', '2026-11-13', '99.000', 1),
+        ])
+          {
+            'name': id,
+            'job': 'OLD-JOB',
+            'occurred_at': '$day 09:00:00',
+            'kind': 'produce',
+            'cancelled': cancelled,
+            'result': {'quantity_kg': amount},
+          },
+      ],
+      'rolls': [
+        for (final (id, state) in [
+          ('ROLL-A', 'Awaiting QC'),
+          ('ROLL-B', 'Released'),
+        ])
+          {'name': id, 'state': state, 'weight_kg': '3.000', 'job': 'OLD-JOB'},
+      ],
       'jobs': company == 'Demo'
           ? [
               {

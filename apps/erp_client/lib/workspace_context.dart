@@ -24,6 +24,7 @@ class WorkspaceContext {
   bool allows(String capability) =>
       enabled && capabilities.contains(capability);
   List<String> get destinations => [
+    if (allows('overview') && allows('jobs')) 'Overview',
     if (allows('jobs')) 'Jobs',
     if (allows('materials')) 'Yarn',
     if (allows('planning')) 'Planning',
