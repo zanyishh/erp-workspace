@@ -99,12 +99,13 @@ def _schema(meta, parenttype=None):
 
 
 @frappe.whitelist()
-def catalog():
+def catalog(company=None):
     _signed_in()
+    from erp_extensions.knitting.permissions import visible_type
     types = []
     for dt in frappe.get_all("DocType", fields=["name", "module", "issingle", "is_submittable", "is_tree"],
         filters={"istable": 0}, order_by="module, name"):
-        if frappe.has_permission(dt.name, "read"):
+        if frappe.has_permission(dt.name, "read") and visible_type(dt.name, company):
             types.append({**dt, "create": bool(frappe.has_permission(dt.name, "create"))})
     reports = []
     for row in frappe.get_all("Report", fields=["name", "module", "ref_doctype", "report_type"],
