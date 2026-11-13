@@ -30,10 +30,10 @@ def filters(value):
             "begin": datetime.combine(start, time.min), "end": datetime.combine(end + timedelta(days=1), time.min)}
 
 
-def event_rows(company, f, *, all_history=False):
+def event_rows(company, f):
     where = {"company": company, "occurred_at": ["<", f["end"]]}
     related = {f["job"]} if f.get("job") else set()
-    if related and all_history:
+    if related:
         # Trace ancestors of transfers without scanning unrelated company history.
         while True:
             transfers = frappe.get_all("Knitting Event", filters={**where, "kind": "transfer_fabric"},
@@ -49,18 +49,26 @@ def event_rows(company, f, *, all_history=False):
                           or_filters=or_filters, order_by="occurred_at, creation, name", limit=100001)
     if len(rows) > 100000:
         frappe.throw("Narrow the report to a job before loading more than 100,000 source events.")
-    cancelled = {row.reverses for row in rows if row.kind == "cancel_event"}
-    result = []
     for row in rows:
-        if row.name in cancelled or row.kind == "cancel_event":
-            continue
-        if not all_history and row.occurred_at < f["begin"]:
-            continue
         row.payload, row.result = d.json_value(row.payload, {}), d.json_value(row.result, {})
-        if not all_history and f.get("job") and row.job != f["job"] and row.target_job != f["job"]:
-            continue
-        result.append(row)
-    return result
+    return rows
+
+
+def quantity(value, field, sign):
+    return sign * Decimal(value.get(field) or "0")
+
+
+def voucher_expense(company, voucher, correction):
+    criteria = {"company": company, "voucher_type": voucher["voucher_type"], "voucher_no": voucher["voucher"]}
+    # ERPNext may mark original GL rows cancelled and append opposite entries.
+    # The command event is created before the controller writes those reversals.
+    if correction:
+        criteria["creation"] = ["<", correction.creation]
+    else:
+        criteria["is_cancelled"] = 0
+    entries = frappe.get_all("GL Entry", filters=criteria, fields=["account", "debit", "credit"])
+    return sum((Decimal(str(row.debit)) - Decimal(str(row.credit)) for row in entries
+                if frappe.get_cached_value("Account", row.account, "root_type") == "Expense"), d.ZERO)
 
 
 def roll_states(company, events, f):
@@ -116,11 +124,23 @@ def run(company, report, value=None, *, paged=True):
     permissions.require_aggregate_scope(company, f.get("job"))
     if f.get("job"):
         d.reference("Knitting Job", f["job"], company)
-    events = event_rows(company, f)
+    journal = event_rows(company, f)
+    sources = {e.name: e for e in journal}
+    corrections = {e.reverses for e in journal if e.reverses}
+    history = [e for e in journal if e.name not in corrections and not e.reverses]
+    period_flows = f["mode"] == "period" and report in {"jobs", "production", "subcontract", "billing", "margin", "yarn"}
+    candidates = journal if period_flows or report == "activity" else history
+    events = []
+    for entry in candidates:
+        if entry.occurred_at < f["begin"] or f.get("job") and f["job"] not in (entry.job, entry.target_job):
+            continue
+        if period_flows and entry.reverses:
+            source = sources[entry.reverses]
+            entry = frappe._dict({**entry, "kind": source.kind, "payload": source.payload, "result": source.result})
+        events.append(entry)
     if f.get("customer"):
         events = [e for e in events if e.job and frappe.db.get_value("Knitting Job", e.job, "customer") == f["customer"]]
-    history = event_rows(company, f, all_history=True)
-    event_by_name = {e.name: e for e in history}
+    event_by_name = {e.name: e for e in events}
     rows, columns = [], []
     summary = {}
     if report in ("shortages", "changes", "unplanned"):
@@ -138,22 +158,23 @@ def run(company, report, value=None, *, paged=True):
                 if event.job != job.name and event.target_job != job.name:
                     continue
                 r = event.result
+                sign = -1 if event.reverses else 1
                 if event.kind == "credit_invoice":
-                    totals["billed_kg"] -= Decimal(r["quantity_kg"])
+                    totals["billed_kg"] -= quantity(r, "quantity_kg", sign)
                 if event.kind == "return_fabric":
-                    totals["delivered_kg"] -= Decimal(r["quantity_kg"])
+                    totals["delivered_kg"] -= quantity(r, "quantity_kg", sign)
                 if event.kind in ("transfer_fabric", "transfer_yarn"):
                     prefix = "fabric" if event.kind == "transfer_fabric" else "yarn"
-                    totals[f"{prefix}_transfer_{'in' if event.target_job == job.name else 'out'}_kg"] += Decimal(r["quantity_kg"])
+                    totals[f"{prefix}_transfer_{'in' if event.target_job == job.name else 'out'}_kg"] += quantity(r, "quantity_kg", sign)
                 key = {"receive_yarn": "received_kg", "allocate_yarn": "received_kg", "return_yarn": "returned_kg", "produce": "produced_kg", "produce_bulk": "produced_kg",
                     "subcontract_receive": "produced_kg", "deliver": "delivered_kg", "invoice": "billed_kg"}.get(event.kind)
                 if key:
-                    totals[key] += Decimal(r.get("quantity_kg", "0"))
+                    totals[key] += quantity(r, "quantity_kg", sign)
                 if event.kind in ("produce", "produce_bulk", "repack_yarn", "subcontract_receive"):
-                    totals["consumed_kg"] += Decimal(r.get("consumed_kg", "0"))
-                    totals["loss_kg"] += Decimal(r.get("loss_kg", "0"))
+                    totals["consumed_kg"] += quantity(r, "consumed_kg", sign)
+                    totals["loss_kg"] += quantity(r, "loss_kg", sign)
             for entry in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "job": job.name}, fields=["quantity_kg", "custodian", "event"]):
-                if entry.event in event_by_name:
+                if entry.event in sources:
                     key = "yarn_kg" if entry.custodian == "Warehouse" else "subcontract_kg"
                     totals[key] += Decimal(entry.quantity_kg)
             totals["fabric_kg"] = sum((Decimal(r["weight_kg"]) for r in historical_rolls if r["job"] == job.name and r["state"] not in ("Split", "Delivered", "Cancelled")), d.ZERO)
@@ -165,7 +186,7 @@ def run(company, report, value=None, *, paged=True):
         totals = {}
         unit_totals = {}
         for entry in frappe.get_all("Knitting Ledger Entry", filters={"company": company, **({"job": f["job"]} if f.get("job") else {})}, fields=[*columns, "event"]):
-            if entry.event not in (event_by_name if f["mode"] == "as_of" else {e.name: e for e in events}):
+            if entry.event not in event_by_name:
                 continue
             key = tuple(entry.get(k) for k in dimensions)
             totals[key] = totals.get(key, d.ZERO) + Decimal(entry.quantity_kg)
@@ -188,7 +209,12 @@ def run(company, report, value=None, *, paged=True):
         for event in events:
             if event.kind in kinds:
                 entries = event.result.get("entries", []) if event.kind == "produce_bulk" else [{**event.payload, **event.result}]
-                rows.extend({**entry, "event": event.name, "job": event.job, "operator": event.actor, "occurred_at": event.occurred_at} for entry in entries)
+                for entry in entries:
+                    row = {**entry, "event": event.name, "job": event.job, "operator": event.actor, "occurred_at": event.occurred_at}
+                    if event.reverses and report == "production":
+                        for field in ("quantity_kg", "consumed_kg", "loss_kg"):
+                            row[field] = d.kg(quantity(entry, field, -1))
+                    rows.append(row)
         if report == "planning" and f["mode"] == "as_of":
             rows = list({r["plan"]: r for r in rows}.values())
         if report == "production":
@@ -201,12 +227,13 @@ def run(company, report, value=None, *, paged=True):
                 continue
             sub = event.result["subcontract"]
             totals = {"issued_kg": d.ZERO, "received_kg": d.ZERO, "returned_kg": d.ZERO, "billed_kg": d.ZERO}
-            for move in history:
+            for move in events:
                 key = {"subcontract_issue": "issued_kg", "subcontract_receive": "received_kg", "subcontract_return": "returned_kg", "subcontract_bill": "billed_kg"}.get(move.kind)
                 if key and move.result.get("subcontract") == sub:
-                    totals[key] += Decimal(move.result["quantity_kg"])
-            custody = sum((Decimal(e.quantity_kg) for e in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "custodian": "SC:" + sub}, fields=["quantity_kg", "event"]) if e.event in event_by_name), d.ZERO)
-            rows.append({"subcontract": sub, "job": event.job, "supplier": event.payload["supplier"], "ordered_kg": event.result["quantity_kg"], "custody_kg": d.kg(custody), **{k: d.kg(v) for k, v in totals.items()}})
+                    totals[key] += quantity(move.result, "quantity_kg", -1 if move.reverses else 1)
+            custody = sum((Decimal(e.quantity_kg) for e in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "custodian": "SC:" + sub}, fields=["quantity_kg", "event"]) if e.event in sources), d.ZERO)
+            ordered = event.result["quantity_kg"] if event.occurred_at >= f["begin"] else d.kg(d.ZERO)
+            rows.append({"subcontract": sub, "job": event.job, "supplier": event.payload["supplier"], "ordered_kg": ordered, "custody_kg": d.kg(custody), **{k: d.kg(v) for k, v in totals.items()}})
     elif report == "components":
         columns = ["component", "machine", "component_type", "boundary_kg", "run_kg", "remaining_kg"]
         components = {}
@@ -228,25 +255,30 @@ def run(company, report, value=None, *, paged=True):
         rows = [{**e.result, 'event': e.name, 'occurred_at': e.occurred_at} for e in events if e.kind == 'component_breakage']
         summary['quantity'] = str(sum((Decimal(r['quantity']) for r in rows), d.ZERO))
     elif report == "activity":
-        columns = ["event", "job", "kind", "operator", "occurred_at", "machine", "programme_line", "quantity_kg", "loss_kg"]
+        columns = ["event", "job", "kind", "reverses", "operator", "occurred_at", "machine", "programme_line", "quantity_kg", "loss_kg"]
         rows = [{"event": e.name, "job": e.job, "kind": e.kind, "operator": e.actor, "occurred_at": e.occurred_at,
-            "machine": e.payload.get("machine"), "programme_line": e.payload.get("programme_line"),
+            "reverses": e.reverses, "machine": e.payload.get("machine"), "programme_line": e.payload.get("programme_line"),
             "quantity_kg": e.result.get("quantity_kg"), "loss_kg": e.result.get("loss_kg")} for e in events]
     else:
         columns = ["event", "job", "invoice", "posting_date", "currency", "quantity_kg", "net_amount", "tax_amount", "grand_total", "outstanding"]
         cost = d.ZERO
+        cost_kinds = {"produce", "produce_bulk", "subcontract_receive", "subcontract_bill", "deliver", "return_fabric"}
+        cost_sources = {e.reverses or e.name for e in events if e.kind in cost_kinds}
+        # A later cancellation also affects how ERPNext currently stores historical GL rows.
+        source_corrections = {row.reverses: row for row in frappe.get_all("Knitting Event",
+            filters={"company": company, "reverses": ["in", list(cost_sources)]}, fields=["reverses", "creation"])} if cost_sources else {}
         for event in events:
+            sign = -1 if event.reverses else 1
             if event.kind in ("invoice", "credit_invoice"):
                 doc = d.reference("Sales Invoice", event.result["invoice"], company)
+                kg_sign = -sign if event.kind == "credit_invoice" else sign
                 rows.append({"event": event.name, "job": event.job, "invoice": doc.name, "posting_date": doc.posting_date, "currency": frappe.get_cached_value("Company", company, "default_currency"),
-                    "quantity_kg": d.kg(Decimal(event.result["quantity_kg"]) * (-1 if event.kind == "credit_invoice" else 1)), "net_amount": d.money(doc.base_net_total), "tax_amount": d.money(doc.base_total_taxes_and_charges),
-                    "grand_total": d.money(doc.base_grand_total), "outstanding": d.money(doc.outstanding_amount * doc.conversion_rate)})
-            if event.kind in ("produce", "produce_bulk", "subcontract_receive", "subcontract_bill", "deliver", "return_fabric"):
-                vouchers = event.result.get("vouchers", []) or ([{"voucher": event.result["voucher"]}] if event.result.get("voucher") else [])
+                    "quantity_kg": d.kg(quantity(event.result, "quantity_kg", kg_sign)), "net_amount": d.money(sign * doc.base_net_total), "tax_amount": d.money(sign * doc.base_total_taxes_and_charges),
+                    "grand_total": d.money(sign * doc.base_grand_total), "outstanding": d.money(doc.outstanding_amount * doc.conversion_rate if doc.docstatus == 1 else 0)})
+            if event.kind in cost_kinds:
+                vouchers = event.result.get("vouchers", []) or ([event.result] if event.result.get("voucher") else [])
                 for voucher in vouchers:
-                    for gl in frappe.get_all("GL Entry", filters={"company": company, "voucher_no": voucher["voucher"], "is_cancelled": 0}, fields=["account", "debit", "credit"]):
-                        if frappe.get_cached_value("Account", gl.account, "root_type") == "Expense":
-                            cost += Decimal(str(gl.debit)) - Decimal(str(gl.credit))
+                    cost += sign * voucher_expense(company, voucher, source_corrections.get(event.reverses or event.name))
         net = sum((Decimal(r["net_amount"]) for r in rows), d.ZERO)
         summary = {"net_amount": d.money(net), "posted_cost": d.money(cost), "margin_before_overhead": d.money(net - cost)}
     dimensions = ("customer", "machine", "operator", "employee", "gauge", "shift", "day", "hour", "fabric", "dia", "programme_line", "kind")
@@ -267,7 +299,7 @@ def run(company, report, value=None, *, paged=True):
                 row.setdefault("kind", source.kind)
                 for key in ("shift", "programme_line", "machine"):
                     row.setdefault(key, source.payload.get(key))
-                spec = frappe.db.get_value("Knitting Roll", {"production": source.name, **({"programme_line": row["programme_line"]} if row.get("programme_line") else {})}, "specification") if source.kind in ("produce", "produce_bulk", "subcontract_receive") else None
+                spec = frappe.db.get_value("Knitting Roll", {"production": source.reverses or source.name, **({"programme_line": row["programme_line"]} if row.get("programme_line") else {})}, "specification") if source.kind in ("produce", "produce_bulk", "subcontract_receive") else None
                 if spec:
                     spec = d.json_value(spec, {})
                     row.update({key: spec.get(key) for key in ("fabric", "dia", "gauge")})

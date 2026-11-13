@@ -65,10 +65,16 @@ def command(company, action, payload, request_id, modified=None):
         if event.payload_hash != digest:
             frappe.throw("That request reference was already used with different values.")
         return response(event)
-    job = domain.reference("Knitting Job", data["job"], company, lock=True) if data.get("job") else None
+    job_name = data.get("job")
+    if not job_name and action in ("bill_yarn", "return_consumable"):
+        source_key = "receipt" if action == "bill_yarn" else "event"
+        job_name = domain.reference("Knitting Event", data.get(source_key), company, lock=True).job
+    job = domain.reference("Knitting Job", job_name, company, lock=True) if job_name else None
     if job:
         from erp_extensions.api import _check_version
-        _check_version(job, modified)
+        # Older source-only forms submit the event identity without a job version.
+        if modified is not None or data.get("job"):
+            _check_version(job, modified)
         if job.status != "Running" and action not in ("reopen_job",):
             frappe.throw("Reopen this job before posting more work.")
     elif action not in {"create_job", "receive_yarn", "create_yarn_order", "bill_yarn", *factory.JOB_OPTIONAL}:
@@ -180,9 +186,10 @@ def lookup(company, entity, query="", start=0):
         "InvoiceEvent": ("Knitting Event", ["name", "job", "kind"], {"kind": "invoice", "cancelled": 0}),
         "DeliveredRoll": ("Knitting Roll", ["name", "job", "state", "weight_kg"], {"state": "Delivered"}),
         "Delivery": ("Knitting Event", ["name", "job", "kind"], {"kind": "deliver", "cancelled": 0}),
-        "CompanyEvent": ("Knitting Event", ["name", "job", "kind"], {"job": ["is", "not set"], "cancelled": 0}),
+        "CompanyEvent": ("Knitting Event", ["name", "job", "kind"], {"job": ["is", "not set"], "kind": ["in", domain.CORRECTABLE], "cancelled": 0}),
         "CompletedSubcontract": ("Knitting Subcontract", ["name", "job", "supplier", "status"], {"status": "Completed"}),
-        "Event": ("Knitting Event", ["name", "job", "kind"], {"cancelled": 0}),
+        "Event": ("Knitting Event", ["name", "job", "kind"], {"kind": ["in", domain.CORRECTABLE], "cancelled": 0}),
+        "ConsumableIssue": ("Knitting Event", ["name", "job", "kind"], {"kind": "issue_consumable", "cancelled": 0}),
         "Subcontract": ("Knitting Subcontract", ["name", "job", "supplier", "status"], {"status": "Open"}),
         "Plan": ("Knitting Plan", ["name", "job", "machine", "programme_line", "starts_at", "ends_at", "quantity_kg", "required_yarn_kg", "modified"], {"state": ["in", ["Planned", "Started"]]}),
         "Master": ("Knitting Master", ["name", "category", "title", "enabled", "modified", "specification"], {}),
@@ -210,6 +217,8 @@ def lookup(company, entity, query="", start=0):
             result = domain.json_value(frappe.db.get_value("Knitting Event", row.name, "result"), {})
             reference = result.get("invoice") or result.get("purchase_order") or result.get("lot") or result.get("subcontract") or ""
             row.title = row.kind.replace("_", " ").title() + (" · " + reference if reference else "")
+            if row.job and entity in ("YarnReceipt", "ConsumableIssue"):
+                row.job_modified = frappe.db.get_value("Knitting Job", row.job, "modified")
         if entity == "Job":
             row.programme = domain.json_value(row.programme, [])
             row.balances = domain.balances(row.name)

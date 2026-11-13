@@ -675,22 +675,29 @@ def close_job(event, data, job):
 
 
 def reopen_job(event, data, job):
-    if not data.get("reason"):
-        frappe.throw("Give a reason for reopening the job.")
+    if job.status != "Completed" or not str(data.get("reason") or "").strip():
+        frappe.throw("Choose a completed job and give a reason for reopening it.")
     job.status = "Running"
     job.save()
     return {"job": job.name, "status": job.status}
 
 
-def roll_dependents(name, source):
+def roll_dependents(names, source):
     """State equality alone does not prove absence of later, still active work."""
+    names = set(names)
     for row in current_rows("Knitting Event", filters={"company": source.company, "cancelled": 0,
-            "creation": [">=", source.creation], "name": ["!=", source.name]}, fields=["kind", "payload", "result"]):
+            "kind": ["in", ["quality", "split_roll", "transfer_fabric", "return_fabric", "deliver"]],
+            "creation": [">=", source.creation], "name": ["!=", source.name]}, fields=["payload", "result"]):
         payload, value = json_value(row.payload, {}), json_value(row.result, {})
-        if row.kind in ("quality", "split_roll", "transfer_fabric", "return_fabric", "deliver") and (
-                payload.get("roll") == name or name in payload.get("rolls", []) or name in value.get("rolls", [])):
+        if (payload.get("roll") in names or names.intersection(payload.get("rolls", []))
+                or names.intersection(value.get("rolls", []))):
             return True
     return False
+
+
+CORRECTABLE = ("invoice", "deliver", "quality", "produce", "produce_bulk", "transfer_fabric", "split_roll",
+               "credit_invoice", "return_fabric", "receive_yarn", "bill_yarn", "create_yarn_order",
+               "subcontract_receive", "subcontract_bill")
 
 
 def cancel_event(event, data, job):
@@ -698,13 +705,19 @@ def cancel_event(event, data, job):
     source = reference("Knitting Event", data.get("event"), event.company)
     if source.job != job_name or source.cancelled or not data.get("reason"):
         frappe.throw("Choose an active source event and give a correction reason.")
+    if source.kind not in CORRECTABLE:
+        frappe.throw("This event has material dependencies; use an explicit return, transfer or adjustment.")
     result = json_value(source.result, {})
     if source.kind == "invoice" and any(json_value(e.result, {}).get("invoice_event") == source.name for e in job_events(job_name, "credit_invoice")):
         frappe.throw("Correct dependent credits before cancelling this invoice.")
     if source.kind == "deliver" and returned_delivery(job_name, source.name) > 0:
         frappe.throw("This delivery has physical returns; retain its linked history.")
-    if source.kind == "deliver" and delivery_billed(job_name, source.name) > 0:
-        frappe.throw("Cancel or credit dependent invoices before cancelling this delivery.")
+    if source.kind == "deliver" and any(
+        allocation["delivery"] == source.name
+        for invoice_event in job_events(job_name, "invoice")
+        for allocation in json_value(invoice_event.result, {}).get("allocations", [])
+    ):
+        frappe.throw("Cancel the linked credits and invoices before cancelling this delivery.")
     if source.kind in ("subcontract_bill", "subcontract_receive"):
         sub = reference("Knitting Subcontract", result["subcontract"], event.company)
         if sub.status != "Open":
@@ -718,7 +731,10 @@ def cancel_event(event, data, job):
         if any(json_value(e.payload, {}).get("receipt") == source.name for e in job_events(job_name, "bill_yarn")):
             frappe.throw("Cancel the linked supplier bill before cancelling this receipt.")
         lot = reference("Knitting Material Lot", result["lot"], event.company)
-        if current_rows("Knitting Ledger Entry", filters={"lot": lot.name, "event": ["!=", source.name]}, fields=["name"]):
+        if frappe.db.sql("""select l.name from `tabKnitting Ledger Entry` l
+            join `tabKnitting Event` e on e.name=l.event
+            where l.lot=%s and e.name!=%s and e.cancelled=0 and e.kind!='cancel_event'
+            limit 1 for update""", (lot.name, source.name)):
             frappe.throw("This receipt has later material activity. Use an explicit return or adjustment.")
         ledger(event, lot, -Decimal(result["quantity_kg"]), job_name, units=-lot_units(lot.name, job_name))
     if source.kind == "create_yarn_order":
@@ -727,7 +743,7 @@ def cancel_event(event, data, job):
                 frappe.throw("Cancel dependent unused receipts before cancelling the yarn order.")
     if source.kind in ("produce", "produce_bulk", "subcontract_receive"):
         rolls = [reference("Knitting Roll", name, event.company) for name in result["rolls"]]
-        if any(r.job != job_name or r.state != "Awaiting QC" or current_rows("Knitting Roll", filters={"parent_roll": r.name, "state": ["!=", "Cancelled"]}, fields=["name"]) for r in rolls):
+        if any(r.job != job_name or r.state != "Awaiting QC" for r in rolls) or roll_dependents(result["rolls"], source):
             frappe.throw("Correct dependent inspections, splits or deliveries before cancelling production.")
         vouchers = result.get("vouchers", []) or ([{"voucher": result["voucher"], "voucher_type": result["voucher_type"]}] if result.get("voucher") else [])
         for voucher in reversed(vouchers):
@@ -738,31 +754,30 @@ def cancel_event(event, data, job):
             lot = reference("Knitting Material Lot", entry.lot, event.company)
             ledger(event, lot, -Decimal(entry.quantity_kg), entry.job, custodian=entry.custodian, units=-Decimal(entry.units or "0"))
         batches = result.get("entries", []) if source.kind == "produce_bulk" else [result]
-        checked_components, checked_plans = set(), set()
         for batch in reversed(batches):
             for progress in reversed(batch.get("component_progress", [])):
                 component = reference("Knitting Component", progress["component"], event.company)
-                if component.run_kg != progress["after_kg"] or component.name not in checked_components and str(component.modified) != progress.get("modified_after", str(component.modified)):
+                if component.run_kg != progress["after_kg"] or component.installed_at > source.occurred_at:
                     frappe.throw("Later component use or replacement depends on this production.")
-                checked_components.add(component.name)
                 component.run_kg = progress["before_kg"]
                 component.save()
             for progress in reversed(batch.get("plan_progress", [])):
                 plan = reference("Knitting Plan", progress["plan"], event.company)
-                if plan.produced_kg != progress["after_kg"] or plan.name not in checked_plans and str(plan.modified) != progress.get("modified_after", str(plan.modified)):
-                    frappe.throw("Later production or replanning depends on this allocation.")
-                checked_plans.add(plan.name)
-                overlaps = current_rows("Knitting Plan", filters={"company": event.company, "machine": plan.machine, "name": ["!=", plan.name], "state": ["in", ["Planned", "Started"]], "starts_at": ["<", plan.ends_at], "ends_at": [">", plan.starts_at]}, fields=["name"])
-                if overlaps:
-                    frappe.throw("A newer machine allocation occupies this slot. Replan it before reversing production.")
+                if plan.produced_kg != progress["after_kg"]:
+                    frappe.throw("Correct later production before reversing this allocation.")
                 plan.produced_kg = progress["before_kg"]
-                plan.state = "Planned" if Decimal(plan.produced_kg) == 0 else "Started"
+                # Job closure released this slot. Correct its counters without reserving it again.
+                if plan.state != "Cancelled":
+                    overlaps = current_rows("Knitting Plan", filters={"company": event.company, "machine": plan.machine, "name": ["!=", plan.name], "state": ["in", ["Planned", "Started"]], "starts_at": ["<", plan.ends_at], "ends_at": [">", plan.starts_at]}, fields=["name"])
+                    if overlaps:
+                        frappe.throw("A newer machine allocation occupies this slot. Replan it before reversing production.")
+                    plan.state = "Planned" if Decimal(plan.produced_kg) == 0 else "Started"
                 plan.save()
         for roll in rolls:
             roll.state = "Cancelled"
             roll.save()
     if source.kind == "credit_invoice":
-        original_invoice = reference("Knitting Event", result["invoice_event"], event.company)
+        reference("Knitting Event", result["invoice_event"], event.company)
         for allocation in result["allocations"]:
             delivery = reference("Knitting Event", allocation["delivery"], event.company)
             value = json_value(delivery.result, {})
@@ -772,6 +787,8 @@ def cancel_event(event, data, job):
             if delivery_billed(job_name, delivery.name, allocation["programme_line"], roll) + Decimal(allocation["quantity_kg"]) > source_qty - returned_delivery(job_name, delivery.name, allocation["programme_line"], roll):
                 frappe.throw("Physical returns or rebilling depend on this credit; correct them before cancellation.")
     if source.kind == "return_fabric":
+        if roll_dependents(result["rolls"], source):
+            frappe.throw("Later inspection or movement depends on this fabric return.")
         for name in result["rolls"]:
             roll = reference("Knitting Roll", name, event.company)
             if roll.job != job_name or roll.state != "Awaiting QC" or roll.delivery:
@@ -782,9 +799,11 @@ def cancel_event(event, data, job):
         parent = reference("Knitting Roll", result["parent_roll"], event.company)
         if parent.state != "Split":
             frappe.throw("The parent roll has changed since this split.")
+        if roll_dependents(result["rolls"], source):
+            frappe.throw("Correct dependent work before reversing this split.")
         for name in result["rolls"]:
             child = reference("Knitting Roll", name, event.company)
-            if child.job != job_name or child.state != result["previous_state"] or roll_dependents(name, source) or current_rows("Knitting Roll", filters={"parent_roll": name, "state": ["!=", "Cancelled"]}, fields=["name"]):
+            if child.job != job_name or child.state != result["previous_state"] or current_rows("Knitting Roll", filters={"parent_roll": name, "state": ["!=", "Cancelled"]}, fields=["name"]):
                 frappe.throw("Correct dependent work before reversing this split.")
             child.state = "Cancelled"
             child.save()
@@ -792,16 +811,16 @@ def cancel_event(event, data, job):
         parent.save()
     if source.kind == "transfer_fabric":
         target = reference("Knitting Job", source.target_job, event.company)
+        if roll_dependents(result["rolls"], source):
+            frappe.throw("Correct later work on the transferred roll before reversing reassignment.")
         for previous in result["previous"]:
             roll = reference("Knitting Roll", previous["roll"], event.company)
-            if roll.job != target.name or roll.state != "Awaiting QC" or roll_dependents(roll.name, source):
+            if roll.job != target.name or roll.state != "Awaiting QC":
                 frappe.throw("Later work depends on the transferred roll; correct it before reversing reassignment.")
             roll.job, roll.programme_line, roll.job_revision, roll.state = previous["job"], previous["programme_line"], previous["job_revision"], previous["state"]
             roll.save()
         target.save()
         event.target_job = target.name
-    if source.kind not in ("invoice", "deliver", "quality", "produce", "produce_bulk", "transfer_fabric", "split_roll", "credit_invoice", "return_fabric", "receive_yarn", "bill_yarn", "create_yarn_order", "subcontract_receive", "subcontract_bill"):
-        frappe.throw("This event has material dependencies; use an explicit return, transfer or adjustment.")
     if result.get("voucher") and source.kind not in ("produce", "produce_bulk", "subcontract_receive"):
         doc = reference(result["voucher_type"], result["voucher"], event.company)
         doc.check_permission("cancel")
@@ -815,7 +834,7 @@ def cancel_event(event, data, job):
         roll = reference("Knitting Roll", result["roll"], event.company)
         later = frappe.db.sql("""select q.name from `tabKnitting QC` q join `tabKnitting Event` e on e.name=q.event
             where q.roll=%s and q.event!=%s and q.creation>%s and e.cancelled=0 limit 1""", (roll.name, source.name, source.creation))
-        if roll.job != job_name or roll.state != result["decision"] or later or roll_dependents(roll.name, source):
+        if roll.job != job_name or roll.state != result["decision"] or later or roll_dependents([roll.name], source):
             frappe.throw("A later inspection or delivery depends on this quality decision.")
         roll.state = result["previous_state"]
         roll.save()

@@ -337,6 +337,14 @@ class ErpApi {
     return value;
   }
 
+  Future<WorkspaceContext> selectCompany(String company) async {
+    final value = WorkspaceContext.fromJson(
+      await _industry('workspace', 'select_company', {'company': company}),
+    );
+    publishContext(value);
+    return value;
+  }
+
   Future<WorkspaceContext> configureIndustry(
     String company,
     Map<String, dynamic> settings,

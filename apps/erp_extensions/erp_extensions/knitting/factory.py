@@ -79,6 +79,8 @@ def plan(event, data, job):
             frappe.throw("Another allocation already occupies that machine/time.")
     allocated = sum((Decimal(r.quantity_kg) - Decimal(r.produced_kg or "0") for r in existing if r.job == job.name and (not record or r.name != record.name)), d.ZERO)
     already = Decimal(record.produced_kg or "0") if record else d.ZERO
+    if already and record.machine != machine.name:
+        frappe.throw("Keep recorded production on its original machine. Allocate remaining work separately.")
     balance = d.balances(job.name)
     produced = Decimal(balance["produced_kg"]) + Decimal(balance["fabric_transfer_in_kg"])
     if quantity < already or allocated + quantity - already > Decimal(job.target_kg) - produced:
@@ -94,7 +96,7 @@ def plan(event, data, job):
     previous = record.as_dict() if record else None
     record = record or frappe.new_doc("Knitting Plan")
     record.update({"company": event.company, "job": job.name, "machine": machine.name, "starts_at": start,
-                   "ends_at": end, "quantity_kg": d.kg(quantity), "programme_line": line["id"], "shift": data.get('shift'), "required_yarn_kg": d.kg(d.decimal(data["required_yarn_kg"], positive=True)) if data.get("required_yarn_kg") else None, "produced_kg": record.produced_kg or "0.000", "state": "Started" if already else "Planned", "event": event.name})
+                   "ends_at": end, "quantity_kg": d.kg(quantity), "programme_line": line["id"], "shift": data.get('shift'), "required_yarn_kg": d.kg(d.decimal(data["required_yarn_kg"], positive=True)) if data.get("required_yarn_kg") else None, "produced_kg": record.produced_kg or "0.000", "state": "Completed" if already == quantity else "Started" if already else "Planned", "event": event.name})
     if record.is_new():
         record = d.insert("Knitting Plan", **{k: record.get(k) for k in ("company", "job", "machine", "starts_at", "ends_at", "quantity_kg", "programme_line", "shift", "required_yarn_kg", "produced_kg", "state", "event")})
     else:
@@ -270,6 +272,11 @@ def close_subcontract(event, data, job):
     billed = sum((Decimal(d.json_value(r.result, {})["quantity_kg"]) for r in sc_events(sub, "subcontract_bill")), d.ZERO)
     if remaining != 0 or received != Decimal(sub.target_kg) or billed != received:
         frappe.throw("Reconcile subcontract custody, fabric receipt and bills before completion.")
+    order = d.reference("Purchase Order", sub.purchase_order, event.company)
+    if Decimal(str(order.items[0].qty)) > received:
+        # Reclosing a previously shortened commitment releases the same native PO balance.
+        order.check_permission("submit")
+        order.update_status("Closed")
     sub.status = "Completed"
     sub.save()
     return {"subcontract": sub.name, "status": sub.status}
@@ -513,6 +520,10 @@ def reopen_subcontract(event, data, job):
     sub = d.reference("Knitting Subcontract", data.get("subcontract"), event.company)
     if sub.job != job.name or sub.status != "Completed" or not data.get("reason"):
         frappe.throw("Choose a completed subcontract and record the reopening reason.")
+    order = d.reference("Purchase Order", sub.purchase_order, event.company)
+    if order.status == "Closed":
+        order.check_permission("submit")
+        order.update_status("Submitted")
     sub.status = "Open"
     sub.save()
     return {"subcontract": sub.name, "status": sub.status, "reason": data["reason"]}

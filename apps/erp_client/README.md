@@ -29,7 +29,7 @@ The code is GPL-3.0; see [LICENSE](LICENSE) and the workspace [NOTICE](../../NOT
 
 ## Verification
 
-The knitting v1 verification has 112 passing Flutter checks and clean analysis. The final Mac ARM64 release, iPhone simulator debug and Android ARM64 debug builds pass; the native Mac walkthrough includes production, QC, delivery, reviewed invoicing, yarn return, completion, source reconciliation and an in-app invoice PDF. Backend and platform limits are recorded in the [release evidence](../../docs/setup/KNITTING_V1.md).
+The updated industry home and form verification has 121 passing Flutter checks and clean analysis. Choosing Knitting ERP during company setup opens the mill job register at sign-in. Business records in the navigation opens the shared ERP catalogue. The final Mac ARM64 release, iPhone simulator debug and Android ARM64 debug builds pass; the native Mac walkthrough includes production, QC, delivery, reviewed invoicing, yarn return, completion, source reconciliation and an in-app invoice PDF. Backend and platform limits are recorded in the [release evidence](../../docs/setup/KNITTING_V1.md).
 
 ```sh
 flutter analyze

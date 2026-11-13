@@ -2,7 +2,7 @@
 
 This workspace holds the preserved ERPNext backend and the native Flutter client, **ERP Workspace**, with an optional company-enabled knitting industry pack. General ERP remains available; knitting adds its own scoped factory workflow and records. AI is deferred.
 
-The first knitting version is implemented and locally verified: 109 backend, 112 Flutter and 4 metadata checks pass, and a synthetic job-to-invoice cycle was completed through the native Mac app. See the [knitting release evidence and remaining gates](docs/setup/KNITTING_V1.md), [industry design](docs/superpowers/specs/2026-11-13-industry-packs-and-knitting-design.md), [whole-app experience contract](docs/design/WORKSPACE_EXPERIENCE.md) and [scope matrix](docs/coverage/knitting-scope.json). This is an independent product workflow, not a claim of complete vendor-screen or upstream browser-script parity. Implementation and tests never access the customer's live system.
+During company setup, a manager chooses General ERP or Knitting ERP. An active knitting company opens directly to its job register, with mill navigation and access to shared business records. The app remembers the account's selected company and checks its current permissions at sign-in. The [workflow audit](docs/coverage/knitting-workflow-audit.md) records 124 passing backend tests and successful calls to all 47 knitting commands. The current Flutter build passed all 121 client tests. See the [original v1 evidence and release limits](docs/setup/KNITTING_V1.md) and [scope matrix](docs/coverage/knitting-scope.json).
 
 ## Flutter application
 

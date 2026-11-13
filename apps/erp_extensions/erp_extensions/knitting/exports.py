@@ -42,6 +42,7 @@ def tally_review(company, rows):
 
 
 def render(company, format, value=None):
+    value = frappe.parse_json(value) if isinstance(value, str) else value or {}
     f = reports.filters(value)
     if format == 'delivery_challan':
         permissions.require(company, 'delivery', history=True)
@@ -87,6 +88,7 @@ def render(company, format, value=None):
     report = f.get("report", "jobs")
     if format in ("gst_review", "tally_review"):
         report = "billing"
+        value = {**value, "group_by": None}
     source_type = {"yarn": "Knitting Ledger Entry", "fabric": "Knitting Roll", "rolls": "Knitting Roll"}.get(report, "Knitting Job")
     if not frappe.has_permission(source_type, "export"):
         frappe.throw("This account cannot export these records.", frappe.PermissionError)

@@ -47,7 +47,8 @@ class ErpWorkspaceApp extends StatelessWidget {
 }
 
 class WorkspaceShell extends StatefulWidget {
-  const WorkspaceShell({super.key});
+  const WorkspaceShell({super.key, this.connect = ErpApi.new});
+  final ErpApi Function(Uri) connect;
   @override
   State<WorkspaceShell> createState() => _WorkspaceShellState();
 }
@@ -67,7 +68,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
   }
 
   Future<void> _signIn(String server, String username, String password) async {
-    final api = ErpApi(Uri.parse(server));
+    final api = widget.connect(Uri.parse(server));
     try {
       await api.login(username, password);
       if (!mounted) {
@@ -80,10 +81,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         _api = api;
         _workspace = workspace;
         _module = null;
-        _snapshot = _guard(
-          api,
-          api.snapshot(_period, selectedCompany: workspace.company),
-        );
+        _snapshot = _overviewFor(api, workspace);
       });
     } catch (_) {
       api.close();
@@ -111,10 +109,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         _lastData = null;
         _module = null;
         _revision++;
-        _snapshot = _guard(
-          api,
-          api.snapshot(_period, selectedCompany: fresh.company),
-        );
+        _snapshot = _overviewFor(api, fresh);
       });
       return true;
     }
@@ -150,9 +145,30 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
   }
 
+  Future<ErpSnapshot>? _overviewFor(ErpApi api, WorkspaceContext workspace) =>
+      workspace.enabled || workspace.needsIndustrySelection
+      ? null
+      : _guard(api, api.snapshot(_period, selectedCompany: workspace.company));
+
+  void _applyCompany(WorkspaceContext value) {
+    final api = _api;
+    if (!mounted || api == null) return;
+    setState(() {
+      _workspace = value;
+      _lastData = null;
+      _module = null;
+      _revision++;
+      _snapshot = _overviewFor(api, value);
+    });
+  }
+
   void _refresh() {
     final api = _api;
-    if (api == null) return;
+    if (api == null ||
+        _workspace?.enabled == true ||
+        _workspace?.needsIndustrySelection == true) {
+      return;
+    }
     setState(() {
       _revision++;
       _snapshot = _guard(
@@ -204,15 +220,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         ),
       );
       if (name == null || !mounted) return;
-      final w = await api.workspaceContext(company: name);
-      if (!mounted || !identical(api, _api)) return;
-      setState(() {
-        _workspace = w;
-        _lastData = null;
-        _module = null;
-        _revision++;
-        _snapshot = _guard(api, api.snapshot(_period, selectedCompany: name));
-      });
+      final w = await api.selectCompany(name);
+      if (mounted && identical(api, _api)) _applyCompany(w);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -222,32 +231,23 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     }
   }
 
-  Future<void> _industry({bool setup = false}) async {
+  Future<void> _industrySetup() async {
     final api = _api;
-    final w = _workspace;
-    if (api == null || w == null) return;
-    await Navigator.push(
+    final workspace = _workspace;
+    if (api == null || workspace == null) return;
+    final updated = await Navigator.push<WorkspaceContext>(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => setup
-            ? IndustrySetupScreen(
-                api: api,
-                workspace: w,
-                onSaved: (value) {
-                  if (mounted) setState(() => _workspace = value);
-                },
-              )
-            : KnittingScreen(
-                key: ValueKey(w.company),
-                api: api,
-                workspace: w,
-                onContextChanged: (value) {
-                  if (mounted) setState(() => _workspace = value);
-                },
-              ),
+      MaterialPageRoute(
+        builder: (routeContext) => IndustrySetupScreen(
+          api: api,
+          workspace: workspace,
+          onSaved: (value) => Navigator.of(routeContext).pop(value),
+        ),
       ),
     );
-    if (mounted) _refresh();
+    if (updated != null && mounted && identical(api, _api)) {
+      _applyCompany(updated);
+    }
   }
 
   void _licenses() => showLicensePage(
@@ -510,7 +510,8 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
           if (!e.permissionDenied) rethrow;
           fresh = await api.workspaceContext();
         }
-        final snapshot = api.snapshot(_period, selectedCompany: fresh.company);
+        if (!mounted || !identical(api, _api)) return;
+        final snapshot = _overviewFor(api, fresh);
         setState(() {
           _workspace = fresh;
           _lastData = null;
@@ -520,77 +521,110 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
         });
         await snapshot;
       },
-      child: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-              _moduleMenu,
-          const SingleActivator(LogicalKeyboardKey.keyR, meta: true): _refresh,
-        },
-        child: Focus(
-          autofocus: true,
-          child: Scaffold(
-            body: SafeArea(
-              child: FutureBuilder<ErpSnapshot>(
-                future: _snapshot,
-                builder: (context, state) {
-                  final data = state.connectionState == ConnectionState.done
-                      ? state.data
-                      : null;
-                  if (data != null) _lastData = data;
-                  return Column(
-                    children: [
-                      _header(data, api),
-                      Expanded(
-                        child: state.connectionState != ConnectionState.done
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: WorkspaceTheme.ink,
-                                ),
-                              )
-                            : state.hasError
-                            ? MessagePanel(
-                                title: 'LET’S RECONNECT',
-                                message: state.error.toString(),
-                                action: _refresh,
-                              )
-                            : _module == null
-                            ? OverviewScreen(
-                                data: data!,
-                                onModule: _select,
-                                onNew: _newDocument,
-                              )
-                            : ModuleBrowser(
-                                key: ValueKey(
-                                  '${_module!.name}-${_period.name}-$_revision',
-                                ),
-                                module: _module!,
-                                company: data!.company,
-                                currency: data.currency,
-                                loader: (query, start) => _guard(
-                                  api,
-                                  api.records(
-                                    _module!,
-                                    company: data.company,
-                                    period: _period,
-                                    query: query,
-                                    start: start,
-                                  ),
-                                ),
-                                onRecord: (r) =>
-                                    _edit(r.module.doctype, name: r.name),
-                                onCreate: () => _edit(_module!.doctype),
-                                onBrowseAll: () => _catalog(),
-                              ),
-                      ),
-                    ],
-                  );
-                },
+      child: _workspace!.enabled
+          ? KnittingScreen(
+              key: ValueKey(_workspace!.company),
+              api: api,
+              workspace: _workspace!,
+              onContextChanged: (value) {
+                if (!mounted ||
+                    !identical(api, _api) ||
+                    _workspace?.company != value.company) {
+                  return;
+                }
+                if (!value.enabled) {
+                  _applyCompany(value);
+                } else {
+                  setState(() => _workspace = value);
+                }
+              },
+              onCompany: _company,
+              onRecords: _catalog,
+              onAccount: _settings,
+            )
+          : _workspace!.needsIndustrySelection
+          ? IndustrySetupScreen(
+              key: ValueKey(_workspace!.company),
+              api: api,
+              workspace: _workspace!,
+              onSaved: _applyCompany,
+              onCompany: _company,
+              onAccount: _settings,
+            )
+          : CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+                    _moduleMenu,
+                const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
+                    _refresh,
+              },
+              child: Focus(
+                autofocus: true,
+                child: Scaffold(
+                  body: SafeArea(
+                    child: FutureBuilder<ErpSnapshot>(
+                      future: _snapshot,
+                      builder: (context, state) {
+                        final data =
+                            state.connectionState == ConnectionState.done
+                            ? state.data
+                            : null;
+                        if (data != null) _lastData = data;
+                        return Column(
+                          children: [
+                            _header(data, api),
+                            Expanded(
+                              child:
+                                  state.connectionState != ConnectionState.done
+                                  ? const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: WorkspaceTheme.ink,
+                                      ),
+                                    )
+                                  : state.hasError
+                                  ? MessagePanel(
+                                      title: 'LET’S RECONNECT',
+                                      message: state.error.toString(),
+                                      action: _refresh,
+                                    )
+                                  : _module == null
+                                  ? OverviewScreen(
+                                      data: data!,
+                                      onModule: _select,
+                                      onNew: _newDocument,
+                                    )
+                                  : ModuleBrowser(
+                                      key: ValueKey(
+                                        '${_module!.name}-${_period.name}-$_revision',
+                                      ),
+                                      module: _module!,
+                                      company: data!.company,
+                                      currency: data.currency,
+                                      loader: (query, start) => _guard(
+                                        api,
+                                        api.records(
+                                          _module!,
+                                          company: data.company,
+                                          period: _period,
+                                          query: query,
+                                          start: start,
+                                        ),
+                                      ),
+                                      onRecord: (r) =>
+                                          _edit(r.module.doctype, name: r.name),
+                                      onCreate: () => _edit(_module!.doctype),
+                                      onBrowseAll: () => _catalog(),
+                                    ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -716,15 +750,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                       ),
                     ),
                   ),
-                  if (_workspace?.enabled == true)
-                    Pill(
-                      'Knitting',
-                      icon: Icons.texture,
-                      onPressed: () => _industry(),
-                    ),
                   if (_workspace?.canConfigure == true)
                     IconButton(
-                      onPressed: () => _industry(setup: true),
+                      onPressed: _industrySetup,
                       tooltip: 'Industry setup',
                       icon: const Icon(Icons.tune, size: 20),
                     ),

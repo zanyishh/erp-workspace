@@ -10,14 +10,15 @@ def project(company, report, f):
     if f["mode"] != "as_of" or f["to_date"] != today():
         frappe.throw("Factory outlook uses the current queue. Choose As of today; historical allocations remain in Machine allocations.")
     now = now_datetime()
-    jobs = frappe.get_list("Knitting Job", filters={"company": company, "status": "Running", **({"name": f["job"]} if f.get("job") else {})}, fields=["name", "customer", "target_kg"], limit=10000)
+    job_filter = {"name": f["job"]} if f.get("job") and report != "changes" else {}
+    jobs = frappe.get_list("Knitting Job", filters={"company": company, "status": "Running", **job_filter}, fields=["name", "customer", "target_kg"], limit=10000)
     by_job = {j.name: j for j in jobs}
-    balances = {j.name: d.balances(j.name) for j in jobs}
     plans = frappe.get_list("Knitting Plan", filters={"company": company, "state": ["in", ["Planned", "Started"]]},
         fields=["name", "job", "machine", "starts_at", "ends_at", "quantity_kg", "produced_kg", "required_yarn_kg", "state"], order_by="starts_at, name", limit=10000)
     plans = [p for p in plans if p.job in by_job]
     rows = []
     if report == "shortages":
+        balances = {j.name: d.balances(j.name) for j in jobs}
         available = {name: Decimal(b["yarn_kg"]) for name, b in balances.items()}
         for plan in plans:
             if plan.starts_at > now + timedelta(hours=72) or plan.ends_at <= now:
@@ -41,13 +42,14 @@ def project(company, report, f):
         previous = {}
         for plan in plans:
             before = previous.get(plan.machine)
-            if before and before.job != plan.job and now <= plan.starts_at <= now + timedelta(hours=24):
+            if (before and before.job != plan.job and now <= plan.starts_at <= now + timedelta(hours=24)
+                    and (not f.get("job") or plan.job == f["job"])):
                 rows.append({"machine": plan.machine, "current_job": before.job, "job": plan.job, "change_at": plan.starts_at, "remaining_kg": d.kg(Decimal(plan.quantity_kg) - Decimal(plan.produced_kg or 0))})
             previous[plan.machine] = plan
         columns = ["machine", "current_job", "job", "change_at", "remaining_kg"]
     else:
         for job in jobs:
-            b = balances[job.name]
+            b = d.balances(job.name)
             remaining = max(d.ZERO, Decimal(job.target_kg) - Decimal(b["produced_kg"]) - Decimal(b["fabric_transfer_in_kg"]))
             planned = sum((Decimal(p.quantity_kg) - Decimal(p.produced_kg or 0) for p in plans if p.job == job.name), d.ZERO)
             rows.append({"job": job.name, "customer": job.customer, "remaining_kg": d.kg(remaining), "planned_kg": d.kg(planned), "unplanned_kg": d.kg(max(d.ZERO, remaining - planned)), "status": "Completed programme" if not remaining else "Fully planned" if planned >= remaining else "Partly planned" if planned else "Unplanned"})

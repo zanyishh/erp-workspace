@@ -1,4 +1,5 @@
 import 'ui/access_gate.dart';
+import 'knitting_workspace_layout.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'file_actions.dart';
@@ -18,10 +19,14 @@ class KnittingScreen extends StatefulWidget {
     required this.api,
     required this.workspace,
     required this.onContextChanged,
+    this.onCompany,
+    this.onAccount,
+    this.onRecords,
   });
   final ErpApi api;
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onContextChanged;
+  final VoidCallback? onCompany, onAccount, onRecords;
   @override
   State<KnittingScreen> createState() => _KnittingScreenState();
 }
@@ -82,7 +87,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
       selected = null;
       setupDirty = false;
       page = fresh.enabled ? 'Jobs' : 'Setup';
-      future = widget.api.knittingSnapshot(fresh.company!);
+      if (fresh.enabled) future = widget.api.knittingSnapshot(fresh.company!);
     });
   }
 
@@ -126,6 +131,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
       'Factory' => 'create_machine',
       _ => null,
     };
+    if (selected?['status'] == 'Completed' && page != 'Jobs') return null;
     return knitActions
         .where(
           (a) =>
@@ -246,9 +252,13 @@ class _KnittingScreenState extends State<KnittingScreen> {
       });
       await fresh;
     },
-    child: WorkspacePage(
-      title: 'Knitting',
-      subtitle: '${workspace.company} · ${workspace.state}',
+    child: KnittingWorkspaceLayout(
+      workspace: workspace,
+      page: page,
+      onDestination: destination,
+      onCompany: setupDirty ? null : widget.onCompany,
+      onAccount: setupDirty ? null : widget.onAccount,
+      onRecords: setupDirty ? null : widget.onRecords,
       actions: [
         if (page == 'Delivery' && workspace.allows('delivery'))
           OutlinedButton.icon(
@@ -277,12 +287,6 @@ class _KnittingScreenState extends State<KnittingScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          WorkspaceSelection(
-            labels: workspace.destinations,
-            selected: page,
-            onSelected: destination,
-          ),
-          const SizedBox(height: 20),
           Expanded(
             child: page == 'Reports'
                 ? KnittingReports(
@@ -444,7 +448,9 @@ class KnittingWorkbench extends StatelessWidget {
         .where(
           (a) =>
               workspace.allows(a.capability) &&
-              a.group == page &&
+              a.appearsIn(page) &&
+              (a.id != 'create_job' || workspace.state == 'Active') &&
+              (a.id != 'reopen_job' || record?['status'] != 'Running') &&
               (record == null ||
                   record['status'] == 'Running' ||
                   a.id == 'reopen_job'),
@@ -522,42 +528,67 @@ class KnittingWorkbench extends StatelessWidget {
               (record['programme'] as List? ?? [])
                   .map(
                     (r) => _row(
-                      r['id'].toString(),
-                      '${r['fabric']} · ${r['colour'] ?? 'Natural'} · ${r['dia'] ?? '—'} dia / ${r['gauge'] ?? '—'} G',
+                      r['fabric'].toString(),
+                      '${r['colour'] ?? 'Natural'} · ${r['dia'] ?? '—'} dia / ${r['gauge'] ?? '—'} G',
                       '${r['target_kg']} kg',
                     ),
                   )
                   .toList(),
             ),
         ] else if (page == 'Jobs') ...[
-          _jobSummary(snapshot),
+          KnittingJobOverview(snapshot: snapshot),
           const SizedBox(height: 20),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: ValueKey('$page-${record?['name']}'),
-                decoration: InputDecoration(
-                  labelText: page == 'Jobs'
-                      ? 'Filter loaded jobs'
-                      : 'Filter loaded records',
-                  prefixIcon: const Icon(Icons.search),
+        if (page != 'Jobs' || record == null)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: ValueKey('$page-${record?['name']}'),
+                  decoration: InputDecoration(
+                    labelText: page == 'Jobs'
+                        ? 'Filter loaded jobs'
+                        : 'Filter loaded records',
+                    prefixIcon: const Icon(Icons.search),
+                  ),
+                  onChanged: onQuery,
                 ),
-                onChanged: onQuery,
+              ),
+              if (page == 'Jobs') ...[
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: onFind,
+                  child: const Text('Find any job'),
+                ),
+              ],
+            ],
+          ),
+        const SizedBox(height: 16),
+        if (page == 'Jobs' &&
+            record == null &&
+            actions.any((a) => a.id != 'create_job'))
+          Align(
+            alignment: Alignment.centerRight,
+            child: PopupMenuButton<KnitAction>(
+              tooltip: 'Job actions',
+              onSelected: (value) => onAction(value),
+              itemBuilder: (_) => [
+                for (final item in actions.where((a) => a.id != 'create_job'))
+                  PopupMenuItem(value: item, child: Text(item.title)),
+              ],
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Job actions'),
+                    Icon(Icons.expand_more, size: 18),
+                  ],
+                ),
               ),
             ),
-            if (page == 'Jobs') ...[
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: onFind,
-                child: const Text('Find any job'),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (actions.isNotEmpty) ...[
+          )
+        else if (actions.isNotEmpty && (page != 'Jobs' || record != null)) ...[
           const SizedBox(height: 4),
           const Display('AVAILABLE ACTIONS', size: 25),
           const SizedBox(height: 12),
@@ -606,87 +637,34 @@ class KnittingWorkbench extends StatelessWidget {
     for (final (key, i) in [
       ('billed_kg', 5),
       ('delivered_kg', 4),
-      ('produced_kg', 3),
-      ('received_kg', 2),
+      ('produced_kg', 2),
+      ('received_kg', 1),
     ]) {
       if (b[key] != null && Kg.parse(b[key].toString()).milli > BigInt.zero) {
+        if (key == 'produced_kg' &&
+            snapshot
+                .rows('inspections')
+                .any((r) => r['job'] == selected?['name']) &&
+            snapshot
+                .rows('rolls')
+                .any(
+                  (r) =>
+                      r['job'] == selected?['name'] &&
+                      [
+                        'Released',
+                        'On Hold',
+                        'Rejected',
+                        'Rework',
+                      ].contains(r['state']),
+                )) {
+          return 3;
+        }
         return i;
       }
     }
     return 0;
   }
 
-  Widget _jobSummary(KnittingSnapshot s) => LayoutBuilder(
-    builder: (context, c) => Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: [
-        SizedBox(
-          width: c.maxWidth > 750 ? c.maxWidth * .44 : c.maxWidth,
-          child: Panel(
-            dark: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'FACTORY WORKSPACE',
-                  style: TextStyle(
-                    color: WorkspaceTheme.palePeach,
-                    fontSize: 11,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Display('EVERY ROLL.\nCONNECTED.', size: 42, light: true),
-                const SizedBox(height: 16),
-                Text(
-                  '${s.rows('jobs').where((j) => j['status'] == 'Running').length} active jobs in the recent view',
-                  style: const TextStyle(color: WorkspaceTheme.light),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Programme → yarn → roll → invoice',
-                  style: TextStyle(
-                    color: WorkspaceTheme.palePeach,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        for (final (label, count, foot) in [
-          (
-            'Awaiting QC',
-            s.rows('rolls').where((r) => r['state'] == 'Awaiting QC').length,
-            'rolls to inspect',
-          ),
-          (
-            'On hold',
-            s.rows('rolls').where((r) => r['state'] == 'On Hold').length,
-            'rolls blocked',
-          ),
-          (
-            'Ready to send',
-            s.rows('rolls').where((r) => r['state'] == 'Released').length,
-            'released rolls',
-          ),
-        ])
-          SizedBox(
-            width: c.maxWidth > 1000
-                ? (c.maxWidth * .56 - 64) / 3
-                : c.maxWidth > 600
-                ? (c.maxWidth - 32) / 3
-                : c.maxWidth,
-            child: MetricTile(
-              label: label,
-              value: '$count',
-              footer: '$foot · recent view',
-            ),
-          ),
-      ],
-    ),
-  );
   Widget _jobCard(Map<String, dynamic> job) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: Panel(
@@ -967,26 +945,55 @@ class KnittingWorkbench extends StatelessWidget {
   );
 }
 
-class IndustrySetupScreen extends StatelessWidget {
+class IndustrySetupScreen extends StatefulWidget {
   const IndustrySetupScreen({
     super.key,
     required this.api,
     required this.workspace,
     required this.onSaved,
+    this.onAccount,
+    this.onCompany,
   });
+  final VoidCallback? onAccount, onCompany;
   final ErpApi api;
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onSaved;
   @override
+  State<IndustrySetupScreen> createState() => _IndustrySetupScreenState();
+}
+
+class _IndustrySetupScreenState extends State<IndustrySetupScreen> {
+  bool dirty = false;
+  @override
   Widget build(BuildContext context) => AccessGate(
-    api: api,
+    api: widget.api,
     revalidate: () async {
-      await api.industrySettings(workspace.company!);
+      await widget.api.industrySettings(widget.workspace.company!);
     },
     child: WorkspacePage(
       title: 'Industry setup',
-      subtitle: workspace.company ?? '',
-      child: _Setup(api: api, workspace: workspace, onSaved: onSaved),
+      subtitle: widget.workspace.company ?? '',
+      actions: [
+        if (widget.onCompany != null)
+          TextButton(
+            onPressed: dirty ? null : widget.onCompany,
+            child: const Text('Switch company'),
+          ),
+        if (widget.onAccount != null)
+          IconButton(
+            onPressed: dirty ? null : widget.onAccount,
+            tooltip: 'Account',
+            icon: const Icon(Icons.account_circle_outlined),
+          ),
+      ],
+      child: _Setup(
+        api: widget.api,
+        workspace: widget.workspace,
+        onSaved: widget.onSaved,
+        onDirty: (value) {
+          if (mounted && dirty != value) setState(() => dirty = value);
+        },
+      ),
     ),
   );
 }
@@ -1011,6 +1018,7 @@ class _SetupState extends State<_Setup> {
   Map<String, dynamic>? values;
   String? error;
   bool saving = false, dirty = false;
+  bool? knitting;
   void markDirty() {
     if (!dirty) setState(() => dirty = true);
     widget.onDirty?.call(true);
@@ -1051,13 +1059,19 @@ class _SetupState extends State<_Setup> {
     try {
       final r = await widget.api.industrySettings(widget.workspace.company!);
       if (mounted) {
-        setState(
-          () => values = {
+        setState(() {
+          knitting =
+              widget.workspace.needsIndustrySelection &&
+                  widget.workspace.state != 'Setup'
+              ? null
+              : (r['state'] != 'Inactive' &&
+                    widget.workspace.state != 'General ERP');
+          values = {
             ...Map<String, dynamic>.from(r['settings'] as Map),
             'state': r['state'],
             'revision': r['revision'],
-          },
-        );
+          };
+        });
       }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
@@ -1065,13 +1079,18 @@ class _SetupState extends State<_Setup> {
   }
 
   Future<void> save() async {
-    if (!key.currentState!.validate()) return;
+    if (knitting == null ||
+        (knitting == true && !key.currentState!.validate())) {
+      return;
+    }
     final yes = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Apply industry setup?'),
         content: Text(
-          'Save ${values!['state']} for ${widget.workspace.company}. Permissions still control each user’s access. Existing jobs and accounting records remain linked.',
+          knitting == true
+              ? 'Apply the knitting setup to ${widget.workspace.company}? Once active, knitting opens when the team signs in.'
+              : 'Use General ERP as the home for ${widget.workspace.company}?',
         ),
         actions: [
           TextButton(
@@ -1090,10 +1109,11 @@ class _SetupState extends State<_Setup> {
     try {
       final w = await widget.api.configureIndustry(
         widget.workspace.company!,
-        values!,
+        knitting == true
+            ? values!
+            : {'state': 'Inactive', 'revision': values!['revision']},
       );
       if (mounted) {
-        widget.onSaved(w);
         setState(() {
           values!['revision'] = w.revision;
           dirty = false;
@@ -1103,6 +1123,7 @@ class _SetupState extends State<_Setup> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Industry setup saved.')));
+        widget.onSaved(w);
       }
     } catch (e) {
       if (mounted) setState(() => error = e.toString());
@@ -1129,214 +1150,261 @@ class _SetupState extends State<_Setup> {
       },
       child: ListView(
         children: [
-          Panel(
-            border: true,
-            child: Form(
-              key: key,
-              onChanged: markDirty,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Display('KNITTING INDUSTRY PACK', size: 30),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Policy revision ${values!['revision']} · General ERP stays available.\nConfigure shared items and accounts in General ERP, then select them here.',
+          const Display('Workspace at sign-in', size: 28),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              for (final choice in [false, true])
+                ChoiceChip(
+                  label: Text(choice ? 'Knitting ERP' : 'General ERP'),
+                  avatar: Icon(
+                    choice ? Icons.texture : Icons.grid_view,
+                    size: 18,
                   ),
-                  const SizedBox(height: 24),
-                  const Display('READINESS', size: 23),
-                  const SizedBox(height: 8),
-                  for (final (field, label) in [
-                    ('warehouse', 'Default godown'),
-                    ('service_item', 'Knitting service item'),
-                    ('fabric_item', 'Owned fabric item'),
-                  ])
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        values![field] != null && values![field] != ''
-                            ? Icons.check_circle_outline
-                            : Icons.radio_button_unchecked,
-                        size: 20,
-                      ),
-                      title: Text(label),
-                    ),
-                  const SizedBox(height: 16),
-                  for (final (k, label, opts) in [
-                    (
-                      'state',
-                      'Pack state',
-                      ['Setup', 'Active', 'Closing', 'Inactive'],
-                    ),
-                    (
-                      'lycra_charge',
-                      'Owned auxiliary material charge',
-                      ['Included', 'Separate'],
-                    ),
-                    (
-                      'rate_lookup',
-                      'Party rate matching',
-                      ['Fabric', 'FabricCountGauge'],
-                    ),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: values![k]?.toString() ?? opts.first,
-                        decoration: InputDecoration(labelText: label),
-                        items: opts
-                            .map(
-                              (v) => DropdownMenuItem(value: v, child: Text(v)),
-                            )
-                            .toList(),
-                        onChanged: (v) => values![k] = v,
-                      ),
-                    ),
-                  for (final (k, label, entity) in [
-                    ('warehouse', 'Default godown', 'Warehouse'),
-                    ('service_item', 'Non-stock service item', 'Item'),
-                    ('fabric_item', 'Owned fabric stock item', 'Item'),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final r = await pickKnitRecord(
-                            context,
-                            widget.api,
-                            widget.workspace.company!,
-                            entity,
-                          );
-                          if (r != null && mounted) {
-                            markDirty();
-                            setState(() => values![k] = r['name']);
-                          }
+                  selected: knitting == choice,
+                  onSelected: saving
+                      ? null
+                      : (_) {
+                          markDirty();
+                          setState(() {
+                            knitting = choice;
+                            if (choice &&
+                                (values!['state'] == 'Inactive' ||
+                                    values!['state'] == 'Setup')) {
+                              values!['state'] = 'Active';
+                            }
+                          });
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '$label · ${values![k] ?? 'Choose'}',
+                ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          if (knitting == false) ...[
+            const Text(
+              'Open the company dashboard with sales, purchasing, accounts and stock.',
+            ),
+            const SizedBox(height: 18),
+            if (error != null)
+              Text(error!, style: const TextStyle(color: Colors.red)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton(
+                onPressed: saving ? null : save,
+                child: const Text('Apply general workspace'),
+              ),
+            ),
+          ],
+          if (knitting == true)
+            Panel(
+              border: true,
+              child: Form(
+                key: key,
+                onChanged: markDirty,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Display('Knitting setup', size: 30),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Choose the godown and items your mill uses for material receipts and billing.',
+                    ),
+                    const SizedBox(height: 24),
+                    const Display('READINESS', size: 23),
+                    const SizedBox(height: 8),
+                    for (final (field, label) in [
+                      ('warehouse', 'Default godown'),
+                      ('service_item', 'Knitting service item'),
+                      ('fabric_item', 'Owned fabric item'),
+                    ])
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          values![field] != null && values![field] != ''
+                              ? Icons.check_circle_outline
+                              : Icons.radio_button_unchecked,
+                          size: 20,
+                        ),
+                        title: Text(label),
+                      ),
+                    const SizedBox(height: 16),
+                    for (final (k, label, opts) in [
+                      (
+                        'state',
+                        'Operating status',
+                        ['Setup', 'Active', 'Closing'],
+                      ),
+                      (
+                        'lycra_charge',
+                        'Owned auxiliary material charge',
+                        ['Included', 'Separate'],
+                      ),
+                      (
+                        'rate_lookup',
+                        'Party rate matching',
+                        ['Fabric', 'FabricCountGauge'],
+                      ),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          initialValue: values![k]?.toString() ?? opts.first,
+                          decoration: InputDecoration(labelText: label),
+                          items: opts
+                              .map(
+                                (v) =>
+                                    DropdownMenuItem(value: v, child: Text(v)),
+                              )
+                              .toList(),
+                          onChanged: (v) => values![k] = v,
+                        ),
+                      ),
+                    for (final (k, label, entity) in [
+                      ('warehouse', 'Default godown', 'Warehouse'),
+                      ('service_item', 'Non-stock service item', 'Item'),
+                      ('fabric_item', 'Owned fabric stock item', 'Item'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final r = await pickKnitRecord(
+                              context,
+                              widget.api,
+                              widget.workspace.company!,
+                              entity,
+                            );
+                            if (r != null && mounted) {
+                              markDirty();
+                              setState(() => values![k] = r['name']);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '$label · ${values![k] ?? 'Choose'}',
+                                  ),
                                 ),
-                              ),
-                              const Icon(Icons.search, size: 18),
-                            ],
+                                const Icon(Icons.search, size: 18),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  for (final (k, label, defaultValue) in [
-                    ('number_prefix', 'Document prefix', 'KN'),
-                    (
-                      'allow_production_excess_pct',
-                      'Permitted excess production · %',
-                      '0',
-                    ),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TextFormField(
-                        initialValue: values![k]?.toString() ?? defaultValue,
-                        decoration: InputDecoration(labelText: label),
-                        onChanged: (v) => values![k] = v,
-                        validator: (v) =>
-                            v == null || v.isEmpty ? 'Enter a value.' : null,
+                    for (final (k, label, defaultValue) in [
+                      ('number_prefix', 'Document prefix', 'KN'),
+                      (
+                        'allow_production_excess_pct',
+                        'Permitted excess production · %',
+                        '0',
                       ),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TextFormField(
+                          initialValue: values![k]?.toString() ?? defaultValue,
+                          decoration: InputDecoration(labelText: label),
+                          onChanged: (v) => values![k] = v,
+                          validator: (v) =>
+                              v == null || v.isEmpty ? 'Enter a value.' : null,
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    const Display('OPERATING SHIFTS', size: 24),
+                    const Text(
+                      'Machine allocations must fit these hours. A finish earlier than the start runs overnight.',
                     ),
-                  const SizedBox(height: 12),
-                  const Display('OPERATING SHIFTS', size: 24),
-                  const Text(
-                    'Machine allocations must fit these hours. A finish earlier than the start runs overnight.',
-                  ),
-                  const SizedBox(height: 12),
-                  for (final shift in values!['shift_windows'] as List? ?? [])
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          for (final (field, label) in [
-                            ('name', 'Shift'),
-                            ('start', 'Start · HH:MM'),
-                            ('end', 'Finish · HH:MM'),
-                          ]) ...[
-                            Expanded(
-                              child: TextFormField(
-                                key: ValueKey(
-                                  '${identityHashCode(shift)}-$field',
+                    const SizedBox(height: 12),
+                    for (final shift in values!['shift_windows'] as List? ?? [])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            for (final (field, label) in [
+                              ('name', 'Shift'),
+                              ('start', 'Start · HH:MM'),
+                              ('end', 'Finish · HH:MM'),
+                            ]) ...[
+                              Expanded(
+                                child: TextFormField(
+                                  key: ValueKey(
+                                    '${identityHashCode(shift)}-$field',
+                                  ),
+                                  initialValue: shift[field]?.toString(),
+                                  decoration: InputDecoration(labelText: label),
+                                  onChanged: (v) {
+                                    shift[field] = v;
+                                    markDirty();
+                                  },
+                                  validator: (v) => field == 'name'
+                                      ? ((v ?? '').trim().isEmpty
+                                            ? 'Name the shift'
+                                            : null)
+                                      : RegExp(
+                                          r'^(?:[01]\d|2[0-3]):[0-5]\d$',
+                                        ).hasMatch(v ?? '')
+                                      ? null
+                                      : 'Use HH:MM',
                                 ),
-                                initialValue: shift[field]?.toString(),
-                                decoration: InputDecoration(labelText: label),
-                                onChanged: (v) {
-                                  shift[field] = v;
-                                  markDirty();
-                                },
-                                validator: (v) => field == 'name'
-                                    ? ((v ?? '').trim().isEmpty
-                                          ? 'Name the shift'
-                                          : null)
-                                    : RegExp(
-                                        r'^(?:[01]\d|2[0-3]):[0-5]\d$',
-                                      ).hasMatch(v ?? '')
-                                    ? null
-                                    : 'Use HH:MM',
                               ),
+                              const SizedBox(width: 8),
+                            ],
+                            IconButton(
+                              tooltip: 'Remove shift',
+                              onPressed: () {
+                                markDirty();
+                                setState(
+                                  () => (values!['shift_windows'] as List)
+                                      .remove(shift),
+                                );
+                              },
+                              icon: const Icon(Icons.remove_circle_outline),
                             ),
-                            const SizedBox(width: 8),
                           ],
-                          IconButton(
-                            tooltip: 'Remove shift',
-                            onPressed: () {
-                              markDirty();
-                              setState(
-                                () => (values!['shift_windows'] as List).remove(
-                                  shift,
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.remove_circle_outline),
-                          ),
-                        ],
+                        ),
+                      ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          markDirty();
+                          setState(() {
+                            (values!['shift_windows'] ??= <dynamic>[]).add(<
+                              String,
+                              dynamic
+                            >{
+                              'name':
+                                  'Shift ${(values!['shift_windows'] as List).length + 1}',
+                              'start': '08:00',
+                              'end': '16:00',
+                            });
+                          });
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add shift window'),
                       ),
                     ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        markDirty();
-                        setState(() {
-                          (values!['shift_windows'] ??= <dynamic>[]).add(<
-                            String,
-                            dynamic
-                          >{
-                            'name':
-                                'Shift ${(values!['shift_windows'] as List).length + 1}',
-                            'start': '08:00',
-                            'end': '16:00',
-                          });
-                        });
-                      },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add shift window'),
+                    const SizedBox(height: 20),
+                    if (error != null)
+                      Text(
+                        error!,
+                        style: const TextStyle(color: Color(0xFFA23F38)),
+                      ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: saving ? null : save,
+                      child: Text(saving ? 'Saving…' : 'Review & apply setup'),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  if (error != null)
-                    Text(
-                      error!,
-                      style: const TextStyle(color: Color(0xFFA23F38)),
-                    ),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: saving ? null : save,
-                    child: Text(saving ? 'Saving…' : 'Review & apply setup'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

@@ -7,6 +7,7 @@ class WorkspaceContext {
         ),
       ),
       enabled = json['knitting_enabled'] == true,
+      needsIndustrySelection = json['needs_industry_selection'] == true,
       state = json['setup_state'] as String? ?? 'General ERP',
       revision = (json['revision'] as num? ?? 0).toInt(),
       accessFingerprint = json['access_fingerprint'] as String? ?? '',
@@ -18,7 +19,7 @@ class WorkspaceContext {
   final List<Map<String, dynamic>> companies;
   final String state, accessFingerprint;
   final int revision;
-  final bool enabled, canConfigure;
+  final bool enabled, canConfigure, needsIndustrySelection;
   final Set<String> capabilities;
   bool allows(String capability) =>
       enabled && capabilities.contains(capability);

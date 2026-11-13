@@ -44,8 +44,11 @@ def context(company=None):
         frappe.throw("Sign in first.", frappe.PermissionError)
     if company and company not in {c.name for c in available}:
         frappe.throw("This account cannot open that business.", frappe.PermissionError)
+    names = {row.name for row in available}
+    preferred = frappe.defaults.get_user_default("native_workspace_company")
     default = frappe.defaults.get_user_default("Company")
-    selected = company or (default if default in {c.name for c in available} else available[0].name if available else None)
+    selected = company or next((name for name in (preferred, default) if name in names),
+                               available[0].name if available else None)
     setup = permissions.profile(selected) if selected else None
     caps = permissions.capabilities() if setup and setup.state in ("Active", "Closing") else set()
     scope = frappe.get_all("User Permission", filters={"user": frappe.session.user},
@@ -53,9 +56,19 @@ def context(company=None):
     fingerprint = hashlib.sha256(json.dumps([sorted(frappe.get_roles()), scope], sort_keys=True, default=str).encode()).hexdigest()
     return {"version": 1, "companies": available, "company": selected, "access_fingerprint": fingerprint,
             "setup_state": setup.state if setup else "General ERP", "revision": setup.revision if setup else 0,
+            "needs_industry_selection": bool(selected and (not setup or setup.state == "Setup") and "configure" in permissions.capabilities()),
             "knitting_enabled": bool(caps), "capabilities": sorted(caps),
             "can_configure": "configure" in permissions.capabilities(),
             "readiness": readiness(frappe.parse_json(setup.settings or "{}") if setup else {})}
+
+
+@frappe.whitelist(methods=["POST"])
+def select_company(company):
+    if not company:
+        frappe.throw("Choose a company.")
+    selected = context(company)
+    frappe.defaults.set_user_default("native_workspace_company", selected["company"])
+    return selected
 
 
 @frappe.whitelist(methods=["POST"])

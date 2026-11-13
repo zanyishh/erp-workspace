@@ -19,7 +19,11 @@ Future<void> main() async {
       throw StateError('Refusing non-test site.');
     }
     const company = 'ERP Native Verification';
-    final w = await api.workspaceContext(company: company);
+    final w = await api.selectCompany(company);
+    final nextLoginHome = await api.workspaceContext();
+    if (nextLoginHome.company != company || !nextLoginHome.enabled) {
+      throw StateError('Selected knitting workspace was not retained.');
+    }
     if (!w.enabled) {
       throw StateError('Seed the synthetic knitting setup first.');
     }
@@ -117,6 +121,50 @@ Future<void> main() async {
       'quantity_kg': '10.000',
     });
     await post('close_job', {'job': job});
+    await post('reopen_job', {
+      'job': job,
+      'reason': 'Inspect returned demo fabric',
+    });
+    final credit = await post('credit_invoice', {
+      'job': job,
+      'invoice_event': invoice['event'],
+      'quantity_kg': '44.000',
+      'reason': 'Synthetic returned roll',
+    });
+    if (credit['data']['amount'] != '-4400.00') {
+      throw StateError('Credit amount mismatch.');
+    }
+    final returned = await post('return_fabric', {
+      'job': job,
+      'delivery': delivery['event'],
+      'rolls': [rolls.first],
+      'reason': 'Synthetic return received',
+    });
+    final afterReturn =
+        (await api.knittingSnapshot(
+              company,
+              job: job,
+            )).rows('jobs').single['balances']
+            as Map;
+    if (afterReturn['fabric_kg'] != '44.000' ||
+        afterReturn['billed_kg'] != '44.000') {
+      throw StateError('Returned roll did not reconcile to source billing.');
+    }
+    for (final source in [returned, credit, invoice]) {
+      await post('cancel_event', {
+        'job': job,
+        'event': source['event'],
+        'reason': 'Synthetic correction',
+      });
+    }
+    final replacement = await post('invoice', {
+      'job': job,
+      'deliveries': [delivery['event']],
+    });
+    if (replacement['data']['amount'] != '8800.00') {
+      throw StateError('Replacement invoice mismatch.');
+    }
+    await post('close_job', {'job': job});
     final snap = await api.knittingSnapshot(company);
     final row = snap.rows('jobs').firstWhere((r) => r['name'] == job);
     final b = row['balances'] as Map;
@@ -132,7 +180,7 @@ Future<void> main() async {
     if (status['event'] != created['event']) {
       throw StateError('Request receipt mismatch.');
     }
-    final name = (invoice['data'] as Map)['invoice'] as String;
+    final name = (replacement['data'] as Map)['invoice'] as String;
     final pdf = await api.printPdf('Sales Invoice', name, 'Standard');
     if (!ascii.decode(pdf.bytes.take(5).toList()).startsWith('%PDF-')) {
       throw StateError('Invalid invoice print.');
@@ -142,6 +190,10 @@ Future<void> main() async {
         'site': 'native-test.localhost',
         'job': job,
         'invoice': name,
+        'cancelled_invoice': invoice['data']['invoice'],
+        'cancelled_credit': credit['data']['invoice'],
+        'credit_amount': credit['data']['amount'],
+        'physical_return_kg': afterReturn['fabric_kg'],
         'amount': '8800.00',
         'balances': b,
         'httpCycle': 'passed',

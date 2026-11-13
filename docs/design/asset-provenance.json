@@ -31,5 +31,16 @@
       1024
     ],
     "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/images/knitting-studio.jpg",
+    "tool": "built-in image_gen",
+    "purpose": "Original cotton yarn, jersey fabric and circular knitting cylinder studio still life for the knitting workspace and forms",
+    "sha256": "5f5a890b0c4974a4aa58b85897f862af1fbe98f1f890a9b93e63533cd12d3d29",
+    "size": [
+      2172,
+      724
+    ],
+    "transparency": false
   }
 ]
