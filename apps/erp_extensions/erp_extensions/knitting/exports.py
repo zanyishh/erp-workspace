@@ -22,8 +22,8 @@ def fiscal_token(value):
     return f"{year}-{str(year + 1)[2:]}"
 
 
-def roll_token(job, line, weight):
-    return f"{job}|{line}|{d.kg(weight)}kg"
+def roll_token(job, line, weight, roll):
+    return f"{roll}|{job}|{line}|{d.kg(weight)}kg"
 
 
 def gst_review(company, rows):
@@ -43,6 +43,28 @@ def tally_review(company, rows):
 
 def render(company, format, value=None):
     f = reports.filters(value)
+    if format == 'delivery_challan':
+        permissions.require(company, 'delivery', history=True)
+        event = d.reference('Knitting Event', f.get('event'), company)
+        permissions.require_event_scope(event)
+        event.check_permission('print')
+        if event.kind != 'deliver' or event.cancelled:
+            frappe.throw('Select an active confirmed delivery.')
+        job = d.reference('Knitting Job', event.job, company)
+        value = d.json_value(event.result, {})
+        rows = ''.join('<tr><td>' + html.escape(str(row['roll'])) + '</td><td>' + html.escape(str(row['programme_line'])) +
+            '</td><td>' + html.escape(str(row['quantity_kg'])) + '</td></tr>' for row in value.get('sources', []))
+        def text(key): return html.escape(str(value.get(key) or 'Not recorded'))
+        from frappe.utils.pdf import get_pdf
+        content = get_pdf(f'''<html><body style="font-family:Arial,sans-serif;padding:24px;color:#191b19">
+          <h1>DELIVERY CHALLAN</h1><p>{html.escape(company)}</p><hr><h2>{html.escape(event.name)}</h2>
+          <p>Confirmed {html.escape(str(event.occurred_at))}<br>Customer {html.escape(job.customer)}<br>Job {html.escape(job.name)}</p>
+          <p>Destination: {text('destination')}<br>Transport: {text('transport')}<br>Transport reference: {text('transport_reference')}</p>
+          <p>Material ownership: {html.escape(job.material_mode)}. This challan records physical delivery; it is not a tax invoice.</p>
+          <table border="1" cellpadding="7"><thead><tr><th>Roll</th><th>Programme</th><th>Actual kg</th></tr></thead><tbody>{rows}</tbody></table>
+          <h2>Total {text('quantity_kg')} kg · {len(value.get('rolls', []))} rolls</h2>
+          <p>Dispatched by: ____________________ &nbsp; Received by: ____________________</p></body></html>''', options={'disable-javascript':''})
+        return {'name':event.name+'-challan.pdf','mime':'application/pdf','content':base64.b64encode(content).decode()}
     if format == "roll_label":
         caps = permissions.capabilities()
         capability = next((key for key in ("production", "quality", "reports") if key in caps), "reports")
@@ -50,7 +72,7 @@ def render(company, format, value=None):
         doc = d.reference("Knitting Roll", f.get("roll"), company)
         doc.check_permission("print")
         from frappe.utils.pdf import get_pdf
-        token = roll_token(doc.job, doc.programme_line, doc.weight_kg)
+        token = roll_token(doc.job, doc.programme_line, doc.weight_kg, doc.name)
         from frappe.utils.print_format_generator import get_qr_code
         qr = get_qr_code(token)
         text = f'''<html><body style="font-family:Arial,sans-serif;padding:20px;color:#191b19">

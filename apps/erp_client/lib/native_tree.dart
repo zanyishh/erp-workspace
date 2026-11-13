@@ -1,3 +1,4 @@
+import 'ui/access_gate.dart';
 import 'package:flutter/material.dart';
 import 'design.dart';
 import 'document_editor.dart';
@@ -71,122 +72,137 @@ class _NativeTreeScreenState extends State<NativeTreeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Display('${widget.type.name.toUpperCase()} · HIERARCHY', size: 25),
-      actions: [
-        IconButton(
-          tooltip: 'Refresh hierarchy',
-          onPressed: _reload,
-          icon: const Icon(Icons.refresh),
+  Widget build(BuildContext context) => AccessGate(
+    api: widget.api,
+    revalidate: () async {
+      final fresh = _load();
+      setState(() {
+        _future = fresh;
+      });
+      await fresh;
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: Display(
+          '${widget.type.name.toUpperCase()} · HIERARCHY',
+          size: 25,
         ),
-      ],
-    ),
-    body: FutureBuilder<Map<String, dynamic>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return MessagePanel(
-            title: 'COULD NOT LOAD HIERARCHY',
-            message: snapshot.error.toString(),
-            action: _reload,
-          );
-        }
-        final result = snapshot.data!;
-        final rows = (result['nodes'] as List).map(objectMap).toList();
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.parentTitle ??
-                          'Top-level ${widget.type.name.toLowerCase()} records',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  if (enabled(result['can_create']))
-                    FilledButton.icon(
-                      onPressed: () => _open(),
-                      icon: const Icon(Icons.add),
-                      label: Text(widget.parent == null ? 'New' : 'New child'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: rows.isEmpty
-                    ? const Center(
-                        child: Text('No accessible records in this group.'),
-                      )
-                    : ListView.separated(
-                        itemCount: rows.length,
-                        separatorBuilder: (_, i) => const SizedBox(height: 7),
-                        itemBuilder: (context, i) {
-                          final row = rows[i];
-                          final name = row['name'] as String;
-                          return Material(
-                            color: WorkspaceTheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            child: ListTile(
-                              leading: Icon(
-                                enabled(row['expandable'])
-                                    ? Icons.folder_outlined
-                                    : Icons.description_outlined,
-                              ),
-                              title: Text(row['title'] as String),
-                              subtitle: Text(name),
-                              onTap: () => _browse(row),
-                              trailing: IconButton(
-                                tooltip: 'Open $name',
-                                onPressed: () => _open(name: name),
-                                icon: const Icon(Icons.open_in_new, size: 20),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    rows.isEmpty
-                        ? '0 records'
-                        : 'Showing ${_start + 1}–${_start + rows.length}',
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Previous page',
-                    onPressed: _start == 0
-                        ? null
-                        : () {
-                            _start = (_start - 50).clamp(0, _start);
-                            _reload();
-                          },
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  IconButton(
-                    tooltip: 'Next page',
-                    onPressed: !enabled(result['has_more'])
-                        ? null
-                        : () {
-                            _start += 50;
-                            _reload();
-                          },
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
-              ),
-            ],
+        actions: [
+          IconButton(
+            tooltip: 'Refresh hierarchy',
+            onPressed: _reload,
+            icon: const Icon(Icons.refresh),
           ),
-        );
-      },
+        ],
+      ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return MessagePanel(
+              title: 'COULD NOT LOAD HIERARCHY',
+              message: snapshot.error.toString(),
+              action: _reload,
+            );
+          }
+          final result = snapshot.data!;
+          final rows = (result['nodes'] as List).map(objectMap).toList();
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.parentTitle ??
+                            'Top-level ${widget.type.name.toLowerCase()} records',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    if (enabled(result['can_create']))
+                      FilledButton.icon(
+                        onPressed: () => _open(),
+                        icon: const Icon(Icons.add),
+                        label: Text(
+                          widget.parent == null ? 'New' : 'New child',
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: rows.isEmpty
+                      ? const Center(
+                          child: Text('No accessible records in this group.'),
+                        )
+                      : ListView.separated(
+                          itemCount: rows.length,
+                          separatorBuilder: (_, i) => const SizedBox(height: 7),
+                          itemBuilder: (context, i) {
+                            final row = rows[i];
+                            final name = row['name'] as String;
+                            return Material(
+                              color: WorkspaceTheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              child: ListTile(
+                                leading: Icon(
+                                  enabled(row['expandable'])
+                                      ? Icons.folder_outlined
+                                      : Icons.description_outlined,
+                                ),
+                                title: Text(row['title'] as String),
+                                subtitle: Text(name),
+                                onTap: () => _browse(row),
+                                trailing: IconButton(
+                                  tooltip: 'Open $name',
+                                  onPressed: () => _open(name: name),
+                                  icon: const Icon(Icons.open_in_new, size: 20),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      rows.isEmpty
+                          ? '0 records'
+                          : 'Showing ${_start + 1}–${_start + rows.length}',
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Previous page',
+                      onPressed: _start == 0
+                          ? null
+                          : () {
+                              _start = (_start - 50).clamp(0, _start);
+                              _reload();
+                            },
+                      icon: const Icon(Icons.chevron_left),
+                    ),
+                    IconButton(
+                      tooltip: 'Next page',
+                      onPressed: !enabled(result['has_more'])
+                          ? null
+                          : () {
+                              _start += 50;
+                              _reload();
+                            },
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     ),
   );
 }

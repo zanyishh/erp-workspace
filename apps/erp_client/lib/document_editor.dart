@@ -5,6 +5,7 @@ import 'document_fields.dart';
 import 'erp_api.dart';
 import 'native_models.dart';
 import 'widgets.dart';
+import 'ui/access_gate.dart';
 
 class DocumentEditor extends StatefulWidget {
   const DocumentEditor({
@@ -25,15 +26,21 @@ class DocumentEditor extends StatefulWidget {
 }
 
 class _DocumentEditorState extends State<DocumentEditor> {
+  final _form = GlobalKey<_NativeDocumentFormState>();
+  bool _freshAccess = false;
   late Future<(NativeSchema, NativeDocument)> _future = _load();
   Future<(NativeSchema, NativeDocument)> _load() async {
     final results = await Future.wait([
       widget.api.nativeSchema(widget.doctype),
-      widget.initial != null
+      widget.initial != null && !_freshAccess
           ? Future.value(widget.initial!)
           : widget.api.nativeDocument(
               widget.doctype,
-              name: widget.name,
+              name: _freshAccess && _form.currentState != null
+                  ? (_form.currentState!._doc.isNew
+                        ? null
+                        : _form.currentState!._data['name'] as String?)
+                  : widget.name,
               company: widget.company,
               treeParent: widget.treeParent,
             ),
@@ -42,92 +49,99 @@ class _DocumentEditorState extends State<DocumentEditor> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      FutureBuilder<(NativeSchema, NativeDocument)>(
-        future: _future,
-        builder: (context, state) {
-          if (state.hasData) {
-            final (schema, doc) = state.data!;
-            return NativeDocumentForm(
-              schema: schema,
-              initial: doc,
-              onActivity: (values) => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => DocumentActivityScreen(
-                    api: widget.api,
-                    type: widget.doctype,
-                    name: values['name'] as String,
-                  ),
+  Widget build(BuildContext context) => AccessGate(
+    api: widget.api,
+    revalidate: () async {
+      _freshAccess = true;
+      final fresh = _load();
+      setState(() {
+        _future = fresh;
+      });
+      await fresh;
+    },
+    child: FutureBuilder<(NativeSchema, NativeDocument)>(
+      future: _future,
+      builder: (context, state) {
+        if (state.hasData) {
+          final (schema, doc) = state.data!;
+          return NativeDocumentForm(
+            key: _form,
+            schema: schema,
+            initial: doc,
+            onActivity: (values) => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => DocumentActivityScreen(
+                  api: widget.api,
+                  type: widget.doctype,
+                  name: values['name'] as String,
                 ),
               ),
-              onRelated: (values, action) async {
-                final created = await widget.api.newFromNative(
-                  schema.doctype,
-                  values['name'] as String,
-                  action,
-                  values['modified'] as String,
-                );
-                if (context.mounted) {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => DocumentEditor(
-                        api: widget.api,
-                        doctype: created.data['doctype'] as String,
-                        initial: created,
-                        company: widget.company,
-                      ),
-                    ),
-                  );
-                }
-              },
-              onSave: (values, action) =>
-                  widget.api.saveNative(schema, values, action: action),
-              onPartyDefaults: schema.partyDefaults
-                  ? (values) => widget.api.partyDefaultsNative(schema, values)
-                  : null,
-              onItemDefaults: schema.itemDefaults
-                  ? (values, field, row) => widget.api.itemDefaultsNative(
-                      schema,
-                      values,
-                      field,
-                      row,
-                    )
-                  : null,
-              onPrepare: schema.preparable
-                  ? (values) => widget.api.prepareNative(schema, values)
-                  : null,
-              onLink: (type, query, field) => widget.api.searchLinks(
-                type,
-                query,
-                parent: schema.doctype,
-                field: field.name,
-              ),
-              onNewRow: (values, field) =>
-                  widget.api.newRowNative(schema, values, field.name),
-              onTransition: (values, action) => widget.api.transitionNative(
+            ),
+            onRelated: (values, action) async {
+              final created = await widget.api.newFromNative(
                 schema.doctype,
                 values['name'] as String,
                 action,
-                modified: values['modified'] as String,
-              ),
-            );
-          }
-          return Scaffold(
-            appBar: AppBar(title: Text(widget.doctype)),
-            body: state.hasError
-                ? MessagePanel(
-                    title: 'COULD NOT OPEN',
-                    message: state.error.toString(),
-                    action: () => setState(() {
-                      _future = _load();
-                    }),
-                  )
-                : const Center(child: CircularProgressIndicator()),
+                values['modified'] as String,
+              );
+              if (context.mounted) {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => DocumentEditor(
+                      api: widget.api,
+                      doctype: created.data['doctype'] as String,
+                      initial: created,
+                      company: widget.company,
+                    ),
+                  ),
+                );
+              }
+            },
+            onSave: (values, action) =>
+                widget.api.saveNative(schema, values, action: action),
+            onPartyDefaults: schema.partyDefaults
+                ? (values) => widget.api.partyDefaultsNative(schema, values)
+                : null,
+            onItemDefaults: schema.itemDefaults
+                ? (values, field, row) =>
+                      widget.api.itemDefaultsNative(schema, values, field, row)
+                : null,
+            onPrepare: schema.preparable
+                ? (values) => widget.api.prepareNative(schema, values)
+                : null,
+            onLink: (type, query, field) => widget.api.searchLinks(
+              type,
+              query,
+              parent: schema.doctype,
+              field: field.name,
+            ),
+            onNewRow: (values, field) =>
+                widget.api.newRowNative(schema, values, field.name),
+            onTransition: (values, action) => widget.api.transitionNative(
+              schema.doctype,
+              values['name'] as String,
+              action,
+              modified: values['modified'] as String,
+            ),
           );
-        },
-      );
+        }
+        return Scaffold(
+          appBar: AppBar(title: Text(widget.doctype)),
+          body: state.hasError
+              ? MessagePanel(
+                  title: 'COULD NOT OPEN',
+                  message: state.error.toString(),
+                  action: () => setState(() {
+                    _future = _load();
+                  }),
+                )
+              : const Center(child: CircularProgressIndicator()),
+        );
+      },
+    ),
+  );
 }
 
 class NativeDocumentForm extends StatefulWidget {
@@ -175,6 +189,28 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
   bool _busy = false, _dirty = false, _leaving = false;
   String? _error, _notice;
   int _revision = 0;
+
+  @override
+  void didUpdateWidget(covariant NativeDocumentForm old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.initial, widget.initial)) {
+      final allowed = widget.schema.payload(_data);
+      _doc = widget.initial;
+      _data = {
+        ..._doc.editCopy(),
+        if (_dirty && (_doc.can('write') || _doc.can('create')))
+          for (final f in widget.schema.fields.where(
+            (f) => !f.readOnly && !f.hidden && !f.layout,
+          ))
+            if (allowed.containsKey(f.name)) f.name: allowed[f.name],
+      };
+      _errors = {};
+      _error = null;
+      _revision++;
+      _notice =
+          'Access refreshed. Review your retained draft and current source values before saving.';
+    }
+  }
 
   Future<void> _perform(
     String action, {

@@ -13,5 +13,6 @@ doc_events = {"*": {
     "before_insert": "erp_extensions.knitting.permissions.guard_write",
     "validate": "erp_extensions.knitting.permissions.guard_write",
     "before_cancel": "erp_extensions.knitting.permissions.guard_write",
+    "before_update_after_submit": "erp_extensions.knitting.permissions.guard_write",
     "on_trash": "erp_extensions.knitting.permissions.guard_write",
 }}

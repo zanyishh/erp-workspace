@@ -6,7 +6,7 @@ import frappe
 from frappe.utils import getdate, get_datetime, today
 from . import domain as d, permissions
 
-REPORTS = {"shortages": "72-hour yarn coverage", "changes": "24-hour job changes", "unplanned": "Planning status", "jobs": "Job reconciliation", "yarn": "Yarn custody", "fabric": "Fabric in house", "rolls": "Roll traceability",
+REPORTS = {"breakage": "Component breakage", "shortages": "72-hour yarn coverage", "changes": "24-hour job changes", "unplanned": "Planning status", "jobs": "Job reconciliation", "yarn": "Yarn custody", "fabric": "Fabric in house", "rolls": "Roll traceability",
     "planning": "Machine allocations", "production": "Production and loss", "quality": "Quality history", "subcontract": "Subcontract reconciliation",
     "activity": "Transaction register", "components": "Component life", "stoppage": "Machine stoppage", "billing": "Source billing", "margin": "Margin before overhead"}
 FINANCIAL = {"billing", "margin"}
@@ -14,7 +14,7 @@ FINANCIAL = {"billing", "margin"}
 
 def filters(value):
     value = frappe.parse_json(value) if isinstance(value, str) else value or {}
-    if not isinstance(value, dict) or set(value) - {"job", "mode", "from_date", "to_date", "start", "report", "roll", "group_by", "kind", "machine", "operator", "customer", "shift", "fabric", "dia"}:
+    if not isinstance(value, dict) or set(value) - {"job", "mode", "from_date", "to_date", "start", "report", "roll", "event", "group_by", "kind", "machine", "operator", "employee", "customer", "shift", "fabric", "dia", "gauge"}:
         frappe.throw("Use supported report filters.")
     mode = value.get("mode", "as_of")
     if mode not in ("as_of", "period"):
@@ -32,8 +32,21 @@ def filters(value):
 
 def event_rows(company, f, *, all_history=False):
     where = {"company": company, "occurred_at": ["<", f["end"]]}
+    related = {f["job"]} if f.get("job") else set()
+    if related and all_history:
+        # Trace ancestors of transfers without scanning unrelated company history.
+        while True:
+            transfers = frappe.get_all("Knitting Event", filters={**where, "kind": "transfer_fabric"},
+                or_filters=[["job", "in", list(related)], ["target_job", "in", list(related)]], fields=["job", "target_job"])
+            expanded = related | {r.job for r in transfers if r.job} | {r.target_job for r in transfers if r.target_job}
+            if expanded == related:
+                break
+            related = expanded
+        for source_job in related:
+            permissions.require_aggregate_scope(company, source_job)
+    or_filters = [["job", "in", list(related)], ["target_job", "in", list(related)]] if related else None
     rows = frappe.get_all("Knitting Event", filters=where, fields=["name", "job", "target_job", "kind", "actor", "payload", "result", "occurred_at", "reverses"],
-                          order_by="occurred_at, creation, name", limit=100001)
+                          or_filters=or_filters, order_by="occurred_at, creation, name", limit=100001)
     if len(rows) > 100000:
         frappe.throw("Narrow the report to a job before loading more than 100,000 source events.")
     cancelled = {row.reverses for row in rows if row.kind == "cancel_event"}
@@ -100,6 +113,7 @@ def run(company, report, value=None, *, paged=True):
     if report in FINANCIAL and "financial_read" not in permissions.capabilities():
         frappe.throw("This report includes financial values.", frappe.PermissionError)
     f = filters(value)
+    permissions.require_aggregate_scope(company, f.get("job"))
     if f.get("job"):
         d.reference("Knitting Job", f["job"], company)
     events = event_rows(company, f)
@@ -115,6 +129,7 @@ def run(company, report, value=None, *, paged=True):
     elif report == "jobs":
         columns = ["job", "customer", "received_kg", "consumed_kg", "returned_kg", "produced_kg", "delivered_kg", "billed_kg", "loss_kg", "yarn_kg", "subcontract_kg", "fabric_kg", "unbilled_kg", "fabric_transfer_in_kg", "fabric_transfer_out_kg", "yarn_transfer_in_kg", "yarn_transfer_out_kg"]
         jobs = frappe.get_list("Knitting Job", filters={"company": company, **({"name": f["job"]} if f.get("job") else {})}, fields=["name", "customer", "creation"], limit=100000)
+        historical_rolls = roll_states(company, history, {**f, "mode": "as_of"})
         for job in jobs:
             if job.creation >= f["end"]:
                 continue
@@ -141,19 +156,23 @@ def run(company, report, value=None, *, paged=True):
                 if entry.event in event_by_name:
                     key = "yarn_kg" if entry.custodian == "Warehouse" else "subcontract_kg"
                     totals[key] += Decimal(entry.quantity_kg)
-            totals["fabric_kg"] = sum((Decimal(r["weight_kg"]) for r in roll_states(company, history, {**f, "mode": "as_of"}) if r["job"] == job.name and r["state"] not in ("Split", "Delivered", "Cancelled")), d.ZERO)
+            totals["fabric_kg"] = sum((Decimal(r["weight_kg"]) for r in historical_rolls if r["job"] == job.name and r["state"] not in ("Split", "Delivered", "Cancelled")), d.ZERO)
             totals["unbilled_kg"] = totals["delivered_kg"] - totals["billed_kg"]
             rows.append({"job": job.name, "customer": job.customer, **{k: d.kg(v) for k, v in totals.items()}})
     elif report == "yarn":
-        columns = ["lot", "job", "material_owner", "party", "custodian", "warehouse", "quantity_kg"]
+        dimensions = ["lot", "job", "material_owner", "party", "custodian", "warehouse"]
+        columns = [*dimensions, "quantity_kg", "units"]
         totals = {}
+        unit_totals = {}
         for entry in frappe.get_all("Knitting Ledger Entry", filters={"company": company, **({"job": f["job"]} if f.get("job") else {})}, fields=[*columns, "event"]):
             if entry.event not in (event_by_name if f["mode"] == "as_of" else {e.name: e for e in events}):
                 continue
-            key = tuple(entry.get(k) for k in columns if k != "quantity_kg")
+            key = tuple(entry.get(k) for k in dimensions)
             totals[key] = totals.get(key, d.ZERO) + Decimal(entry.quantity_kg)
-        rows = [{**dict(zip(columns[:-1], key)), "quantity_kg": d.kg(q)} for key, q in totals.items() if q]
+            unit_totals[key] = unit_totals.get(key, d.ZERO) + Decimal(entry.units or "0")
+        rows = [{**dict(zip(dimensions, key)), "quantity_kg": d.kg(q), "units": str(unit_totals[key])} for key, q in totals.items() if q or unit_totals[key]]
         summary["quantity_kg"] = d.kg(sum(totals.values(), d.ZERO))
+        summary["units"] = str(sum(unit_totals.values(), d.ZERO))
     elif report in ("rolls", "fabric"):
         columns = ["name", "job", "programme_line", "weight_kg", "state", "machine", "produced_at", "job_revision", "parent_roll"]
         rows = roll_states(company, history, {**f, "mode": "as_of"} if report == "fabric" else f)
@@ -178,7 +197,7 @@ def run(company, report, value=None, *, paged=True):
     elif report == "subcontract":
         columns = ["subcontract", "job", "supplier", "ordered_kg", "issued_kg", "received_kg", "returned_kg", "custody_kg", "billed_kg"]
         for event in history:
-            if event.kind != "create_subcontract":
+            if event.kind != "create_subcontract" or f.get("job") and event.job != f["job"]:
                 continue
             sub = event.result["subcontract"]
             totals = {"issued_kg": d.ZERO, "received_kg": d.ZERO, "returned_kg": d.ZERO, "billed_kg": d.ZERO}
@@ -204,6 +223,10 @@ def run(company, report, value=None, *, paged=True):
                         if component["machine"] == batch.get("machine"):
                             component["run"] += Decimal(batch["quantity_kg"])
         rows = [{**c, "run_kg": d.kg(c["run"]), "boundary_kg": d.kg(c["boundary_kg"]), "remaining_kg": d.kg(Decimal(c["boundary_kg"]) - c["run"])} for c in components.values()]
+    elif report == 'breakage':
+        columns = ['event', 'job', 'component', 'component_type', 'machine', 'operator', 'employee', 'gauge', 'dia', 'fabric', 'quantity', 'reason', 'occurred_at']
+        rows = [{**e.result, 'event': e.name, 'occurred_at': e.occurred_at} for e in events if e.kind == 'component_breakage']
+        summary['quantity'] = str(sum((Decimal(r['quantity']) for r in rows), d.ZERO))
     elif report == "activity":
         columns = ["event", "job", "kind", "operator", "occurred_at", "machine", "programme_line", "quantity_kg", "loss_kg"]
         rows = [{"event": e.name, "job": e.job, "kind": e.kind, "operator": e.actor, "occurred_at": e.occurred_at,
@@ -216,7 +239,7 @@ def run(company, report, value=None, *, paged=True):
             if event.kind in ("invoice", "credit_invoice"):
                 doc = d.reference("Sales Invoice", event.result["invoice"], company)
                 rows.append({"event": event.name, "job": event.job, "invoice": doc.name, "posting_date": doc.posting_date, "currency": frappe.get_cached_value("Company", company, "default_currency"),
-                    "quantity_kg": event.result["quantity_kg"], "net_amount": d.money(doc.base_net_total), "tax_amount": d.money(doc.base_total_taxes_and_charges),
+                    "quantity_kg": d.kg(Decimal(event.result["quantity_kg"]) * (-1 if event.kind == "credit_invoice" else 1)), "net_amount": d.money(doc.base_net_total), "tax_amount": d.money(doc.base_total_taxes_and_charges),
                     "grand_total": d.money(doc.base_grand_total), "outstanding": d.money(doc.outstanding_amount * doc.conversion_rate)})
             if event.kind in ("produce", "produce_bulk", "subcontract_receive", "subcontract_bill", "deliver", "return_fabric"):
                 vouchers = event.result.get("vouchers", []) or ([{"voucher": event.result["voucher"]}] if event.result.get("voucher") else [])
@@ -226,7 +249,7 @@ def run(company, report, value=None, *, paged=True):
                             cost += Decimal(str(gl.debit)) - Decimal(str(gl.credit))
         net = sum((Decimal(r["net_amount"]) for r in rows), d.ZERO)
         summary = {"net_amount": d.money(net), "posted_cost": d.money(cost), "margin_before_overhead": d.money(net - cost)}
-    dimensions = ("customer", "machine", "operator", "shift", "day", "hour", "fabric", "dia", "programme_line", "kind")
+    dimensions = ("customer", "machine", "operator", "employee", "gauge", "shift", "day", "hour", "fabric", "dia", "programme_line", "kind")
     group = f.get("group_by")
     if group and group not in dimensions:
         frappe.throw("Choose a supported report grouping.")
@@ -247,14 +270,14 @@ def run(company, report, value=None, *, paged=True):
                 spec = frappe.db.get_value("Knitting Roll", {"production": source.name, **({"programme_line": row["programme_line"]} if row.get("programme_line") else {})}, "specification") if source.kind in ("produce", "produce_bulk", "subcontract_receive") else None
                 if spec:
                     spec = d.json_value(spec, {})
-                    row.update({key: spec.get(key) for key in ("fabric", "dia")})
+                    row.update({key: spec.get(key) for key in ("fabric", "dia", "gauge")})
     for key in ("customer", "machine", "operator", "shift", "fabric", "dia", "kind"):
         if f.get(key):
             rows = [row for row in rows if str(row.get(key) or "") == str(f[key])]
     if report in ("production", "activity", "planning", "stoppage", "quality"):
         columns = list(dict.fromkeys([*columns, "customer", "operator", "shift", "fabric", "dia", "programme_line"]))
     if group:
-        numeric = [key for key in columns if key.endswith("_kg") or key in ("minutes", "net_amount", "tax_amount", "grand_total", "outstanding")]
+        numeric = [key for key in columns if key.endswith("_kg") or key in ("quantity", "units", "minutes", "net_amount", "tax_amount", "grand_total", "outstanding")]
         grouped = {}
         for row in rows:
             key = str(row.get(group) or "Unspecified")
@@ -262,7 +285,7 @@ def run(company, report, value=None, *, paged=True):
             entry["records"] += 1
             for key in numeric:
                 entry[key] += Decimal(str(row.get(key) or 0))
-        rows = [{**row, **{key: d.kg(row[key]) if key.endswith("_kg") else d.money(row[key]) for key in numeric}} for row in grouped.values()]
+        rows = [{**row, **{key: d.kg(row[key]) if key.endswith("_kg") else str(row[key]) if key in ('quantity', 'units') else d.money(row[key]) for key in numeric}} for row in grouped.values()]
         columns = [group, "records", *numeric]
     if report == "production":
         summary = {"quantity_kg": d.kg(sum((Decimal(row.get("quantity_kg") or 0) for row in rows), d.ZERO)),

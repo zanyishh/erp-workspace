@@ -105,11 +105,83 @@ def has_permission(doc, ptype, user=None, **kwargs):
         return "configure" in capabilities(user)
     if not profile(doc.company) or "jobs" not in capabilities(user):
         return False
+    if not source_scope(doc, user):
+        return False
     if ptype not in ("read", "print", "export", "report", "select"):
         return bool(frappe.flags.get("knitting_service_write"))
     if doc.doctype == "Knitting Event" and doc.kind in FINANCIAL_EVENTS:
         return "financial_read" in capabilities(user)
     return True
+
+
+def link_visible(doctype, name, user=None):
+    if not name or (user or frappe.session.user) == "Administrator":
+        return True
+    return bool(frappe.get_list(doctype, filters={"name": name}, pluck="name", limit=1, user=user or frappe.session.user))
+
+
+def source_scope(doc, user=None):
+    """Apply linked record restrictions even when private JSON is projected by a service."""
+    if (user or frappe.session.user) == "Administrator":
+        return True
+    for field, doctype in (("warehouse", "Warehouse"), ("customer", "Customer"), ("party", "Customer"),
+                           ("job", "Knitting Job"), ("target_job", "Knitting Job"), ("lot", "Knitting Material Lot"),
+                           ("roll", "Knitting Roll")):
+        if doc.get(field) and not link_visible(doctype, doc.get(field), user):
+            return False
+    if doc.doctype == 'Knitting Event':
+        for raw in (doc.payload, doc.result):
+            value = frappe.parse_json(raw or '{}')
+            def allowed(value):
+                if isinstance(value, list):
+                    return all(allowed(v) for v in value)
+                if not isinstance(value, dict):
+                    return True
+                for key, target in {'customer':'Customer', 'party':'Customer', 'supplier':'Supplier',
+                    'warehouse':'Warehouse', 'target_warehouse':'Warehouse', 'lot':'Knitting Material Lot',
+                    'source_lot':'Knitting Material Lot', 'roll':'Knitting Roll', 'parent_roll':'Knitting Roll',
+                    'job':'Knitting Job', 'target_job':'Knitting Job', 'invoice':'Sales Invoice',
+                    'quotation':'Quotation', 'purchase_order':'Purchase Order'}.items():
+                    name = value.get(key)
+                    if name and frappe.db.exists(target, name) and not link_visible(target, name, user):
+                        return False
+                for name in value.get('rolls', []):
+                    if not link_visible('Knitting Roll', name, user):
+                        return False
+                return all(allowed(v) for v in value.values() if isinstance(v, (dict, list)))
+            if not allowed(value):
+                return False
+        if doc.voucher_type and doc.voucher_name and not link_visible(doc.voucher_type, doc.voucher_name, user):
+            return False
+    return True
+
+
+def require_aggregate_scope(company, job=None):
+    """A reconciliation is either complete and authorised, or unavailable.
+
+    Silently excluding a restricted godown would turn a correct ledger into
+    an incorrect available balance. Internal authoritative reads remain full.
+    """
+    if frappe.session.user == "Administrator":
+        return
+    for doctype in ("Knitting Job", "Knitting Ledger Entry", "Knitting Roll", "Knitting Subcontract"):
+        filters = {"company": company, **({"name" if doctype == "Knitting Job" else "job": job} if job else {})}
+        for row in frappe.get_all(doctype, filters=filters, fields=["name"]):
+            doc = frappe.get_doc(doctype, row.name)
+            if not source_scope(doc) or not link_visible(doctype, row.name):
+                frappe.throw("This reconciliation includes source records outside your access. Ask a manager with full source access.", frappe.PermissionError)
+
+
+def require_event_scope(event):
+    event.check_permission("read")
+    if not source_scope(event):
+        frappe.throw('This action includes source records outside your access.', frappe.PermissionError)
+    if event.job:
+        require_aggregate_scope(event.company, event.job)
+    if event.target_job:
+        require_aggregate_scope(event.company, event.target_job)
+    for row in frappe.get_all("Knitting Ledger Entry", filters={"event": event.name}, fields=["name"]):
+        frappe.get_doc("Knitting Ledger Entry", row.name).check_permission("read")
 
 
 def query_conditions(user=None, doctype=None):
@@ -124,4 +196,16 @@ def query_conditions(user=None, doctype=None):
     condition = f"`tab{doctype}`.`company` in ({','.join(frappe.db.escape(c) for c in allowed)})"
     if doctype == "Knitting Event" and "financial_read" not in caps:
         condition += " and `kind` not in (" + ",".join(frappe.db.escape(k) for k in FINANCIAL_EVENTS) + ")"
+    for field, target in (("warehouse", "Warehouse"), ("customer", "Customer"), ("party", "Customer"),
+                           ("job", "Knitting Job"), ("target_job", "Knitting Job"), ("lot", "Knitting Material Lot"), ("roll", "Knitting Roll")):
+        if frappe.get_meta(doctype).has_field(field):
+            names = frappe.get_list(target, pluck="name", limit_page_length=0, user=user or frappe.session.user)
+            values = ",".join(frappe.db.escape(n) for n in names) or "NULL"
+            condition += f" and (coalesce(`tab{doctype}`.`{field}`, '')='' or `tab{doctype}`.`{field}` in ({values}))"
+    if doctype == 'Knitting Event' and (user or frappe.session.user) != 'Administrator':
+        # JSON sources are not covered by Frappe's Link-field User Permission
+        # joins. Generic Desk/API lists must enforce the same source checks.
+        names = [r.name for r in frappe.get_all('Knitting Event', filters={'company':['in',allowed]},
+            fields=['name']) if source_scope(frappe.get_doc('Knitting Event', r.name), user)]
+        condition += f' and `tab{doctype}`.`name` in (' + (','.join(frappe.db.escape(n) for n in names) or 'NULL') + ')'
     return condition

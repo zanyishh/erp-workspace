@@ -47,6 +47,9 @@ def bill(event, data, job):
     source = d.reference("Knitting Event", data.get("receipt"), event.company)
     if source.kind != "receive_yarn" or source.cancelled:
         frappe.throw("Choose an active owned-yarn receipt.")
+    if job and job.name != source.job:
+        frappe.throw("Bill this receipt in its original job context.")
+    event.job = source.job
     value = d.json_value(source.result, {})
     payload = d.json_value(source.payload, {})
     if payload.get("material_owner") != "Owned":

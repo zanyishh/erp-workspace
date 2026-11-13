@@ -59,6 +59,42 @@ void main() {
       },
     ],
   });
+  testWidgets(
+    'access refresh retains allowed draft fields and removes private inputs',
+    (tester) async {
+      final api = TestKnitApi();
+      addTearDown(api.close);
+      api.publishContext(w);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          home: KnittingCommandForm(
+            api: api,
+            workspace: w,
+            action: knitActions.firstWhere((a) => a.id == 'revise_job'),
+            job: {...job, 'name': 'OLD-JOB', 'rate': '123.45'},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final reason = find.widgetWithText(TextFormField, 'Reason');
+      await tester.enterText(reason, 'Keep this operational reason');
+      expect(find.widgetWithText(TextFormField, 'Rate per kg'), findsOneWidget);
+      api.publishContext(
+        WorkspaceContext.fromJson({
+          'company': 'Demo',
+          'knitting_enabled': true,
+          'access_fingerprint': 'revoked-finance',
+          'capabilities': ['jobs', 'lifecycle'],
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Keep this operational reason'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Rate per kg'), findsNothing);
+      expect(find.text('Confirm & post'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final width in [390.0, 834.0, 1440.0]) {
     for (final page in [
       'Jobs',

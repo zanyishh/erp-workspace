@@ -1,3 +1,4 @@
+import 'ui/access_gate.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'file_actions.dart';
@@ -49,7 +50,9 @@ class _KnittingScreenState extends State<KnittingScreen> {
     }
   }
 
-  void refresh() => setState(() => future = _reload());
+  void refresh() => setState(() {
+    future = _reload();
+  });
   Future<KnittingSnapshot> _reload() async {
     final fresh = await widget.api.workspaceContext(company: workspace.company);
     if (!mounted) throw const ErpException('Workspace closed.');
@@ -172,6 +175,39 @@ class _KnittingScreenState extends State<KnittingScreen> {
           context,
           r['name'] as String,
           base64Decode(r['content'] as String),
+          api: widget.api,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  Future<void> printDelivery() async {
+    try {
+      final row = await pickKnitRecord(
+        context,
+        widget.api,
+        workspace.company!,
+        'Delivery',
+        job: selected?['name'] as String?,
+      );
+      if (row == null) return;
+      final result = await widget.api.knittingExport(
+        workspace.company!,
+        'delivery_challan',
+        {'event': row['name']},
+      );
+      if (mounted) {
+        await previewFile(
+          context,
+          result['name'] as String,
+          base64Decode(result['content'] as String),
+          api: widget.api,
         );
       }
     } catch (e) {
@@ -199,142 +235,162 @@ class _KnittingScreenState extends State<KnittingScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => WorkspacePage(
-    title: 'Knitting',
-    subtitle: '${workspace.company} · ${workspace.state}',
-    actions: [
-      if (page == 'Production' || page == 'Quality')
+  Widget build(BuildContext context) => AccessGate(
+    api: widget.api,
+    revalidate: () async {
+      selected = null;
+      page = 'Jobs';
+      final fresh = _reload();
+      setState(() {
+        future = fresh;
+      });
+      await fresh;
+    },
+    child: WorkspacePage(
+      title: 'Knitting',
+      subtitle: '${workspace.company} · ${workspace.state}',
+      actions: [
+        if (page == 'Delivery' && workspace.allows('delivery'))
+          OutlinedButton.icon(
+            onPressed: printDelivery,
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: const Text('Delivery challan'),
+          ),
+        if (page == 'Production' || page == 'Quality')
+          OutlinedButton.icon(
+            onPressed: printLabel,
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: const Text('Roll label'),
+          ),
         OutlinedButton.icon(
-          onPressed: printLabel,
-          icon: const Icon(Icons.print_outlined, size: 18),
-          label: const Text('Roll label'),
+          onPressed: refresh,
+          icon: const Icon(Icons.refresh, size: 18),
+          label: const Text('Refresh'),
         ),
-      OutlinedButton.icon(
-        onPressed: refresh,
-        icon: const Icon(Icons.refresh, size: 18),
-        label: const Text('Refresh'),
-      ),
-      if (primary != null)
-        FilledButton.icon(
-          onPressed: () => action(primary!),
-          icon: const Icon(Icons.add, size: 18),
-          label: Text(primary!.title),
-        ),
-    ],
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        WorkspaceSelection(
-          labels: workspace.destinations,
-          selected: page,
-          onSelected: destination,
-        ),
-        const SizedBox(height: 20),
-        Expanded(
-          child: page == 'Reports'
-              ? KnittingReports(
-                  api: widget.api,
-                  company: workspace.company!,
-                  financialRead: workspace.allows('financial_read'),
-                  job: selected?['name'] as String?,
-                )
-              : page == 'Setup'
-              ? _Setup(
-                  api: widget.api,
-                  workspace: workspace,
-                  onSaved: changedContext,
-                  onDirty: (value) => setupDirty = value,
-                )
-              : FutureBuilder<KnittingSnapshot>(
-                  future: future,
-                  builder: (context, state) {
-                    if (state.connectionState != ConnectionState.done) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          semanticsLabel: "Loading knitting workspace",
-                        ),
-                      );
-                    }
-                    if (state.hasError) {
-                      return MessagePanel(
-                        title: 'COULD NOT LOAD KNITTING',
-                        message: state.error.toString(),
-                        action: refresh,
-                      );
-                    }
-                    if (!state.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          semanticsLabel: 'Loading knitting records',
-                        ),
-                      );
-                    }
-                    final snap = state.data!;
-                    if (snap.company != workspace.company) {
-                      return const SizedBox.shrink();
-                    }
-                    if (selected != null) {
-                      final matches = snap
-                          .rows('jobs')
-                          .where((j) => j['name'] == selected!['name']);
-                      if (matches.isNotEmpty) selected = matches.first;
-                    }
-                    return KnittingWorkbench(
-                      snapshot: snap,
-                      page: page,
-                      selected: selected,
-                      query: search,
-                      onQuery: (v) => setState(() => search = v),
-                      onJob: (j) => setState(() {
-                        selected = j;
-                        future = widget.api.knittingSnapshot(
-                          workspace.company!,
-                          job: j['name'] as String,
+        if (primary != null)
+          FilledButton.icon(
+            onPressed: () => action(primary!),
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(primary!.title),
+          ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          WorkspaceSelection(
+            labels: workspace.destinations,
+            selected: page,
+            onSelected: destination,
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: page == 'Reports'
+                ? KnittingReports(
+                    api: widget.api,
+                    company: workspace.company!,
+                    financialRead: workspace.allows('financial_read'),
+                    job: selected?['name'] as String?,
+                  )
+                : page == 'Setup'
+                ? _Setup(
+                    api: widget.api,
+                    workspace: workspace,
+                    onSaved: changedContext,
+                    onDirty: (value) => setupDirty = value,
+                  )
+                : FutureBuilder<KnittingSnapshot>(
+                    future: future,
+                    builder: (context, state) {
+                      if (state.connectionState != ConnectionState.done) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            semanticsLabel: "Loading knitting workspace",
+                          ),
                         );
-                      }),
-                      onBack: () => setState(() {
-                        selected = null;
-                        page = 'Jobs';
-                        future = widget.api.knittingSnapshot(
-                          workspace.company!,
+                      }
+                      if (state.hasError) {
+                        return MessagePanel(
+                          title: 'COULD NOT LOAD KNITTING',
+                          message: state.error.toString(),
+                          action: refresh,
                         );
-                      }),
-                      onAction: action,
-                      onSource: source,
-                      workspace: workspace,
-                      onFind: () async {
-                        final row = await pickKnitRecord(
-                          context,
-                          widget.api,
-                          workspace.company!,
-                          'Job',
+                      }
+                      if (!state.hasData) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            semanticsLabel: 'Loading knitting records',
+                          ),
                         );
-                        if (row != null) {
-                          final fresh = await widget.api.knittingLookup(
+                      }
+                      final snap = state.data!;
+                      if (snap.company != workspace.company) {
+                        return const SizedBox.shrink();
+                      }
+                      if (selected != null) {
+                        final matches = snap
+                            .rows('jobs')
+                            .where((j) => j['name'] == selected!['name']);
+                        if (matches.isNotEmpty) selected = matches.first;
+                      }
+                      return KnittingWorkbench(
+                        snapshot: snap,
+                        page: page,
+                        selected: selected,
+                        query: search,
+                        onQuery: (v) => setState(() => search = v),
+                        onJob: (j) => setState(() {
+                          selected = j;
+                          future = widget.api.knittingSnapshot(
+                            workspace.company!,
+                            job: j['name'] as String,
+                          );
+                        }),
+                        onBack: () => setState(() {
+                          selected = null;
+                          page = 'Jobs';
+                          future = widget.api.knittingSnapshot(
+                            workspace.company!,
+                          );
+                        }),
+                        onAction: action,
+                        onSource: source,
+                        workspace: workspace,
+                        onFind: () async {
+                          final row = await pickKnitRecord(
+                            context,
+                            widget.api,
                             workspace.company!,
                             'Job',
-                            row['name'] as String,
                           );
-                          if (mounted) {
-                            final rows = fresh['rows'] as List;
-                            setState(() {
-                              selected = Map<String, dynamic>.from(
-                                rows.firstWhere((r) => r['name'] == row['name'])
-                                    as Map,
-                              );
-                              future = widget.api.knittingSnapshot(
-                                workspace.company!,
-                                job: row['name'] as String,
-                              );
-                            });
+                          if (row != null) {
+                            final fresh = await widget.api.knittingLookup(
+                              workspace.company!,
+                              'Job',
+                              row['name'] as String,
+                            );
+                            if (mounted) {
+                              final rows = fresh['rows'] as List;
+                              setState(() {
+                                selected = Map<String, dynamic>.from(
+                                  rows.firstWhere(
+                                        (r) => r['name'] == row['name'],
+                                      )
+                                      as Map,
+                                );
+                                future = widget.api.knittingSnapshot(
+                                  workspace.company!,
+                                  job: row['name'] as String,
+                                );
+                              });
+                            }
                           }
-                        }
-                      },
-                    );
-                  },
-                ),
-        ),
-      ],
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -814,11 +870,13 @@ class KnittingWorkbench extends StatelessWidget {
   }
 
   String _allocation(Map r) {
-    if (selected == null) return '${r['general_kg'] ?? '0.000'} kg general';
+    if (selected == null) {
+      return '${r['general_kg'] ?? '0.000'} kg · ${r['general_units'] ?? '0'} units general';
+    }
     final a = (r['allocations'] as List? ?? []).where(
       (a) => a['job'] == selected!['name'],
     );
-    return '${a.isEmpty ? '0.000' : a.first['quantity_kg']} kg allocated';
+    return '${a.isEmpty ? '0.000' : a.first['quantity_kg']} kg · ${a.isEmpty ? '0' : a.first['units'] ?? '0'} units allocated';
   }
 
   Widget _section(String title, List<Widget> children) => Padding(
@@ -920,10 +978,16 @@ class IndustrySetupScreen extends StatelessWidget {
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onSaved;
   @override
-  Widget build(BuildContext context) => WorkspacePage(
-    title: 'Industry setup',
-    subtitle: workspace.company ?? '',
-    child: _Setup(api: api, workspace: workspace, onSaved: onSaved),
+  Widget build(BuildContext context) => AccessGate(
+    api: api,
+    revalidate: () async {
+      await api.industrySettings(workspace.company!);
+    },
+    child: WorkspacePage(
+      title: 'Industry setup',
+      subtitle: workspace.company ?? '',
+      child: _Setup(api: api, workspace: workspace, onSaved: onSaved),
+    ),
   );
 }
 
@@ -1079,6 +1143,25 @@ class _SetupState extends State<_Setup> {
                     'Policy revision ${values!['revision']} · General ERP stays available.\nConfigure shared items and accounts in General ERP, then select them here.',
                   ),
                   const SizedBox(height: 24),
+                  const Display('READINESS', size: 23),
+                  const SizedBox(height: 8),
+                  for (final (field, label) in [
+                    ('warehouse', 'Default godown'),
+                    ('service_item', 'Knitting service item'),
+                    ('fabric_item', 'Owned fabric item'),
+                  ])
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        values![field] != null && values![field] != ''
+                            ? Icons.check_circle_outline
+                            : Icons.radio_button_unchecked,
+                        size: 20,
+                      ),
+                      title: Text(label),
+                    ),
+                  const SizedBox(height: 16),
                   for (final (k, label, opts) in [
                     (
                       'state',
@@ -1163,6 +1246,83 @@ class _SetupState extends State<_Setup> {
                             v == null || v.isEmpty ? 'Enter a value.' : null,
                       ),
                     ),
+                  const SizedBox(height: 12),
+                  const Display('OPERATING SHIFTS', size: 24),
+                  const Text(
+                    'Machine allocations must fit these hours. A finish earlier than the start runs overnight.',
+                  ),
+                  const SizedBox(height: 12),
+                  for (final shift in values!['shift_windows'] as List? ?? [])
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          for (final (field, label) in [
+                            ('name', 'Shift'),
+                            ('start', 'Start · HH:MM'),
+                            ('end', 'Finish · HH:MM'),
+                          ]) ...[
+                            Expanded(
+                              child: TextFormField(
+                                key: ValueKey(
+                                  '${identityHashCode(shift)}-$field',
+                                ),
+                                initialValue: shift[field]?.toString(),
+                                decoration: InputDecoration(labelText: label),
+                                onChanged: (v) {
+                                  shift[field] = v;
+                                  markDirty();
+                                },
+                                validator: (v) => field == 'name'
+                                    ? ((v ?? '').trim().isEmpty
+                                          ? 'Name the shift'
+                                          : null)
+                                    : RegExp(
+                                        r'^(?:[01]\d|2[0-3]):[0-5]\d$',
+                                      ).hasMatch(v ?? '')
+                                    ? null
+                                    : 'Use HH:MM',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          IconButton(
+                            tooltip: 'Remove shift',
+                            onPressed: () {
+                              markDirty();
+                              setState(
+                                () => (values!['shift_windows'] as List).remove(
+                                  shift,
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        markDirty();
+                        setState(() {
+                          (values!['shift_windows'] ??= <dynamic>[]).add(<
+                            String,
+                            dynamic
+                          >{
+                            'name':
+                                'Shift ${(values!['shift_windows'] as List).length + 1}',
+                            'start': '08:00',
+                            'end': '16:00',
+                          });
+                        });
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add shift window'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   if (error != null)
                     Text(
                       error!,

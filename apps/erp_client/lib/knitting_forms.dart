@@ -6,6 +6,8 @@ import 'knitting_models.dart';
 import 'workspace_context.dart';
 import 'widgets.dart';
 import 'ui/workspace_ui.dart';
+import 'ui/access_gate.dart';
+import 'document_editor.dart';
 
 class KnitField {
   const KnitField(
@@ -39,6 +41,12 @@ class KnitAction {
 
 const jobField = KnitField('job', 'Job', kind: 'Job');
 const quantityField = KnitField('quantity_kg', 'Quantity · kg', kind: 'kg');
+const unitsField = KnitField(
+  'units',
+  'Bags / cones moved or emptied',
+  kind: 'integer',
+  optional: true,
+);
 const lotField = KnitField('lot', 'Yarn lot', kind: 'Lot');
 const reasonField = KnitField('reason', 'Reason');
 const warehouseField = KnitField(
@@ -83,6 +91,45 @@ const datesFields = [
   KnitField('ends_at', 'Finish · YYYY-MM-DD HH:MM', kind: 'datetime'),
 ];
 const knitActions = <KnitAction>[
+  KnitAction(
+    'short_close_subcontract',
+    'Release subcontract balance',
+    'Billing',
+    'lifecycle',
+    [KnitField('subcontract', 'Subcontract', kind: 'Subcontract'), reasonField],
+  ),
+  KnitAction(
+    'component_breakage',
+    'Record component breakage',
+    'Factory',
+    'factory',
+    [
+      KnitField('component', 'Machine component', kind: 'Component'),
+      KnitField('job', 'Job (optional)', kind: 'Job', optional: true),
+      KnitField(
+        'programme_line',
+        'Programme line (when a job is selected)',
+        kind: 'line',
+        optional: true,
+      ),
+      KnitField(
+        'operator',
+        'Operator (blank uses your account)',
+        kind: 'User',
+        optional: true,
+      ),
+      KnitField(
+        'employee',
+        'Employee (optional)',
+        kind: 'Employee',
+        optional: true,
+      ),
+      KnitField('quantity', 'Broken units', kind: 'integer'),
+      reasonField,
+    ],
+    needsJob: false,
+  ),
+
   KnitAction(
     'cancel_event',
     'Correct company receipt or bill',
@@ -165,6 +212,7 @@ const knitActions = <KnitAction>[
   KnitAction('move_yarn', 'Transfer yarn to godown', 'Yarn', 'materials', [
     lotField,
     quantityField,
+    unitsField,
     KnitField('target_warehouse', 'Destination godown', kind: 'Warehouse'),
     reasonField,
   ]),
@@ -184,6 +232,7 @@ const knitActions = <KnitAction>[
     ),
     KnitField('party', 'Material owner', kind: 'Customer', optional: true),
     quantityField,
+    unitsField,
     warehouseField,
     KnitField('source_lot', 'Supplier / customer lot', optional: true),
     KnitField(
@@ -197,6 +246,7 @@ const knitActions = <KnitAction>[
   KnitAction('return_yarn', 'Return general yarn', 'Yarn', 'materials', [
     lotField,
     quantityField,
+    unitsField,
   ], needsJob: false),
 
   KnitAction(
@@ -222,6 +272,12 @@ const knitActions = <KnitAction>[
   KnitAction('adjust_yarn', 'Review stock adjustment', 'Yarn', 'lifecycle', [
     lotField,
     KnitField('quantity_kg', 'Count difference · signed kg', kind: 'signed_kg'),
+    KnitField(
+      'units',
+      'Physical unit difference',
+      kind: 'signed_integer',
+      optional: true,
+    ),
     reasonField,
     KnitField(
       'valuation_rate',
@@ -313,7 +369,7 @@ const knitActions = <KnitAction>[
     KnitField('due_date', 'Due · YYYY-MM-DD', kind: 'date', optional: true),
     KnitField('notes', 'Notes', optional: true),
   ], needsJob: false),
-  KnitAction('revise_job', 'Revise programme', 'Jobs', 'new_job', [
+  KnitAction('revise_job', 'Revise programme', 'Jobs', 'lifecycle', [
     reasonField,
     programmeField,
     rateField,
@@ -363,18 +419,27 @@ const knitActions = <KnitAction>[
   KnitAction('return_yarn', 'Return yarn', 'Yarn', 'materials', [
     lotField,
     quantityField,
+    unitsField,
   ]),
   KnitAction('allocate_yarn', 'Allocate general yarn', 'Yarn', 'materials', [
     lotField,
     quantityField,
+    unitsField,
   ]),
   KnitAction('transfer_yarn', 'Transfer to job', 'Yarn', 'materials', [
     lotField,
     quantityField,
+    unitsField,
     KnitField('target_job', 'Destination job', kind: 'Job'),
   ]),
   KnitAction('repack_yarn', 'Repack / process yarn', 'Yarn', 'materials', [
     lotField,
+    KnitField(
+      'input_units',
+      'Input bags / cones emptied',
+      kind: 'integer',
+      optional: true,
+    ),
     KnitField('input_kg', 'Input · kg', kind: 'kg'),
     KnitField('output_kg', 'Output · kg', kind: 'kg'),
     lossField,
@@ -389,6 +454,11 @@ const knitActions = <KnitAction>[
     ),
     lineField,
     machineField,
+    KnitField(
+      'shift',
+      'Shift name (blank uses available shifts)',
+      optional: true,
+    ),
     ...datesFields,
     quantityField,
     KnitField(
@@ -435,6 +505,9 @@ const knitActions = <KnitAction>[
   ]),
   KnitAction('deliver', 'Create delivery', 'Delivery', 'delivery', [
     KnitField('rolls', 'Released rolls', kind: 'Rolls'),
+    KnitField('destination', 'Delivery destination', optional: true),
+    KnitField('transport', 'Transport / vehicle', optional: true),
+    KnitField('transport_reference', 'Transport reference', optional: true),
   ]),
   KnitAction('invoice', 'Create invoice', 'Billing', 'billing', [
     KnitField('deliveries', 'Confirmed deliveries', kind: 'Deliveries'),
@@ -460,6 +533,11 @@ const knitActions = <KnitAction>[
       options: ['Tubular', 'Open width'],
     ),
     KnitField('capacity_kg', 'Capacity · kg per 8 hours', kind: 'kg'),
+    KnitField(
+      'shifts',
+      'Available shifts · comma separated (blank uses all)',
+      optional: true,
+    ),
   ], needsJob: false),
   KnitAction('create_component', 'Install component', 'Factory', 'factory', [
     machineField,
@@ -490,12 +568,13 @@ const knitActions = <KnitAction>[
   KnitAction(
     'subcontract_issue',
     'Issue to subcontractor',
-    'Factory',
+    'Yarn',
     'materials',
     [
       KnitField('subcontract', 'Subcontract', kind: 'Subcontract'),
       lotField,
       quantityField,
+      unitsField,
     ],
   ),
   KnitAction(
@@ -515,15 +594,16 @@ const knitActions = <KnitAction>[
   KnitAction(
     'subcontract_return',
     'Return from subcontractor',
-    'Factory',
+    'Yarn',
     'materials',
     [
       KnitField('subcontract', 'Subcontract', kind: 'Subcontract'),
       lotField,
       quantityField,
+      unitsField,
     ],
   ),
-  KnitAction('subcontract_bill', 'Post supplier bill', 'Factory', 'billing', [
+  KnitAction('subcontract_bill', 'Post supplier bill', 'Billing', 'billing', [
     KnitField('subcontract', 'Subcontract', kind: 'Subcontract'),
     quantityField,
   ]),
@@ -537,13 +617,17 @@ const knitActions = <KnitAction>[
   KnitAction('issue_consumable', 'Issue consumable', 'Factory', 'factory', [
     KnitField('item', 'Stock item', kind: 'Item'),
     KnitField('quantity', 'Quantity', kind: 'kg'),
+    unitsField,
     warehouseField,
+    KnitField('job', 'Job (optional)', kind: 'Job', optional: true),
+    KnitField('lot', 'Owned yarn lot (optional)', kind: 'Lot', optional: true),
     KnitField('machine', 'Machine', kind: 'Machine', optional: true),
     reasonField,
   ], needsJob: false),
   KnitAction('return_consumable', 'Return consumable', 'Factory', 'factory', [
     KnitField('event', 'Original issue', kind: 'Event'),
     KnitField('quantity', 'Quantity', kind: 'kg'),
+    unitsField,
     reasonField,
   ], needsJob: false),
   KnitAction('create_estimate', 'New estimate', 'Billing', 'billing', [
@@ -626,167 +710,183 @@ class _RecordPickerState extends State<_RecordPicker> {
   );
   @override
   Widget build(BuildContext context) => Dialog(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 700, maxHeight: 650),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Display(
-                    'SELECT ${widget.entity.toUpperCase()}',
-                    size: 28,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Close',
-                ),
-              ],
-            ),
-            TextField(
-              decoration: const InputDecoration(
-                labelText: 'Search by reference or name',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onSubmitted: (v) => setState(() {
-                query = v;
-                start = 0;
-                future = _load();
-              }),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: FutureBuilder<Map<String, dynamic>>(
-                future: future,
-                builder: (c, s) {
-                  if (s.hasError) {
-                    return MessagePanel(
-                      title: 'COULD NOT LOAD',
-                      message: s.error.toString(),
-                      action: () => setState(() => future = _load()),
-                    );
-                  }
-                  if (!s.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  final rows = List<Map<String, dynamic>>.from(
-                    (s.data!['rows'] as List).map(
-                      (r) => Map<String, dynamic>.from(r),
+    child: AccessGate(
+      api: widget.api,
+      fullPage: false,
+      revalidate: () async {
+        selected.clear();
+        final fresh = _load();
+        setState(() {
+          future = fresh;
+        });
+        await fresh;
+      },
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 700, maxHeight: 650),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Display(
+                      'SELECT ${widget.entity.toUpperCase()}',
+                      size: 28,
                     ),
-                  );
-                  return Column(
-                    children: [
-                      Expanded(
-                        child: rows.isEmpty
-                            ? const Center(child: Text('No matching records.'))
-                            : ListView.builder(
-                                itemCount: rows.length,
-                                itemBuilder: (_, i) {
-                                  final row = rows[i];
-                                  final name = row['name'] as String;
-                                  final foreign =
-                                      widget.job != null &&
-                                      row['job'] != null &&
-                                      row['job'] != widget.job;
-                                  return ListTile(
-                                    enabled: !foreign,
-                                    title: Text(
-                                      row['title']?.toString() ?? name,
-                                    ),
-                                    subtitle: Text(
-                                      [
-                                        name,
-                                        row['customer'],
-                                        row['supplier'],
-                                        row['item'],
-                                        row['party'],
-                                        row['category'],
-                                        row['status'],
-                                        row['state'],
-                                        row['weight_kg'] != null
-                                            ? '${row['weight_kg']} kg'
-                                            : null,
-                                        foreign
-                                            ? 'Belongs to another job'
-                                            : null,
-                                      ].whereType<Object>().join(' · '),
-                                    ),
-                                    trailing: widget.multiple
-                                        ? Checkbox(
-                                            value: selected.containsKey(name),
-                                            onChanged: foreign
-                                                ? null
-                                                : (v) => setState(() {
-                                                    if (v == true) {
-                                                      selected[name] = row;
-                                                    } else {
-                                                      selected.remove(name);
-                                                    }
-                                                  }),
-                                          )
-                                        : const Icon(Icons.chevron_right),
-                                    onTap: () {
-                                      if (widget.multiple) {
-                                        setState(() {
-                                          if (selected.containsKey(name)) {
-                                            selected.remove(name);
-                                          } else {
-                                            selected[name] = row;
-                                          }
-                                        });
-                                      } else {
-                                        Navigator.pop(context, row);
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          TextButton(
-                            onPressed: start == 0
-                                ? null
-                                : () => setState(() {
-                                    start -= 50;
-                                    future = _load();
-                                  }),
-                            child: const Text('Previous'),
-                          ),
-                          Text('${start + 1}–${start + rows.length}'),
-                          TextButton(
-                            onPressed: s.data!['has_more'] == true
-                                ? () => setState(() {
-                                    start += 50;
-                                    future = _load();
-                                  })
-                                : null,
-                            child: const Text('Next'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Close',
+                  ),
+                ],
               ),
-            ),
-            if (widget.multiple)
-              FilledButton(
-                onPressed: selected.isEmpty
-                    ? null
-                    : () => Navigator.pop(context, {
-                        'names': selected.keys.toList(),
-                        'records': selected.values.toList(),
-                      }),
-                child: Text('Use ${selected.length} selected'),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Search by reference or name',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onSubmitted: (v) => setState(() {
+                  query = v;
+                  start = 0;
+                  future = _load();
+                }),
               ),
-          ],
+              const SizedBox(height: 12),
+              Expanded(
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: future,
+                  builder: (c, s) {
+                    if (s.hasError) {
+                      return MessagePanel(
+                        title: 'COULD NOT LOAD',
+                        message: s.error.toString(),
+                        action: () => setState(() {
+                          future = _load();
+                        }),
+                      );
+                    }
+                    if (!s.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final rows = List<Map<String, dynamic>>.from(
+                      (s.data!['rows'] as List).map(
+                        (r) => Map<String, dynamic>.from(r),
+                      ),
+                    );
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: rows.isEmpty
+                              ? const Center(
+                                  child: Text('No matching records.'),
+                                )
+                              : ListView.builder(
+                                  itemCount: rows.length,
+                                  itemBuilder: (_, i) {
+                                    final row = rows[i];
+                                    final name = row['name'] as String;
+                                    final foreign =
+                                        widget.job != null &&
+                                        row['job'] != null &&
+                                        row['job'] != widget.job;
+                                    return ListTile(
+                                      enabled: !foreign,
+                                      title: Text(
+                                        row['title']?.toString() ?? name,
+                                      ),
+                                      subtitle: Text(
+                                        [
+                                          name,
+                                          row['customer'],
+                                          row['supplier'],
+                                          row['item'],
+                                          row['party'],
+                                          row['category'],
+                                          row['status'],
+                                          row['state'],
+                                          row['weight_kg'] != null
+                                              ? '${row['weight_kg']} kg'
+                                              : null,
+                                          foreign
+                                              ? 'Belongs to another job'
+                                              : null,
+                                        ].whereType<Object>().join(' · '),
+                                      ),
+                                      trailing: widget.multiple
+                                          ? Checkbox(
+                                              value: selected.containsKey(name),
+                                              onChanged: foreign
+                                                  ? null
+                                                  : (v) => setState(() {
+                                                      if (v == true) {
+                                                        selected[name] = row;
+                                                      } else {
+                                                        selected.remove(name);
+                                                      }
+                                                    }),
+                                            )
+                                          : const Icon(Icons.chevron_right),
+                                      onTap: () {
+                                        if (widget.multiple) {
+                                          setState(() {
+                                            if (selected.containsKey(name)) {
+                                              selected.remove(name);
+                                            } else {
+                                              selected[name] = row;
+                                            }
+                                          });
+                                        } else {
+                                          Navigator.pop(context, row);
+                                        }
+                                      },
+                                    );
+                                  },
+                                ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton(
+                              onPressed: start == 0
+                                  ? null
+                                  : () => setState(() {
+                                      start -= 50;
+                                      future = _load();
+                                    }),
+                              child: const Text('Previous'),
+                            ),
+                            Text('${start + 1}–${start + rows.length}'),
+                            TextButton(
+                              onPressed: s.data!['has_more'] == true
+                                  ? () => setState(() {
+                                      start += 50;
+                                      future = _load();
+                                    })
+                                  : null,
+                              child: const Text('Next'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              if (widget.multiple)
+                FilledButton(
+                  onPressed: selected.isEmpty
+                      ? null
+                      : () => Navigator.pop(context, {
+                          'names': selected.keys.toList(),
+                          'records': selected.values.toList(),
+                        }),
+                  child: Text('Use ${selected.length} selected'),
+                ),
+            ],
+          ),
         ),
       ),
     ),
@@ -819,10 +919,15 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   bool review = false, changed = false, checkingTotals = false;
   Map<String, dynamic>? invoiceReview;
   String? validation;
-  late List<KnitField> fields = [
+  bool accessInvalidatedDraft = false;
+  Map<String, dynamic>? freshJob;
+  WorkspaceContext get workspace =>
+      widget.api.contextFor(widget.workspace.company!) ?? widget.workspace;
+  Map<String, dynamic>? get job => freshJob ?? widget.job;
+  List<KnitField> get fields => [
     if (widget.action.needsJob && widget.job == null) jobField,
     ...widget.action.fields.where(
-      (f) => !f.finance || widget.workspace.allows('financial_read'),
+      (f) => !f.finance || workspace.allows('financial_read'),
     ),
   ];
   @override
@@ -879,6 +984,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   Future<void> _review() async {
+    if (!workspace.allows(widget.action.capability) ||
+        !widget.api.accessReady ||
+        draft?.state == CommandState.uncertain) {
+      return;
+    }
     if (!formKey.currentState!.validate()) return;
     try {
       for (final f in fields.where(
@@ -916,6 +1026,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         jsonDecode(jsonEncode(values)) as Map,
       );
       draft = KnittingDraft(widget.action.id, frozen);
+      accessInvalidatedDraft = false;
       setState(() {
         review = true;
         validation = null;
@@ -923,8 +1034,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         invoiceReview = null;
       });
       if (widget.action.id == 'invoice') {
-        final modified =
-            widget.job?['modified'] ?? references['job']?['modified'];
+        final modified = job?['modified'] ?? references['job']?['modified'];
         final result = await widget.api.knittingInvoicePreview(
           widget.workspace.company!,
           frozen,
@@ -952,8 +1062,13 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   Future<void> _post() async {
+    if (!widget.api.accessReady ||
+        accessInvalidatedDraft ||
+        !workspace.allows(widget.action.capability)) {
+      return;
+    }
     final d = draft!;
-    final modified = widget.job?['modified'] ?? references['job']?['modified'];
+    final modified = job?['modified'] ?? references['job']?['modified'];
     final future = d.submit(
       () => widget.api.knittingCommand(
         widget.workspace.company!,
@@ -989,57 +1104,130 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         if (context.mounted) Navigator.pop(context);
       }
     },
-    child: WorkspacePage(
-      title: widget.action.title,
-      subtitle:
-          '${widget.workspace.company} · ${widget.job?['name'] ?? 'Knitting'}',
-      actions: [
-        if (!review)
-          FilledButton(onPressed: _review, child: const Text('Review entry')),
-      ],
-      child: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1050),
-            child: review
-                ? _reviewPanel()
-                : Form(
-                    key: formKey,
-                    onChanged: () => changed = true,
-                    child: Panel(
-                      border: true,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'SOURCE & DETAILS',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
-                              fontSize: 11,
+    child: AccessGate(
+      api: widget.api,
+      revalidate: () async {
+        final effective = widget.api.contextFor(widget.workspace.company!);
+        invoiceReview = null;
+        checkingTotals = false;
+        accessInvalidatedDraft = true;
+        if (effective == null || !effective.allows(widget.action.capability)) {
+          throw const ErpException(
+            'Your access to this action changed. Your entry has not been posted.',
+          );
+        }
+        if (!effective.allows('financial_read')) {
+          for (final field in widget.action.fields.where((f) => f.finance)) {
+            values.remove(field.key);
+          }
+        }
+        references.clear();
+        if (values['job'] != null) {
+          final source = await widget.api.knittingSnapshot(
+            effective.company!,
+            job: values['job'] as String,
+          );
+          freshJob = source
+              .rows('jobs')
+              .where((r) => r['name'] == values['job'])
+              .firstOrNull;
+          if (freshJob == null) {
+            throw const ErpException('This source job is no longer available.');
+          }
+        }
+        setState(() {
+          review =
+              draft?.state == CommandState.uncertain ||
+              draft?.state == CommandState.posting;
+          validation =
+              'Access refreshed. Review the current sources and your retained entry again.';
+          if (!review) draft = null;
+        });
+      },
+      child: WorkspacePage(
+        title: widget.action.title,
+        subtitle:
+            '${widget.workspace.company} · ${widget.job?['name'] ?? 'Knitting'}',
+        actions: [
+          if (!review)
+            FilledButton(onPressed: _review, child: const Text('Review entry')),
+        ],
+        child: SingleChildScrollView(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1050),
+              child: review
+                  ? _reviewPanel()
+                  : Form(
+                      key: formKey,
+                      onChanged: () => changed = true,
+                      child: Panel(
+                        border: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'SOURCE & DETAILS',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.2,
+                                fontSize: 11,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          for (final f in fields)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 18),
-                              child: _field(f, values),
-                            ),
-                          if (validation != null)
-                            Text(
-                              validation!,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                        ],
+                            const SizedBox(height: 20),
+                            for (final f in fields)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 18),
+                                child: _field(f, values),
+                              ),
+                            if (validation != null)
+                              Text(
+                                validation!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
+            ),
           ),
         ),
       ),
     ),
   );
   Widget _reviewPanel() {
+    if (accessInvalidatedDraft) {
+      return Panel(
+        border: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Display('CHECK THE PREVIOUS SAVE', size: 28),
+            const SizedBox(height: 12),
+            const Text(
+              'Access changed while this request was open. Check its result before reviewing another entry.',
+            ),
+            SelectableText('Request ${draft!.requestId}'),
+            FilledButton(
+              onPressed: () async {
+                await _check();
+                if (!mounted) return;
+                setState(() {
+                  if (draft?.state == CommandState.editing) {
+                    review = false;
+                    draft = null;
+                    accessInvalidatedDraft = false;
+                  } else if (draft?.state == CommandState.confirmed) {
+                    Navigator.pop(context, true);
+                  }
+                });
+              },
+              child: const Text('Check save status'),
+            ),
+          ],
+        ),
+      );
+    }
     if (checkingTotals) {
       return const Panel(
         border: true,
@@ -1090,11 +1278,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           const SizedBox(height: 16),
           Text(
             confirmed
-                ? 'The server confirmed this action. Source records are available in the job activity.'
+                ? 'Your entry is saved in this business.'
                 : 'Check the source, ownership and quantities. Confirming will write to this company’s ERP.',
           ),
           const SizedBox(height: 20),
-          if (invoiceReview != null) ...[
+          if (invoiceReview != null && !confirmed) ...[
             const SizedBox(height: 20),
             Panel(
               border: true,
@@ -1148,25 +1336,26 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             ),
             const SizedBox(height: 20),
           ],
-          for (final e in d.values.entries.where(
-            (e) => e.key != 'preview_hash' && !e.key.endsWith('_modified'),
-          ))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 130,
-                    child: Text(
-                      _label(e.key),
-                      style: const TextStyle(color: WorkspaceTheme.muted),
+          if (!confirmed)
+            for (final e in d.values.entries.where(
+              (e) => e.key != 'preview_hash' && !e.key.endsWith('_modified'),
+            ))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 130,
+                      child: Text(
+                        _label(e.key),
+                        style: const TextStyle(color: WorkspaceTheme.muted),
+                      ),
                     ),
-                  ),
-                  Expanded(child: Text(_readable(e.value))),
-                ],
+                    Expanded(child: Text(_readable(e.value))),
+                  ],
+                ),
               ),
-            ),
           const Divider(height: 32),
           SelectableText(
             'Request ${d.requestId}',
@@ -1182,7 +1371,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             ),
           if (confirmed) ...[
             const SizedBox(height: 12),
-            SelectableText(_readable(d.result)),
+            _savedOutcome(d),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
@@ -1216,6 +1405,111 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       ),
     );
   }
+
+  Widget _savedOutcome(KnittingDraft draft) {
+    final data = Map<String, dynamic>.from(draft.result?['data'] as Map? ?? {});
+    final rolls = data['rolls'] as List?;
+    final sources = <(String, String)>[
+      if (data['invoice'] is String)
+        (
+          data['voucher_type'] == 'Purchase Invoice'
+              ? 'Purchase Invoice'
+              : 'Sales Invoice',
+          data['invoice'] as String,
+        ),
+      if (data['purchase_order'] is String)
+        ('Purchase Order', data['purchase_order'] as String),
+      if (data['quotation'] is String)
+        ('Quotation', data['quotation'] as String),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            if (data['quantity_kg'] != null)
+              _outcomeMetric('Quantity', '${data['quantity_kg']} kg'),
+            if (rolls != null) _outcomeMetric('Rolls', '${rolls.length} rolls'),
+            if (data['consumed_kg'] != null)
+              _outcomeMetric('Yarn consumed', '${data['consumed_kg']} kg'),
+            if (data['loss_kg'] != null)
+              _outcomeMetric('Declared loss', '${data['loss_kg']} kg'),
+            if (data['amount'] != null && workspace.allows('financial_read'))
+              _outcomeMetric('Document total', data['amount'].toString()),
+            if (data['status'] != null)
+              _outcomeMetric('Status', data['status'].toString()),
+            if (data['completed'] is List)
+              _outcomeMetric(
+                'Completed jobs',
+                '${(data['completed'] as List).length} jobs',
+              ),
+          ],
+        ),
+        for (final (key, label) in [
+          ('job', 'Job'),
+          ('lot', 'Yarn lot'),
+          ('plan', 'Machine allocation'),
+          ('machine', 'Machine'),
+          ('inspection', 'Inspection'),
+          ('subcontract', 'Subcontract'),
+          ('component', 'Component'),
+        ])
+          if (data[key] != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: SelectableText('$label · ${data[key]}'),
+            ),
+        if (data['destination'] != null && data['destination'] != '')
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text('Destination · ${data['destination']}'),
+          ),
+        for (final (type, name) in sources)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(name),
+            subtitle: Text(type),
+            trailing: const Icon(Icons.open_in_new, size: 18),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => DocumentEditor(
+                  api: widget.api,
+                  doctype: type,
+                  name: name,
+                  company: workspace.company,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _outcomeMetric(String label, String value) => Container(
+    constraints: const BoxConstraints(minWidth: 170),
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: WorkspaceTheme.canvas,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: WorkspaceTheme.muted, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+        ),
+      ],
+    ),
+  );
 
   String _label(String key) => key.replaceAll('_', ' ');
   String _readable(dynamic value) {
@@ -1312,6 +1606,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       'kg',
       'money',
       'integer',
+      'signed_integer',
       'date',
       'datetime',
     ].contains(f.kind)) {
@@ -1453,6 +1748,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           if (f.kind == 'money' && !RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(v)) {
             return 'Use up to two decimal places.';
           }
+          if (f.kind == 'signed_integer' && !RegExp(r'^-?\d+$').hasMatch(v)) {
+            return 'Enter a whole number difference.';
+          }
           if (f.kind == 'integer' && !RegExp(r'^\d+$').hasMatch(v)) {
             return 'Enter a whole number.';
           }
@@ -1517,7 +1815,8 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         : [
             lotField,
             quantityField,
-            if (widget.workspace.allows('financial_read')) ...const [
+            unitsField,
+            if (workspace.allows('financial_read')) ...const [
               KnitField(
                 'charge_item',
                 'Separate owned material charge item',

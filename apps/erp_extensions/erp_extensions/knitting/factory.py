@@ -12,6 +12,12 @@ def create_machine(event, data, job):
     if not str(data.get("title", "")).strip() or not data.get("dia") or not data.get("gauge"):
         frappe.throw("Name the machine and specify dia and gauge.")
     capacity = d.decimal(data.get("capacity_kg"), positive=True)
+    shifts = data.get('shifts') or []
+    if isinstance(shifts, str):
+        shifts = [s.strip() for s in shifts.split(',') if s.strip()]
+    configured = {w['name'] for w in d.settings(event.company).get('shift_windows', [])}
+    if not isinstance(shifts, list) or any(s not in configured for s in shifts):
+        frappe.throw("Choose machine shifts from this company's configured shift windows.")
     workstation = data.get("workstation")
     if workstation:
         d.reference("Workstation", workstation)
@@ -20,7 +26,7 @@ def create_machine(event, data, job):
                                        "production_capacity": 1}).insert().name
     machine = d.insert("Knitting Machine", company=event.company, title=data["title"], workstation=workstation,
         dia=str(data["dia"]), gauge=str(data["gauge"]), knit_type=data.get("knit_type", "Tubular"),
-        capacity_kg=d.kg(capacity), enabled=1)
+        capacity_kg=d.kg(capacity), shifts=frappe.as_json(shifts), enabled=1)
     return {"machine": machine.name}
 
 
@@ -47,6 +53,9 @@ def plan(event, data, job):
     machine = d.reference("Knitting Machine", data.get("machine"), event.company)
     line = d.programme(job, data.get("programme_line"))
     start, end = interval(data)
+    from .shifts import require_available
+    require_available(d.settings(event.company).get('shift_windows'), start, end,
+        allowed=d.json_value(machine.shifts, []), selected=data.get('shift'))
     quantity = d.decimal(data.get("quantity_kg"), positive=True)
     if not machine.enabled or any(str(line.get(k, "")).casefold() != str(machine.get(k, "")).casefold()
                                   for k in ("dia", "gauge", "knit_type") if line.get(k)):
@@ -85,9 +94,9 @@ def plan(event, data, job):
     previous = record.as_dict() if record else None
     record = record or frappe.new_doc("Knitting Plan")
     record.update({"company": event.company, "job": job.name, "machine": machine.name, "starts_at": start,
-                   "ends_at": end, "quantity_kg": d.kg(quantity), "programme_line": line["id"], "required_yarn_kg": d.kg(d.decimal(data["required_yarn_kg"], positive=True)) if data.get("required_yarn_kg") else None, "produced_kg": record.produced_kg or "0.000", "state": "Planned", "event": event.name})
+                   "ends_at": end, "quantity_kg": d.kg(quantity), "programme_line": line["id"], "shift": data.get('shift'), "required_yarn_kg": d.kg(d.decimal(data["required_yarn_kg"], positive=True)) if data.get("required_yarn_kg") else None, "produced_kg": record.produced_kg or "0.000", "state": "Started" if already else "Planned", "event": event.name})
     if record.is_new():
-        record = d.insert("Knitting Plan", **{k: record.get(k) for k in ("company", "job", "machine", "starts_at", "ends_at", "quantity_kg", "programme_line", "required_yarn_kg", "produced_kg", "state", "event")})
+        record = d.insert("Knitting Plan", **{k: record.get(k) for k in ("company", "job", "machine", "starts_at", "ends_at", "quantity_kg", "programme_line", "shift", "required_yarn_kg", "produced_kg", "state", "event")})
     else:
         record.save()
     return {"plan": record.name, "machine": machine.name, "quantity_kg": d.kg(quantity), "previous": previous}
@@ -116,6 +125,21 @@ def replace_component(event, data, job):
             "boundary_kg": component.boundary_kg, "reason": data["reason"]}
 
 
+def component_breakage(event, data, job):
+    component = d.reference('Knitting Component', data.get('component'), event.company)
+    machine = d.reference('Knitting Machine', component.machine, event.company)
+    quantity = d.decimal(data.get('quantity'), positive=True, precision=0)
+    if not str(data.get('reason', '')).strip():
+        frappe.throw('Record the breakage reason.')
+    operator = d.reference('User', data.get('operator') or frappe.session.user)
+    employee = d.reference('Employee', data['employee'], event.company) if data.get('employee') else None
+    line = d.programme(job, data.get('programme_line')) if job else {}
+    return {'component': component.name, 'component_type': component.component_type, 'machine': machine.name,
+        'job': job.name if job else None, 'programme_line': line.get('id'), 'fabric': line.get('fabric'),
+        'gauge': machine.gauge, 'dia': machine.dia, 'operator': operator.name,
+        'employee': employee.name if employee else None, 'quantity': str(quantity), 'reason': data['reason']}
+
+
 def stoppage(event, data, job):
     machine = d.reference("Knitting Machine", data.get("machine"), event.company)
     start, end = interval(data)
@@ -128,13 +152,20 @@ def stoppage(event, data, job):
 def create_subcontract(event, data, job):
     supplier = d.reference("Supplier", data.get("supplier"))
     quantity, rate = d.decimal(data.get("target_kg"), positive=True), d.decimal(data.get("rate", "0"), precision=2)
-    if quantity > Decimal(job.target_kg):
+    committed = d.ZERO
+    for row in d.current_rows("Knitting Subcontract", filters={"job": job.name, "status": "Open"}, fields=["name", "target_kg"]):
+        received = sum((Decimal(d.json_value(e.result, {})["quantity_kg"]) for e in sc_events(frappe.get_doc("Knitting Subcontract", row.name), "subcontract_receive")), d.ZERO)
+        committed += max(d.ZERO, Decimal(row.target_kg) - received)
+    produced = sum((d.programme_produced(job, line["id"]) for line in d.json_value(job.programme, [])), d.ZERO)
+    if quantity + committed + produced > Decimal(job.target_kg):
         frappe.throw("The subcontract cannot exceed the programme.")
     config = d.settings(event.company)
     service = d.reference("Item", data.get("service_item") or job.service_item or config.get("service_item"))
     if service.is_stock_item:
         frappe.throw("Subcontract service uses a non-stock purchase item.")
     godown = data.get("warehouse")
+    if godown:
+        d.warehouse(godown, event.company)
     if job.material_mode == "Owned":
         if godown:
             d.warehouse(godown, event.company)
@@ -167,9 +198,10 @@ def subcontract_issue(event, data, job):
     if lot.material_owner == "Customer" and lot.party != job.fabric_owner:
         frappe.throw("The material owner does not match the subcontract job.")
     voucher = posting.stock(event, "Material Transfer", [{"item_code": lot.item, "qty": quantity,
-        "s_warehouse": lot.warehouse, "t_warehouse": sub.warehouse}]) if lot.material_owner == "Owned" else None
-    d.ledger(event, lot, -quantity, job.name, voucher=voucher)
-    d.ledger(event, lot, quantity, job.name, custodian="SC:" + sub.name, voucher=voucher)
+        "s_warehouse": lot.warehouse, "t_warehouse": d.warehouse(sub.warehouse, event.company)}]) if lot.material_owner == "Owned" else None
+    units = d.movement_units(data, lot, quantity, job.name)
+    d.ledger(event, lot, -quantity, job.name, voucher=voucher, units=-units)
+    d.ledger(event, lot, quantity, job.name, custodian="SC:" + sub.name, voucher=voucher, units=units)
     return {"subcontract": sub.name, "lot": lot.name, "quantity_kg": d.kg(quantity), "voucher": voucher.name if voucher else None}
 
 
@@ -201,8 +233,9 @@ def subcontract_return(event, data, job):
         frappe.throw("The return exceeds material held at this subcontractor.")
     voucher = posting.stock(event, "Material Transfer", [{"item_code": lot.item, "qty": quantity,
         "s_warehouse": sub.warehouse, "t_warehouse": lot.warehouse}]) if lot.material_owner == "Owned" else None
-    d.ledger(event, lot, -quantity, job.name, custodian="SC:" + sub.name, voucher=voucher)
-    d.ledger(event, lot, quantity, job.name, voucher=voucher)
+    units = d.movement_units(data, lot, quantity, job.name, "SC:" + sub.name)
+    d.ledger(event, lot, -quantity, job.name, custodian="SC:" + sub.name, voucher=voucher, units=-units)
+    d.ledger(event, lot, quantity, job.name, voucher=voucher, units=units)
     return {"subcontract": sub.name, "quantity_kg": d.kg(quantity), "lot": lot.name, "voucher": voucher.name if voucher else None}
 
 
@@ -242,6 +275,30 @@ def close_subcontract(event, data, job):
     return {"subcontract": sub.name, "status": sub.status}
 
 
+def short_close_subcontract(event, data, job):
+    sub = subcontract(data, job, event.company)
+    if not str(data.get("reason", "")).strip():
+        frappe.throw("Record the reason for releasing the remaining subcontract commitment.")
+    entries = d.current_rows("Knitting Ledger Entry", filters={"custodian": "SC:" + sub.name}, fields=["quantity_kg", "units"])
+    received = sum((Decimal(d.json_value(r.result, {})["quantity_kg"]) for r in sc_events(sub, "subcontract_receive")), d.ZERO)
+    billed = sum((Decimal(d.json_value(r.result, {})["quantity_kg"]) for r in sc_events(sub, "subcontract_bill")), d.ZERO)
+    if sum((Decimal(r.quantity_kg) for r in entries), d.ZERO) or sum((Decimal(r.units or "0") for r in entries), d.ZERO) or received != billed:
+        frappe.throw("Return remaining custody and bill received fabric before short closing.")
+    order = d.reference("Purchase Order", sub.purchase_order, event.company)
+    if not received:
+        order.check_permission("cancel")
+        order.cancel()
+        sub.status = "Cancelled"
+    else:
+        order.check_permission("write")
+        order.update_status("Closed")
+        sub.status = "Completed"
+    previous = sub.target_kg
+    sub.target_kg = d.kg(received)
+    sub.save()
+    return {"subcontract": sub.name, "status": sub.status, "previous_target_kg": previous, "quantity_kg": d.kg(received), "reason": data["reason"]}
+
+
 def issue_consumable(event, data, job):
     item = d.reference("Item", data.get("item"))
     if not item.is_stock_item or not data.get("reason"):
@@ -249,14 +306,15 @@ def issue_consumable(event, data, job):
     quantity = d.decimal(data.get("quantity"), positive=True)
     godown = d.warehouse(data.get("warehouse") or d.settings(event.company).get("warehouse"), event.company)
     lot = d.reference("Knitting Material Lot", data["lot"], event.company) if data.get("lot") else None
-    if lot and (lot.item != item.name or lot.material_owner != "Owned" or quantity > d.lot_balance(lot.name, job.name if job else None)):
+    if lot and (lot.item != item.name or lot.material_owner != "Owned" or godown != lot.warehouse or quantity > d.lot_balance(lot.name, job.name if job else None)):
         frappe.throw("Consumable issue must use an available owned lot.")
     if data.get("machine"):
         d.reference("Knitting Machine", data["machine"], event.company)
     voucher = posting.stock(event, "Material Issue", [{"item_code": item.name, "qty": quantity, "s_warehouse": godown}])
+    units = d.movement_units(data, lot, quantity, job.name if job else None) if lot else d.ZERO
     if lot:
-        d.ledger(event, lot, -quantity, job.name if job else None, voucher=voucher)
-    return {"item": item.name, "quantity": d.kg(quantity), "lot": lot.name if lot else None, "warehouse": godown,
+        d.ledger(event, lot, -quantity, job.name if job else None, voucher=voucher, units=-units)
+    return {"item": item.name, "quantity": d.kg(quantity), "units": str(units), "lot": lot.name if lot else None, "warehouse": godown,
             "valuation_rate": d.money(voucher.items[0].basic_rate), "voucher": voucher.name, "voucher_type": voucher.doctype}
 
 
@@ -270,12 +328,19 @@ def return_consumable(event, data, job):
                     if d.json_value(r.result, {}).get("issue") == source.name), d.ZERO)
     if quantity + returned > Decimal(value["quantity"]):
         frappe.throw("Return exceeds the original unused issue quantity.")
+    returned_units = sum((Decimal(d.json_value(r.result, {}).get("units", "0")) for r in d.job_events(source.job, "return_consumable")
+                    if d.json_value(r.result, {}).get("issue") == source.name), d.ZERO)
+    remaining_units = Decimal(value.get("units", "0")) - returned_units
+    all_qty = quantity + returned == Decimal(value["quantity"])
+    units = d.decimal(data.get("units", remaining_units if all_qty else 0), precision=0)
+    if units > remaining_units or all_qty and units != remaining_units:
+        frappe.throw("Return only the physical units remaining on the source issue.")
     voucher = posting.stock(event, "Material Receipt", [{"item_code": value["item"], "qty": quantity,
         "t_warehouse": value["warehouse"], "basic_rate": value["valuation_rate"]}])
     if value.get("lot"):
         lot = d.reference("Knitting Material Lot", value["lot"], event.company)
-        d.ledger(event, lot, quantity, job.name if job else None, voucher=voucher)
-    return {"issue": source.name, "quantity": d.kg(quantity), "voucher": voucher.name, "voucher_type": voucher.doctype}
+        d.ledger(event, lot, quantity, job.name if job else None, voucher=voucher, units=units)
+    return {"issue": source.name, "quantity": d.kg(quantity), "units": str(units), "voucher": voucher.name, "voucher_type": voucher.doctype}
 
 
 def create_estimate(event, data, job):
@@ -313,11 +378,12 @@ def accept_estimate(event, data, job):
 
 def job_from_estimate(event, data, job):
     quote = estimate_source(data, event.company)
-    if quote.docstatus != 1 or frappe.db.exists("Knitting Job", {"quotation": quote.name}):
+    if quote.docstatus != 1 or d.current_rows("Knitting Job", filters={"quotation": quote.name}, fields=["name"]):
         frappe.throw("Accept this estimate first; it can create only one knitting job.")
     row = quote.items[0]
     result = d.create_job(event, {"customer": quote.party_name, "target_kg": d.kg(row.qty), "rate": d.money(row.rate),
         "service_item": row.item_code, "programme": d.json_value(quote.knitting_programme, []),
+        "pricing": {line["id"]: d.money(row.rate) for line in d.json_value(quote.knitting_programme, [])},
         "material_mode": quote.knitting_material_mode or "Customer"}, None)
     created = frappe.get_doc("Knitting Job", result["job"])
     created.quotation = quote.name
@@ -340,6 +406,8 @@ def create_rate(event, data, job):
 
 
 ACTIONS = {"create_machine": ("factory", create_machine), "holiday": ("planning", holiday), "plan": ("planning", plan),
+    "component_breakage": ("factory", component_breakage),
+    "short_close_subcontract": ("lifecycle", short_close_subcontract),
     "create_component": ("factory", create_component), "replace_component": ("factory", replace_component), "stoppage": ("factory", stoppage),
     "create_subcontract": ("billing", create_subcontract), "subcontract_issue": ("materials", subcontract_issue),
     "subcontract_receive": ("factory", subcontract_receive), "subcontract_return": ("materials", subcontract_return),
@@ -349,6 +417,7 @@ ACTIONS = {"create_machine": ("factory", create_machine), "holiday": ("planning"
     "create_rate": ("billing", create_rate)}
 
 JOB_OPTIONAL = {"create_machine", "holiday", "create_component", "replace_component", "stoppage", "create_estimate", "accept_estimate", "job_from_estimate",
+                "component_breakage",
                 "issue_consumable", "return_consumable", "create_rate"}
 
 
@@ -390,8 +459,9 @@ def move_yarn(event, data, job):
     voucher = posting.stock(event, "Material Transfer", [{"item_code": lot.item, "qty": quantity, "s_warehouse": lot.warehouse, "t_warehouse": godown}]) if lot.material_owner == "Owned" else None
     target = d.insert("Knitting Material Lot", company=event.company, item=lot.item, material_owner=lot.material_owner, party=lot.party,
         warehouse=godown, source_lot=lot.name, specification=lot.specification, charge_item=lot.charge_item, charge_rate=lot.charge_rate)
-    d.ledger(event, lot, -quantity, job.name if job else None, voucher=voucher)
-    d.ledger(event, target, quantity, job.name if job else None, voucher=voucher)
+    units = d.movement_units(data, lot, quantity, job.name if job else None)
+    d.ledger(event, lot, -quantity, job.name if job else None, voucher=voucher, units=-units)
+    d.ledger(event, target, quantity, job.name if job else None, voucher=voucher, units=units)
     return {"lot": target.name, "source_lot": lot.name, "quantity_kg": d.kg(quantity), "target_warehouse": godown,
         "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
 

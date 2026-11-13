@@ -29,10 +29,11 @@ def stock(event, purpose, rows, additional_costs=None):
 
 
 def delivery(event, job, rolls):
+    from .domain import json_value
     doc = frappe.get_doc({"doctype": "Delivery Note", "company": event.company, "customer": job.customer,
                           "knitting_event": event.name, "knitting_job": job.name})
     for roll in rolls:
-        doc.append("items", {"item_code": roll.fabric_item, "qty": roll.weight_kg, "rate": job.rate,
+        doc.append("items", {"item_code": roll.fabric_item, "qty": roll.weight_kg, "rate": json_value(job.pricing, {}).get(roll.programme_line, job.rate),
                              "warehouse": roll.warehouse})
     return submit(doc)
 

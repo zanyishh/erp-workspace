@@ -15,6 +15,7 @@ import 'widgets.dart';
 import 'workspace_picker.dart';
 import 'workspace_context.dart';
 import 'knitting_screen.dart';
+import 'ui/access_gate.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -97,7 +98,26 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       barrierDismissible: false,
       builder: (_) => SessionRecoveryDialog(api: api),
     );
-    if (restored == true) return true;
+    if (restored == true) {
+      WorkspaceContext fresh;
+      try {
+        fresh = await api.workspaceContext(company: _workspace?.company);
+      } on ErpException {
+        fresh = await api.workspaceContext();
+      }
+      if (!mounted || !identical(_api, api)) return false;
+      setState(() {
+        _workspace = fresh;
+        _lastData = null;
+        _module = null;
+        _revision++;
+        _snapshot = _guard(
+          api,
+          api.snapshot(_period, selectedCompany: fresh.company),
+        );
+      });
+      return true;
+    }
     if (mounted && identical(_api, api)) {
       api.onSessionExpired = null;
       api.close();
@@ -137,7 +157,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       _revision++;
       _snapshot = _guard(
         api,
-        api.snapshot(_period, selectedCompany: _lastData?.company),
+        api.snapshot(_period, selectedCompany: _workspace?.company),
       );
     });
   }
@@ -269,7 +289,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
           api: api,
           doctype: doctype,
           name: name,
-          company: _lastData?.company,
+          company: _workspace?.company,
         ),
       ),
     );
@@ -284,7 +304,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
       MaterialPageRoute<void>(
         builder: (_) => NativeCatalogScreen(
           api: api,
-          company: _lastData?.company,
+          company: _workspace?.company,
           create: create,
         ),
       ),
@@ -480,71 +500,93 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     if (api == null) {
       return SignInScreen(onSignIn: _signIn, onLicenses: _licenses);
     }
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true): _moduleMenu,
-        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): _refresh,
+    return AccessGate(
+      api: api,
+      revalidate: () async {
+        WorkspaceContext fresh;
+        try {
+          fresh = await api.workspaceContext(company: _workspace?.company);
+        } on ErpException catch (e) {
+          if (!e.permissionDenied) rethrow;
+          fresh = await api.workspaceContext();
+        }
+        final snapshot = api.snapshot(_period, selectedCompany: fresh.company);
+        setState(() {
+          _workspace = fresh;
+          _lastData = null;
+          _module = null;
+          _revision++;
+          _snapshot = snapshot;
+        });
+        await snapshot;
       },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          body: SafeArea(
-            child: FutureBuilder<ErpSnapshot>(
-              future: _snapshot,
-              builder: (context, state) {
-                final data = state.connectionState == ConnectionState.done
-                    ? state.data
-                    : null;
-                if (data != null) _lastData = data;
-                return Column(
-                  children: [
-                    _header(data, api),
-                    Expanded(
-                      child: state.connectionState != ConnectionState.done
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: WorkspaceTheme.ink,
-                              ),
-                            )
-                          : state.hasError
-                          ? MessagePanel(
-                              title: 'LET’S RECONNECT',
-                              message: state.error.toString(),
-                              action: _refresh,
-                            )
-                          : _module == null
-                          ? OverviewScreen(
-                              data: data!,
-                              onModule: _select,
-                              onNew: _newDocument,
-                            )
-                          : ModuleBrowser(
-                              key: ValueKey(
-                                '${_module!.name}-${_period.name}-$_revision',
-                              ),
-                              module: _module!,
-                              company: data!.company,
-                              currency: data.currency,
-                              loader: (query, start) => _guard(
-                                api,
-                                api.records(
-                                  _module!,
-                                  company: data.company,
-                                  period: _period,
-                                  query: query,
-                                  start: start,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+              _moduleMenu,
+          const SingleActivator(LogicalKeyboardKey.keyR, meta: true): _refresh,
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: SafeArea(
+              child: FutureBuilder<ErpSnapshot>(
+                future: _snapshot,
+                builder: (context, state) {
+                  final data = state.connectionState == ConnectionState.done
+                      ? state.data
+                      : null;
+                  if (data != null) _lastData = data;
+                  return Column(
+                    children: [
+                      _header(data, api),
+                      Expanded(
+                        child: state.connectionState != ConnectionState.done
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: WorkspaceTheme.ink,
                                 ),
+                              )
+                            : state.hasError
+                            ? MessagePanel(
+                                title: 'LET’S RECONNECT',
+                                message: state.error.toString(),
+                                action: _refresh,
+                              )
+                            : _module == null
+                            ? OverviewScreen(
+                                data: data!,
+                                onModule: _select,
+                                onNew: _newDocument,
+                              )
+                            : ModuleBrowser(
+                                key: ValueKey(
+                                  '${_module!.name}-${_period.name}-$_revision',
+                                ),
+                                module: _module!,
+                                company: data!.company,
+                                currency: data.currency,
+                                loader: (query, start) => _guard(
+                                  api,
+                                  api.records(
+                                    _module!,
+                                    company: data.company,
+                                    period: _period,
+                                    query: query,
+                                    start: start,
+                                  ),
+                                ),
+                                onRecord: (r) =>
+                                    _edit(r.module.doctype, name: r.name),
+                                onCreate: () => _edit(_module!.doctype),
+                                onBrowseAll: () => _catalog(),
                               ),
-                              onRecord: (r) =>
-                                  _edit(r.module.doctype, name: r.name),
-                              onCreate: () => _edit(_module!.doctype),
-                              onBrowseAll: () => _catalog(),
-                            ),
-                    ),
-                  ],
-                );
-              },
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),

@@ -30,6 +30,39 @@ class ErpApi {
   String account = 'Administrator';
   Future<bool> Function()? onSessionExpired;
   Future<bool>? _sessionRecovery;
+  final _accessListeners = <void Function()>{};
+  final _contexts = <String, WorkspaceContext>{};
+  int accessRevision = 0;
+  bool accessReady = true;
+  bool _refreshingAccess = false;
+  void addAccessListener(void Function() listener) =>
+      _accessListeners.add(listener);
+  void removeAccessListener(void Function() listener) =>
+      _accessListeners.remove(listener);
+  WorkspaceContext? contextFor(String company) => _contexts[company];
+  void _accessChanged() {
+    for (final listener in List.of(_accessListeners)) {
+      listener();
+    }
+  }
+
+  void publishContext(WorkspaceContext value) {
+    final previous = _contexts[value.company];
+    final changed =
+        previous != null &&
+        (previous.accessFingerprint != value.accessFingerprint ||
+            previous.revision != value.revision ||
+            previous.capabilities.toString() != value.capabilities.toString());
+    final notify =
+        changed || !accessReady || previous == null && accessRevision > 0;
+    if (changed) {
+      accessRevision++;
+      _contexts.clear();
+    }
+    if (value.company != null) _contexts[value.company!] = value;
+    accessReady = true;
+    if (notify) _accessChanged();
+  }
 
   static Uri validateServer(Uri uri) {
     final loopback = [
@@ -71,6 +104,7 @@ class ErpApi {
     Map<String, String>? form,
   }) async {
     final sessionAtStart = _session?.value;
+    final accessAtStart = accessRevision;
     try {
       final uri = baseUri.replace(path: path, queryParameters: query);
       final request = await _client
@@ -129,6 +163,24 @@ class ErpApi {
       }
       if (expired) await _expired(path, sessionAtStart);
       if (response.statusCode == 403) {
+        if (!_refreshingAccess &&
+            _contexts.isNotEmpty &&
+            !path.endsWith('workspace.context') &&
+            path.startsWith('/api/method/erp_extensions.')) {
+          _refreshingAccess = true;
+          try {
+            await workspaceContext(company: _contexts.keys.first);
+          } catch (_) {
+            // A revoked company cannot return a context fingerprint. Hide
+            // cached views until each route can validate its current source.
+            _contexts.clear();
+            accessRevision++;
+            accessReady = true;
+            _accessChanged();
+          } finally {
+            _refreshingAccess = false;
+          }
+        }
         throw const ErpException(
           'This account does not have permission to open this view.',
           permissionDenied: true,
@@ -151,6 +203,11 @@ class ErpApi {
             (path.endsWith('/login') || _session?.value == sessionAtStart)) {
           _session = cookie;
         }
+      }
+      if (accessAtStart != accessRevision && !path.endsWith('/login')) {
+        throw const ErpException(
+          'Access changed. Reload this view before continuing.',
+        );
       }
       return decoded;
     } on HandshakeException {
@@ -183,6 +240,13 @@ class ErpApi {
     _session = null;
     if (!path.endsWith('/login') && onSessionExpired != null) {
       final existing = _sessionRecovery;
+      final companies = List<String>.of(_contexts.keys);
+      if (existing == null) {
+        accessReady = false;
+        accessRevision++;
+        _contexts.clear();
+        _accessChanged();
+      }
       final recovery = existing ?? Future<bool>.sync(onSessionExpired!);
       _sessionRecovery = recovery;
       bool restored = false;
@@ -192,6 +256,15 @@ class ErpApi {
         if (identical(_sessionRecovery, recovery)) _sessionRecovery = null;
       }
       if (restored) {
+        for (final company in companies) {
+          try {
+            await workspaceContext(company: company);
+          } on ErpException {
+            /* Revoked company stays unavailable. */
+          }
+        }
+        accessReady = true;
+        _accessChanged();
         throw const ErpException('Signed in again. Retry your last action.');
       }
     }
@@ -256,19 +329,28 @@ class ErpApi {
     return objectMap(response['message']);
   }
 
-  Future<WorkspaceContext> workspaceContext({String? company}) async =>
-      WorkspaceContext.fromJson(
-        await _industry('workspace', 'context', {'company': company}),
-      );
+  Future<WorkspaceContext> workspaceContext({String? company}) async {
+    final value = WorkspaceContext.fromJson(
+      await _industry('workspace', 'context', {'company': company}),
+    );
+    publishContext(value);
+    return value;
+  }
+
   Future<WorkspaceContext> configureIndustry(
     String company,
     Map<String, dynamic> settings,
-  ) async => WorkspaceContext.fromJson(
-    await _industry('workspace', 'configure', {
-      'company': company,
-      'settings': settings,
-    }),
-  );
+  ) async {
+    final context = WorkspaceContext.fromJson(
+      await _industry('workspace', 'configure', {
+        'company': company,
+        'settings': settings,
+      }),
+    );
+    publishContext(context);
+    return context;
+  }
+
   Future<Map<String, dynamic>> industrySettings(String company) =>
       _industry('workspace', 'settings', {'company': company});
   Future<KnittingSnapshot> knittingSnapshot(
@@ -697,17 +779,25 @@ class ErpApi {
     String? selectedCompany,
   }) async {
     try {
-      final companies = await _list('Company', [
-        'name',
-        'default_currency',
-      ], orderBy: 'name asc');
+      final companies = await _list(
+        'Company',
+        ['name', 'default_currency'],
+        filters: selectedCompany == null
+            ? []
+            : [
+                ['name', '=', selectedCompany],
+              ],
+        orderBy: 'name asc',
+      );
       if (companies.isEmpty) {
         throw const ErpException('Create a company in ERPNext to get started.');
       }
-      final company = companies.firstWhere(
-        (c) => c['name'] == selectedCompany,
-        orElse: () => companies.first,
-      );
+      final company = companies.first;
+      if (selectedCompany != null && company['name'] != selectedCompany) {
+        throw const ErpException(
+          'This company is unavailable. Choose an authorised company.',
+        );
+      }
       if (company['name'] is! String ||
           company['default_currency'] is! String) {
         throw const ErpException(

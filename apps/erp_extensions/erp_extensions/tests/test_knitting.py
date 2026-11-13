@@ -33,7 +33,15 @@ class KnittingTests(unittest.TestCase):
         module = optional_module("erp_extensions.knitting.install")
         if module:
             module.install()
+            cls.setup_items = {}
+            for key, stock in (("service", 0), ("fabric", 1)):
+                code = "KNIT-SETUP-" + key.upper()
+                if not frappe.db.exists("Item", code):
+                    frappe.get_doc({"doctype": "Item", "item_code": code, "item_name": "Synthetic setup " + key,
+                        "item_group": frappe.db.get_value("Item Group", {"is_group": 0}, "name"), "stock_uom": "Kg", "is_stock_item": stock}).insert()
+                cls.setup_items[key] = code
             for role, email in (("Knitting Operator", "knit-operator@example.invalid"),
+                                ("Knitting Checker", "knit-checker@example.invalid"),
                                 ("Knitting Accountant", "knit-accountant@example.invalid")):
                 if not frappe.db.exists("User", email):
                     frappe.get_doc({"doctype": "User", "email": email, "first_name": role,
@@ -59,6 +67,9 @@ class KnittingTests(unittest.TestCase):
 
     def enable(self, **settings):
         return self.workspace().configure(COMPANY, {"state": "Active", "shifts": ["A", "B"],
+                                                    "shift_windows": [{"name":"A","start":"08:00","end":"16:00"},{"name":"B","start":"16:00","end":"00:00"},{"name":"C","start":"00:00","end":"08:00"}],
+                                                    "warehouse": frappe.db.get_value("Warehouse", {"company": COMPANY, "is_group": 0}, "name"),
+                                                    "service_item": self.setup_items["service"], "fabric_item": self.setup_items["fabric"],
                                                     **settings})
 
     def test_general_context_keeps_core_without_enabling_knitting(self):
@@ -207,6 +218,290 @@ class KnittingTests(unittest.TestCase):
     def release(self, rolls):
         for roll in rolls:
             self.call("quality", {"job": self.job, "roll": roll, "decision": "Released", "remarks": "Synthetic check"})
+
+    def test_staff_posting_preserves_private_service_audit_without_exposing_it(self):
+        self.fixtures()
+        frappe.set_user("knit-operator@example.invalid")
+        result = self.call("receive_yarn", {"job": self.job, "item": self.items["yarn"], "quantity_kg": "90.000",
+            "material_owner": "Customer", "party": self.customer, "warehouse": self.warehouse}, "staff-receipt-review")
+        lot = result["data"]["lot"]
+        self.assertEqual(self.knitting().command_status(COMPANY, "staff-receipt-review"), result)
+        rolls = self.produce(lot)
+        self.assertEqual(len(rolls), 2)
+        frappe.set_user("Administrator")
+        event = frappe.get_doc("Knitting Event", result["event"])
+        self.assertEqual(frappe.parse_json(event.payload)["quantity_kg"], "90.000")
+        self.assertEqual(frappe.parse_json(event.result)["lot"], lot)
+        self.assertEqual(self.knitting().snapshot(COMPANY, self.job)["jobs"][0]["balances"]["produced_kg"], "88.000")
+
+    def test_staff_mixed_stock_qc_and_manager_invoice_keep_frozen_private_charges(self):
+        self.fixtures(target='90.000', lycra_charge='Separate')
+        yarn, lycra = self.receive('90.000'), self.receive('2.000', 'Owned', 'lycra')
+        self.call('set_lot_charge', {'lot':lycra, 'charge_item':self.items['material_charge'], 'charge_rate':'50.00', 'reason':'Agreed charge'})
+        user = frappe.get_doc('User', 'knit-operator@example.invalid')
+        user.append('roles', {'role':'Stock User'}); user.save()
+        frappe.set_user(user.name)
+        result = self.call('produce', {'job':self.job,'programme_line':'P1','weights_kg':['45.000','45.000'],
+            'inputs':[{'lot':yarn,'quantity_kg':'90.000'},{'lot':lycra,'quantity_kg':'2.000'}], 'loss_kg':'2.000','warehouse':self.warehouse})
+        self.assertNotIn('rate', frappe.as_json(result))
+        rolls = result['data']['rolls']
+        frappe.set_user('knit-checker@example.invalid')
+        self.release(rolls)
+        frappe.set_user('Administrator')
+        self.assertEqual(frappe.parse_json(frappe.get_doc('Knitting Roll', rolls[0]).charges)[0]['rate'], '50.00')
+        delivery = self.call('deliver', {'job':self.job,'rolls':rolls})
+        invoice = self.call('invoice', {'job':self.job,'deliveries':[delivery['event']]})
+        self.assertEqual(invoice['data']['amount'], '9100.00')
+
+    def test_credit_and_physical_return_follow_the_specific_roll_charge(self):
+        self.fixtures(target='20.000', lycra_charge='Separate')
+        yarn, lycra = self.receive('20.000'), self.receive('1.000', 'Owned', 'lycra')
+        rolls = []
+        for inputs, loss in (([{'lot':yarn,'quantity_kg':'10.000'}],'0.000'),
+            ([{'lot':yarn,'quantity_kg':'10.000'},{'lot':lycra,'quantity_kg':'1.000','charge_item':self.items['material_charge'],'charge_rate':'50.00'}],'1.000')):
+            rolls += self.call('produce', {'job':self.job,'programme_line':'P1','weights_kg':['10.000'], 'inputs':inputs,
+                'loss_kg':loss,'warehouse':self.warehouse})['data']['rolls']
+        self.release(rolls)
+        delivery = self.call('deliver', {'job':self.job,'rolls':rolls})
+        invoice = self.call('invoice', {'job':self.job,'deliveries':[delivery['event']]})
+        credit = self.call('credit_invoice', {'job':self.job,'invoice_event':invoice['event'],'quantity_kg':'10.000','reason':'First roll return'})
+        doc = frappe.get_doc('Sales Invoice', credit['data']['invoice'])
+        self.assertEqual(doc.grand_total, -1000)
+        self.assertFalse(any(row.item_code == self.items['material_charge'] for row in doc.items))
+        with self.assertRaises(frappe.ValidationError):
+            self.call('return_fabric', {'job':self.job,'delivery':delivery['event'],'rolls':[rolls[1]],'reason':'Wrong roll'})
+        self.call('return_fabric', {'job':self.job,'delivery':delivery['event'],'rolls':[rolls[0]],'reason':'Credited roll'})
+
+    def test_partial_auxiliary_credits_conserve_original_rounded_amount_and_quantity(self):
+        from decimal import Decimal
+        self.fixtures(target='3.000', lycra_charge='Separate')
+        yarn, lycra = self.receive('3.000'), self.receive('0.001', 'Owned', 'lycra')
+        rolls = self.call('produce', {'job':self.job,'programme_line':'P1','weights_kg':['3.000'],
+            'inputs':[{'lot':yarn,'quantity_kg':'3.000'},{'lot':lycra,'quantity_kg':'0.001','charge_item':self.items['material_charge'],'charge_rate':'50.00'}],
+            'loss_kg':'0.001','warehouse':self.warehouse})['data']['rolls']
+        self.release(rolls)
+        delivery = self.call('deliver', {'job':self.job,'rolls':rolls})
+        invoice = self.call('invoice', {'job':self.job,'deliveries':[delivery['event']]})
+        total, qty = Decimal(0), Decimal(0)
+        for _ in range(3):
+            credit = self.call('credit_invoice', {'job':self.job,'invoice_event':invoice['event'],'quantity_kg':'1.000','reason':'Partial synthetic credit'})
+            for row in frappe.get_doc('Sales Invoice', credit['data']['invoice']).items:
+                if row.item_code == self.items['material_charge']:
+                    total += Decimal(str(row.amount)); qty += Decimal(str(row.qty))
+        self.assertEqual(total, Decimal('-0.05'))
+        self.assertEqual(qty, Decimal('-0.001'))
+
+    def test_partial_invoices_conserve_small_auxiliary_source_at_native_precision(self):
+        from decimal import Decimal
+        self.fixtures(target='3.000',lycra_charge='Separate')
+        yarn, lycra = self.receive('3.000'), self.receive('0.001','Owned','lycra')
+        rolls = self.call('produce', {'job':self.job,'programme_line':'P1','weights_kg':['3.000'],
+            'inputs':[{'lot':yarn,'quantity_kg':'3.000'},{'lot':lycra,'quantity_kg':'0.001','charge_item':self.items['material_charge'],'charge_rate':'50.00'}],
+            'loss_kg':'0.001','warehouse':self.warehouse})['data']['rolls']
+        self.release(rolls)
+        delivery = self.call('deliver', {'job':self.job,'rolls':rolls})
+        amounts, quantities = Decimal(0), Decimal(0)
+        for _ in range(3):
+            invoice = self.call('invoice', {'job':self.job,'deliveries':[delivery['event']],'quantity_kg':'1.000'})
+            doc = frappe.get_doc('Sales Invoice',invoice['data']['invoice'])
+            amounts += Decimal(str(doc.grand_total))
+            quantities += sum((Decimal(str(r.qty)) for r in doc.items if r.item_code == self.items['material_charge']),Decimal(0))
+        self.assertEqual(amounts,Decimal('300.05'))
+        self.assertEqual(quantities,Decimal('0.001'))
+
+    def test_qc_cancellation_cannot_resurrect_split_parent_or_leave_child_inspection(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        qc = self.call("quality", {"job": self.job, "roll": rolls[0], "decision": "Released"})
+        split = self.call("split_roll", {"job": self.job, "roll": rolls[0], "weights_kg": ["20.000", "24.000"], "reason": "Synthetic cutting"})
+        with self.assertRaises(frappe.ValidationError):
+            self.call("cancel_event", {"job": self.job, "event": qc["event"], "reason": "Wrong check"})
+        self.assertEqual(frappe.db.get_value("Knitting Roll", rolls[0], "state"), "Split")
+        child = split["data"]["rolls"][0]
+        check = self.call("quality", {"job": self.job, "roll": child, "decision": "Released"})
+        with self.assertRaises(frappe.ValidationError):
+            self.call("cancel_event", {"job": self.job, "event": split["event"], "reason": "Wrong split"})
+        self.call("cancel_event", {"job": self.job, "event": check["event"], "reason": "Undo child check"})
+        self.call("cancel_event", {"job": self.job, "event": split["event"], "reason": "Undo split"})
+        self.assertEqual(frappe.db.get_value("Knitting Roll", rolls[0], "state"), "Released")
+
+    def test_private_commercial_revisions_do_not_enter_desk_version_history(self):
+        self.fixtures()
+        self.call("revise_job", {"job": self.job, "rate": "123.45", "reason": "Synthetic private rate"})
+        self.assertEqual(frappe.db.count("Version", {"ref_doctype": "Knitting Job", "docname": self.job}), 0)
+        frappe.set_user('knit-operator@example.invalid')
+        from frappe.desk.form.load import getdoc
+        frappe.response.docs = []
+        getdoc('Knitting Job', self.job)
+        self.assertFalse(frappe.response.docs[-1].get('rate'))
+        self.assertNotIn('123.45', frappe.as_json(frappe.response.get('docinfo', {})))
+
+    def test_submitted_knitting_sources_retain_write_guard(self):
+        self.assertIn("before_update_after_submit", importlib.import_module("erp_extensions.hooks").doc_events["*"])
+
+    def test_close_requires_each_programme_and_closing_allows_revision(self):
+        self.fixtures(target='20.000')
+        line = frappe.parse_json(frappe.get_doc('Knitting Job',self.job).programme)[0]
+        self.call('revise_job', {'job':self.job,'reason':'Two fabrics','programme':[
+            {**line,'id':'A','target_kg':'10.000'},{**line,'id':'B','target_kg':'10.000'}]})
+        self.enable(warehouse=self.warehouse, service_item=self.items['service'], fabric_item=self.items['fabric'],allow_production_excess_pct='100')
+        lot = self.receive('20.000')
+        rolls = self.call('produce',{'job':self.job,'programme_line':'A','weights_kg':['20.000'], 'inputs':[{'lot':lot,'quantity_kg':'20.000'}], 'loss_kg':'0.000','warehouse':self.warehouse})['data']['rolls']
+        self.release(rolls)
+        delivered = self.call('deliver', {'job':self.job,'rolls':rolls})
+        self.call('invoice', {'job':self.job,'deliveries':[delivered['event']]})
+        with self.assertRaises(frappe.ValidationError): self.call('close_job', {'job':self.job})
+        self.workspace().configure(COMPANY, {'state':'Closing'})
+        self.call('revise_job', {'job':self.job,'reason':'Customer cancels unproduced fabric','programme':[{**line,'id':'A','target_kg':'20.000'}]})
+        self.call('close_job', {'job':self.job})
+
+    def test_manual_receipt_cancellation_requires_supplier_bill_correction_first(self):
+        self.fixtures(mode='Owned')
+        receipt = self.call('receive_yarn', {'job':self.job,'item':self.items['yarn'],'material_owner':'Owned',
+            'quantity_kg':'10.000','valuation_rate':'10.00','warehouse':self.warehouse})
+        bill = self.call('bill_yarn', {'receipt':receipt['event'], 'supplier':self.supplier()})
+        with self.assertRaises(frappe.ValidationError):
+            self.call('cancel_event', {'job':self.job,'event':receipt['event'],'reason':'Has active bill'})
+        self.assertEqual(frappe.db.get_value('Purchase Invoice',bill['data']['invoice'],'docstatus'),1)
+
+    def test_general_custody_and_setup_transition_cannot_strand_material(self):
+        self.fixtures()
+        with self.assertRaises(frappe.ValidationError):
+            self.workspace().configure(COMPANY, {"state": "Setup"})
+        frappe.db.set_value("Knitting Job", self.job, "status", "Completed")
+        self.call("receive_yarn", {"item": self.items["yarn"], "quantity_kg": "10.000", "units": 2,
+            "material_owner": "Customer", "party": self.customer, "warehouse": self.warehouse})
+        with self.assertRaises(frappe.ValidationError):
+            self.workspace().configure(COMPANY, {"state": "Inactive"})
+
+    def test_subcontract_commitment_can_be_cancelled_without_overbooking(self):
+        self.fixtures()
+        payload = {"job": self.job, "supplier": self.supplier(), "target_kg": "88.000", "rate": "10.00"}
+        first = self.call("create_subcontract", payload)["data"]["subcontract"]
+        with self.assertRaises(frappe.ValidationError):
+            self.call("create_subcontract", payload)
+        self.call("short_close_subcontract", {"job": self.job, "subcontract": first, "reason": "Unused synthetic order"})
+        self.assertEqual(frappe.db.get_value("Knitting Subcontract", first, "status"), "Cancelled")
+        self.call("create_subcontract", payload)
+
+    def test_physical_units_follow_allocation_processing_and_correction(self):
+        self.fixtures()
+        d = importlib.import_module("erp_extensions.knitting.domain")
+        receipt = self.call("receive_yarn", {"item": self.items["yarn"], "quantity_kg": "100.000", "units": 4,
+            "material_owner": "Customer", "party": self.customer, "warehouse": self.warehouse})
+        lot = receipt["data"]["lot"]
+        self.call("allocate_yarn", {"job": self.job, "lot": lot, "quantity_kg": "40.000", "units": 2})
+        self.assertEqual(d.lot_units(lot), 2)
+        self.assertEqual(d.lot_units(lot, self.job), 2)
+        transformed = self.call("repack_yarn", {"job": self.job, "lot": lot, "input_kg": "40.000", "input_units": 2,
+            "output_kg": "39.000", "loss_kg": "1.000", "output_units": 8})["data"]["lot"]
+        self.assertEqual(d.lot_units(lot, self.job), 0)
+        self.assertEqual(d.lot_units(transformed, self.job), 8)
+        self.call("return_yarn", {"lot": lot, "quantity_kg": "60.000", "units": 2})
+        self.assertEqual(d.lot_units(lot), 0)
+        with self.assertRaises(frappe.ValidationError):
+            self.call("return_yarn", {"job": self.job, "lot": transformed, "quantity_kg": "1.000", "units": 9})
+
+    def test_same_company_godown_scope_blocks_complete_totals_and_saved_result(self):
+        self.fixtures()
+        private = self.receive()
+        result = self.call("receive_yarn", {"job": self.job, "item": self.items["yarn"], "quantity_kg": "1.000",
+            "material_owner": "Customer", "party": self.customer, "warehouse": self.warehouse}, "scope-saved-receipt")
+        allowed = frappe.get_doc({"doctype": "Warehouse", "warehouse_name": "Allowed synthetic " + frappe.generate_hash(length=6),
+            "company": COMPANY, "is_group": 0}).insert().name
+        user = "scope-manager-" + frappe.generate_hash(length=6) + "@example.invalid"
+        frappe.get_doc({"doctype": "User", "email": user, "first_name": "Restricted manager", "send_welcome_email": 0,
+            "roles": [{"role": "Knitting Manager"}]}).insert()
+        frappe.set_user(user)
+        values = {'job':self.job,'item':self.items['yarn'],'quantity_kg':'1.000','material_owner':'Customer','party':self.customer,'warehouse':self.warehouse}
+        modified = str(frappe.db.get_value('Knitting Job',self.job,'modified'))
+        self.call('receive_yarn',values,'scope-actor-replay',modified)
+        frappe.set_user('Administrator')
+        frappe.get_doc({"doctype": "User Permission", "user": user, "allow": "Warehouse", "for_value": allowed, "apply_to_all_doctypes": 1}).insert()
+        frappe.set_user(user)
+        with self.assertRaises(frappe.PermissionError):
+            self.knitting().snapshot(COMPANY, self.job)
+        with self.assertRaises(frappe.PermissionError):
+            self.knitting().report(COMPANY, "yarn", {"job": self.job})
+        self.assertFalse(importlib.import_module("erp_extensions.knitting.permissions").link_visible("Knitting Material Lot", private))
+        with self.assertRaises(frappe.PermissionError): self.knitting().command_status(COMPANY,'scope-actor-replay')
+        with self.assertRaises(frappe.PermissionError): self.call('receive_yarn',values,'scope-actor-replay',modified)
+
+    def test_owned_invoice_updates_original_delivery_billing_and_per_line_rates(self):
+        self.fixtures(mode="Owned")
+        self.call("revise_job", {"job": self.job, "reason": "Agreed rate", "pricing": {"P1": "120.00"}})
+        rolls = self.produce(self.receive(owner="Owned"))
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        note = frappe.get_doc("Delivery Note", delivery["data"]["voucher"])
+        self.assertTrue(all(r.rate == 120 for r in note.items))
+        invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]], "quantity_kg": "22.000"})
+        doc = frappe.get_doc("Sales Invoice", invoice["data"]["invoice"])
+        editable = next((f for f in doc.meta.fields if f.allow_on_submit and f.fieldtype in ('Data','Small Text')), None)
+        self.assertIsNotNone(editable)
+        doc.set(editable.fieldname, 'Blocked direct source edit')
+        with self.assertRaises(frappe.PermissionError): doc.save()
+        self.assertEqual(doc.items[0].delivery_note, note.name)
+        self.assertEqual(doc.items[0].dn_detail, note.items[0].name)
+        self.assertEqual(frappe.db.get_value("Delivery Note", note.name, "per_billed"), 25)
+        self.call("credit_invoice", {"job": self.job, "invoice_event": invoice["event"], "quantity_kg": "22.000", "reason": "Undo"})
+        self.assertEqual(frappe.db.get_value("Delivery Note", note.name, "per_billed"), 0)
+
+    def test_shift_window_blocks_unavailable_machine_time(self):
+        self.fixtures()
+        self.enable(warehouse=self.warehouse, service_item=self.items['service'], fabric_item=self.items['fabric'],
+            shift_windows=[{"name": "Day", "start": "08:00", "end": "16:00"}])
+        machine = self.machine()
+        with self.assertRaises(frappe.ValidationError):
+            self.call("plan", {"job": self.job, "programme_line": "P1", "machine": machine,
+                "starts_at": "2026-11-18 16:00:00", "ends_at": "2026-11-18 18:00:00", "quantity_kg": "1.000"})
+        self.call("plan", {"job": self.job, "programme_line": "P1", "machine": machine,
+            "starts_at": "2026-11-18 08:00:00", "ends_at": "2026-11-18 16:00:00", "quantity_kg": "88.000"})
+
+    def test_replan_preserves_started_state_and_completion_releases_unused_capacity(self):
+        self.fixtures()
+        machine = self.machine()
+        values = {'job':self.job,'programme_line':'P1','machine':machine,'starts_at':'2026-11-18 08:00:00',
+            'ends_at':'2026-11-18 16:00:00','quantity_kg':'88.000'}
+        plan = self.call('plan', values)['data']['plan']
+        lot = self.receive()
+        self.call('produce', {'job':self.job,'programme_line':'P1','machine':machine,'weights_kg':['44.000'],
+            'inputs':[{'lot':lot,'quantity_kg':'45.000'}],'loss_kg':'1.000','warehouse':self.warehouse})
+        self.call('plan', {**values,'plan':plan,'plan_modified':str(frappe.db.get_value('Knitting Plan',plan,'modified')),
+            'starts_at':'2026-11-19 08:00:00','ends_at':'2026-11-19 16:00:00'})
+        self.assertEqual(frappe.db.get_value('Knitting Plan',plan,'state'),'Started')
+        self.call('produce', {'job':self.job,'programme_line':'P1','weights_kg':['44.000'],
+            'inputs':[{'lot':lot,'quantity_kg':'45.000'}],'loss_kg':'1.000','warehouse':self.warehouse})
+        rolls = frappe.get_all('Knitting Roll',filters={'job':self.job},pluck='name')
+        self.release(rolls)
+        delivery = self.call('deliver', {'job':self.job,'rolls':rolls})
+        self.call('invoice',{'job':self.job,'deliveries':[delivery['event']]})
+        self.call('return_yarn', {'job':self.job,'lot':lot,'quantity_kg':'10.000'})
+        self.call('close_job', {'job':self.job})
+        self.assertEqual(frappe.db.get_value('Knitting Plan',plan,'state'),'Cancelled')
+
+    def test_customer_custody_delivery_print_and_unique_roll_labels(self):
+        import base64
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        self.release(rolls)
+        result = self.call("deliver", {"job": self.job, "rolls": rolls,
+            "destination": "Synthetic dye house", "transport": "TN TEST 01", "transport_reference": "SYN-DC-01"})
+        self.assertEqual(result['data']['destination'], "Synthetic dye house")
+        exported = self.knitting().export(COMPANY, "delivery_challan", {"event": result['event']})
+        self.assertTrue(base64.b64decode(exported['content']).startswith(b'%PDF'))
+        exports = importlib.import_module("erp_extensions.knitting.exports")
+        self.assertNotEqual(exports.roll_token(self.job, 'P1', '44.000', rolls[0]), exports.roll_token(self.job, 'P1', '44.000', rolls[1]))
+
+    def test_component_breakage_keeps_employee_fabric_gauge_attribution(self):
+        self.fixtures()
+        machine = self.machine()
+        component = self.call("create_component", {"machine": machine, "component_type": "Needle", "boundary_kg": "100.000"})['data']['component']
+        self.call("component_breakage", {"job": self.job, "programme_line": "P1", "component": component,
+            "quantity": 3, "operator": "Administrator", "reason": "Synthetic needle breakage"})
+        report = self.knitting().report(COMPANY, "breakage", {"job": self.job, "group_by": "gauge"})
+        self.assertEqual(report['rows'][0]['gauge'], '24')
+        self.assertEqual(report['rows'][0]['quantity'], '3')
 
     def test_customer_job_to_invoice_exact_balances_and_closure(self):
         self.knitting()
@@ -515,7 +810,7 @@ class KnittingTests(unittest.TestCase):
         api = self.knitting()
         self.assertEqual(api.lookup(COMPANY, "Job", self.job)["rows"][0]["name"], self.job)
         with self.assertRaises(frappe.ValidationError):
-            api.lookup(COMPANY, "User", "")
+            api.lookup(COMPANY, "Has Role", "")
         with self.assertRaises(frappe.PermissionError):
             api.lookup("Another business", "Job", "")
         with self.assertRaises(frappe.ValidationError):
@@ -530,7 +825,7 @@ class KnittingTests(unittest.TestCase):
         self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
         api = self.knitting()
         self.assertTrue(callable(getattr(api, "report", None)), "Operational reporting is not implemented")
-        filters = {"job": self.job, "mode": "as_of", "to_date": "2026-11-13"}
+        filters = {"job": self.job, "mode": "as_of", "to_date": frappe.utils.today()}
         report = api.report(COMPANY, "jobs", filters)
         row = report["rows"][0]
         self.assertEqual(row["yarn_kg"], "10.000")
@@ -573,7 +868,7 @@ class KnittingTests(unittest.TestCase):
         self.assertEqual(safe_cell("=1+1"), "'=1+1")
         self.assertEqual(fiscal_token("2026-04-01"), "2026-27")
         self.assertEqual(fiscal_token("2026-03-31"), "2025-26")
-        self.assertEqual(roll_token(self.job, "P1", "44.000"), self.job + "|P1|44.000kg")
+        self.assertEqual(roll_token(self.job, "P1", "44.000", "ROLL-01"), "ROLL-01|" + self.job + "|P1|44.000kg")
 
     def test_native_source_drilldowns_do_not_offer_forbidden_generic_actions(self):
         self.fixtures()

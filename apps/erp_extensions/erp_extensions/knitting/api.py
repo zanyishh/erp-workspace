@@ -27,6 +27,7 @@ def project(value):
 
 
 def response(event):
+    permissions.require_event_scope(event)
     return {"event": event.name, "action": event.kind, "data": project(domain.json_value(event.result, {}))}
 
 
@@ -108,6 +109,7 @@ def command_status(company, request_id):
 @frappe.whitelist()
 def snapshot(company, job=None):
     permissions.require(company, "jobs", history=True)
+    permissions.require_aggregate_scope(company, job)
     finance = "financial_read" in permissions.capabilities()
     if job:
         domain.reference("Knitting Job", job, company)
@@ -147,14 +149,17 @@ def snapshot(company, job=None):
         for row in limits["rates"]:
             row.rate = domain.money(row.rate or 0)
     allocated = {}
+    units = {}
     if limits["lots"]:
         for row in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "lot": ["in", [l.name for l in limits["lots"]]], "custodian": "Warehouse"},
-                                  fields=["lot", "job", "quantity_kg"]):
+                                  fields=["lot", "job", "quantity_kg", "units"]):
             key = (row.lot, row.job or None)
             allocated[key] = allocated.get(key, Decimal(0)) + Decimal(row.quantity_kg)
+            units[key] = units.get(key, Decimal(0)) + Decimal(row.units or '0')
     for lot in limits["lots"]:
-        lot.allocations = [{"job": job["name"], "quantity_kg": domain.kg(allocated.get((lot.name, job["name"]), 0))} for job in jobs]
+        lot.allocations = [{"job": job["name"], "quantity_kg": domain.kg(allocated.get((lot.name, job["name"]), 0)), "units": str(units.get((lot.name, job['name']),0))} for job in jobs]
         lot.general_kg = domain.kg(allocated.get((lot.name, None), 0))
+        lot.general_units = str(units.get((lot.name, None),0))
     return {"version": 1, "company": company, "financial_read": finance, **limits,
             "integrations": [{"name": name, "status": "Not configured"} for name in ("E-Invoice", "E-Way Bill", "Payment gateway")]}
 
@@ -187,6 +192,8 @@ def lookup(company, entity, query="", start=0):
         "Supplier": ("Supplier", ["name", "supplier_name as title"], {"disabled": 0}),
         "Item": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0}),
         "Warehouse": ("Warehouse", ["name"], {"is_group": 0}),
+        "User": ("User", ["name", "full_name as title"], {"enabled": 1}),
+        "Employee": ("Employee", ["name", "employee_name as title"], {"status": "Active"}),
         "PurchaseOrder": ("Purchase Order", ["name", "supplier", "modified"], {"docstatus": 1, "knitting_event": ["is", "set"]}),
         "YarnReceipt": ("Knitting Event", ["name", "job", "kind"], {"kind": "receive_yarn", "cancelled": 0}),
         "Quotation": ("Quotation", ["name", "party_name", "docstatus", "modified"], {"knitting_event": ["is", "set"]}),
@@ -234,11 +241,13 @@ def invoice_signature(doc):
 
 @frappe.whitelist(methods=["POST"])
 def invoice_preview(company, payload, modified=None):
-    permissions.require(company, "billing")
+    setup = permissions.require(company, "billing")
+    frappe.db.sql('select name from `tabWorkspace Industry Setup` where name=%s for update',setup.name)
+    permissions.require(company,'billing',current=True)
     data = frappe.parse_json(payload) if isinstance(payload, str) else payload
     if not isinstance(data, Mapping):
         frappe.throw("Review a structured invoice entry.")
-    job = domain.reference("Knitting Job", data.get("job"), company)
+    job = domain.reference("Knitting Job", data.get("job"), company, lock=True)
     from erp_extensions.api import _check_version, _preview_prices
     _check_version(job, modified)
     frappe.db.savepoint("knitting_invoice_preview")

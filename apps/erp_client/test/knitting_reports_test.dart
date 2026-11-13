@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/design.dart';
 import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/knitting_reports.dart';
+import 'package:erp_client/workspace_context.dart';
 
 class ReportApi extends ErpApi {
   ReportApi() : super(Uri.parse('http://localhost:8081'));
@@ -30,6 +31,49 @@ class ReportApi extends ErpApi {
 }
 
 void main() {
+  testWidgets(
+    'removing report access hides cached results without reopening the route',
+    (tester) async {
+      final api = ReportApi();
+      addTearDown(api.close);
+      api.publishContext(
+        WorkspaceContext.fromJson({
+          'company': 'Demo',
+          'knitting_enabled': true,
+          'capabilities': ['jobs', 'reports', 'financial_read'],
+          'access_fingerprint': 'before',
+        }),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: KnittingReports(
+              api: api,
+              company: 'Demo',
+              financialRead: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('10.000'), findsOneWidget);
+      api.publishContext(
+        WorkspaceContext.fromJson({
+          'company': 'Demo',
+          'knitting_enabled': true,
+          'capabilities': ['jobs'],
+          'access_fingerprint': 'after',
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('10.000'), findsNothing);
+      expect(
+        find.text('Your access to these reports changed.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final width in [390.0, 834.0, 1440.0]) {
     testWidgets('reports stay readable and permission-scoped at $width', (
       tester,

@@ -1,3 +1,4 @@
+import 'ui/access_gate.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'design.dart';
@@ -43,44 +44,54 @@ class _NativeCatalogScreenState extends State<NativeCatalogScreen> {
     ),
   );
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Display(
-        widget.create ? 'NEW DOCUMENT' : 'ALL MODULES & SETTINGS',
-        size: 27,
+  Widget build(BuildContext context) => AccessGate(
+    api: widget.api,
+    revalidate: () async {
+      final fresh = widget.api.nativeCatalog(company: widget.company);
+      setState(() {
+        _future = fresh;
+      });
+      await fresh;
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: Display(
+          widget.create ? 'NEW DOCUMENT' : 'ALL MODULES & SETTINGS',
+          size: 27,
+        ),
       ),
-    ),
-    body: FutureBuilder<NativeCatalog>(
-      future: _future,
-      builder: (context, state) {
-        if (state.hasData) {
-          return NativeCatalogView(
-            catalog: state.data!,
-            onType: _open,
-            onReport: (name) => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => NativeReportScreen(
-                  api: widget.api,
-                  name: name,
-                  company: widget.company,
+      body: FutureBuilder<NativeCatalog>(
+        future: _future,
+        builder: (context, state) {
+          if (state.hasData) {
+            return NativeCatalogView(
+              catalog: state.data!,
+              onType: _open,
+              onReport: (name) => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => NativeReportScreen(
+                    api: widget.api,
+                    name: name,
+                    company: widget.company,
+                  ),
                 ),
               ),
-            ),
-            create: widget.create,
-          );
-        }
-        if (state.hasError) {
-          return MessagePanel(
-            title: 'COULD NOT LOAD MODULES',
-            message: state.error.toString(),
-            action: () => setState(() {
-              _future = widget.api.nativeCatalog(company: widget.company);
-            }),
-          );
-        }
-        return const Center(child: CircularProgressIndicator());
-      },
+              create: widget.create,
+            );
+          }
+          if (state.hasError) {
+            return MessagePanel(
+              title: 'COULD NOT LOAD MODULES',
+              message: state.error.toString(),
+              action: () => setState(() {
+                _future = widget.api.nativeCatalog(company: widget.company);
+              }),
+            );
+          }
+          return const Center(child: CircularProgressIndicator());
+        },
+      ),
     ),
   );
 }
@@ -269,151 +280,161 @@ class _NativeRecordScreenState extends State<NativeRecordScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Display(widget.type.name.toUpperCase(), size: 27),
-      actions: [
-        if (widget.type.tree)
-          IconButton(
-            tooltip: 'Browse hierarchy',
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => NativeTreeScreen(
-                    api: widget.api,
-                    type: widget.type,
-                    company: widget.company,
+  Widget build(BuildContext context) => AccessGate(
+    api: widget.api,
+    revalidate: () async {
+      final fresh = _load();
+      setState(() {
+        _future = fresh;
+      });
+      await fresh;
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: Display(widget.type.name.toUpperCase(), size: 27),
+        actions: [
+          if (widget.type.tree)
+            IconButton(
+              tooltip: 'Browse hierarchy',
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => NativeTreeScreen(
+                      api: widget.api,
+                      type: widget.type,
+                      company: widget.company,
+                    ),
                   ),
-                ),
-              );
-              if (mounted) _reload();
-            },
-            icon: const Icon(Icons.account_tree_outlined),
-          ),
-        IconButton(
-          tooltip: 'Refresh records',
-          onPressed: () => _reload(),
-          icon: const Icon(Icons.refresh),
-        ),
-        if (widget.type.canCreate)
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
-              onPressed: () => _open(),
-              icon: const Icon(Icons.add),
-              label: const Text('New'),
+                );
+                if (mounted) _reload();
+              },
+              icon: const Icon(Icons.account_tree_outlined),
             ),
+          IconButton(
+            tooltip: 'Refresh records',
+            onPressed: () => _reload(),
+            icon: const Icon(Icons.refresh),
           ),
-      ],
-    ),
-    body: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search ${widget.type.name.toLowerCase()}…',
-              prefixIcon: const Icon(Icons.search),
+          if (widget.type.canCreate)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton.icon(
+                onPressed: () => _open(),
+                icon: const Icon(Icons.add),
+                label: const Text('New'),
+              ),
             ),
-            onChanged: (value) {
-              _query = value;
-              _debounce?.cancel();
-              _debounce = Timer(
-                const Duration(milliseconds: 350),
-                () => _reload(reset: true),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _future,
-              builder: (context, state) {
-                if (state.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state.hasError) {
-                  return MessagePanel(
-                    title: 'COULD NOT LOAD',
-                    message: state.error.toString(),
-                    action: () => _reload(),
-                  );
-                }
-                final rows = state.data ?? [];
-                if (rows.isEmpty) {
-                  return MessagePanel(
-                    title: _start > 0 ? 'END OF LIST' : 'NO RECORDS',
-                    message: _start > 0
-                        ? 'There are no more records in this view.'
-                        : 'Create a record or try another search.',
-                    label: _start > 0 ? 'Back to first page' : 'Refresh',
-                    action: () => _reload(reset: true),
-                  );
-                }
-                return Column(
-                  children: [
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: rows.length,
-                        separatorBuilder: (_, i) => const SizedBox(height: 7),
-                        itemBuilder: (context, i) {
-                          final row = rows[i];
-                          final titles = row.entries
-                              .where(
-                                (e) => e.key != 'name' && e.key != 'modified',
-                              )
-                              .map((e) => e.value?.toString() ?? '')
-                              .where((v) => v.isNotEmpty);
-                          return Material(
-                            color: WorkspaceTheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            child: ListTile(
-                              title: Text(
-                                titles.isEmpty
-                                    ? row['name'].toString()
-                                    : titles.first,
-                              ),
-                              subtitle: Text(row['name'].toString()),
-                              trailing: const Icon(Icons.chevron_right),
-                              onTap: () => _open(row['name'] as String),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text('Showing ${_start + 1}–${_start + rows.length}'),
-                        const Spacer(),
-                        IconButton(
-                          tooltip: 'Previous page',
-                          onPressed: _start == 0
-                              ? null
-                              : () {
-                                  _start = (_start - 50).clamp(0, _start);
-                                  _reload();
-                                },
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        IconButton(
-                          tooltip: 'Next page',
-                          onPressed: rows.length < 50
-                              ? null
-                              : () {
-                                  _start += 50;
-                                  _reload();
-                                },
-                          icon: const Icon(Icons.chevron_right),
-                        ),
-                      ],
-                    ),
-                  ],
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            TextField(
+              decoration: InputDecoration(
+                hintText: 'Search ${widget.type.name.toLowerCase()}…',
+                prefixIcon: const Icon(Icons.search),
+              ),
+              onChanged: (value) {
+                _query = value;
+                _debounce?.cancel();
+                _debounce = Timer(
+                  const Duration(milliseconds: 350),
+                  () => _reload(reset: true),
                 );
               },
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Expanded(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _future,
+                builder: (context, state) {
+                  if (state.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (state.hasError) {
+                    return MessagePanel(
+                      title: 'COULD NOT LOAD',
+                      message: state.error.toString(),
+                      action: () => _reload(),
+                    );
+                  }
+                  final rows = state.data ?? [];
+                  if (rows.isEmpty) {
+                    return MessagePanel(
+                      title: _start > 0 ? 'END OF LIST' : 'NO RECORDS',
+                      message: _start > 0
+                          ? 'There are no more records in this view.'
+                          : 'Create a record or try another search.',
+                      label: _start > 0 ? 'Back to first page' : 'Refresh',
+                      action: () => _reload(reset: true),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: rows.length,
+                          separatorBuilder: (_, i) => const SizedBox(height: 7),
+                          itemBuilder: (context, i) {
+                            final row = rows[i];
+                            final titles = row.entries
+                                .where(
+                                  (e) => e.key != 'name' && e.key != 'modified',
+                                )
+                                .map((e) => e.value?.toString() ?? '')
+                                .where((v) => v.isNotEmpty);
+                            return Material(
+                              color: WorkspaceTheme.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              child: ListTile(
+                                title: Text(
+                                  titles.isEmpty
+                                      ? row['name'].toString()
+                                      : titles.first,
+                                ),
+                                subtitle: Text(row['name'].toString()),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => _open(row['name'] as String),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Text('Showing ${_start + 1}–${_start + rows.length}'),
+                          const Spacer(),
+                          IconButton(
+                            tooltip: 'Previous page',
+                            onPressed: _start == 0
+                                ? null
+                                : () {
+                                    _start = (_start - 50).clamp(0, _start);
+                                    _reload();
+                                  },
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          IconButton(
+                            tooltip: 'Next page',
+                            onPressed: rows.length < 50
+                                ? null
+                                : () {
+                                    _start += 50;
+                                    _reload();
+                                  },
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );

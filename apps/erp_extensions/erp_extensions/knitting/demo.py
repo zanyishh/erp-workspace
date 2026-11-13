@@ -26,9 +26,13 @@ def seed():
         items[key] = name
     warehouse = frappe.db.get_value("Warehouse", {"company": COMPANY, "is_group": 0}, "name")
     profile = workspace.permissions.profile(COMPANY)
+    windows = [{"name":"A","start":"08:00","end":"16:00"},{"name":"B","start":"16:00","end":"00:00"},{"name":"C","start":"00:00","end":"08:00"}]
     if not profile:
         workspace.configure(COMPANY, {"state": "Active", "warehouse": warehouse, "service_item": items["service"],
+            "shift_windows": windows,
             "fabric_item": items["fabric"], "number_prefix": "KN", "lycra_charge": "Included", "rate_lookup": "Fabric"})
+    elif profile.state in ('Active', 'Closing') and not frappe.parse_json(profile.settings or '{}').get('shift_windows'):
+        workspace.configure(COMPANY, {'state':profile.state, 'shift_windows':windows})
     job = frappe.db.get_value("Knitting Job", {"company": COMPANY, "customer": customer}, "name")
     if not job and (not profile or profile.state == "Active"):
         job = api.command(COMPANY, "create_job", {"customer": customer, "kind": "Order", "material_mode": "Customer",

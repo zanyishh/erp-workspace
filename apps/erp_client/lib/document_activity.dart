@@ -1,3 +1,4 @@
+import 'ui/access_gate.dart';
 import 'dart:convert';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -146,7 +147,9 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
     );
     if (chosen == null) return;
     final file = await widget.api.printPdf(widget.type, widget.name, chosen);
-    if (mounted) await previewFile(context, file.name, file.bytes);
+    if (mounted) {
+      await previewFile(context, file.name, file.bytes, api: widget.api);
+    }
   }
 
   Future<void> _remove(String id) async {
@@ -173,242 +176,255 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Display('DOCUMENT ACTIVITY', size: 27),
-      actions: [
-        IconButton(
-          tooltip: 'Refresh activity',
-          onPressed: _busy ? null : _reload,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
-    body: FutureBuilder<Map<String, dynamic>>(
-      future: _future,
-      builder: (context, state) {
-        if (state.hasError) {
-          return MessagePanel(
-            title: 'COULD NOT LOAD ACTIVITY',
-            message: state.error.toString(),
-            action: _reload,
-          );
-        }
-        if (!state.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final data = state.data!;
-        final permissions = objectMap(data['permissions']);
-        final attachments = (data['attachments'] as List).map(objectMap);
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '${widget.type} · ${widget.name}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  if (_busy) const LinearProgressIndicator(),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(_error!),
+  Widget build(BuildContext context) => AccessGate(
+    api: widget.api,
+    revalidate: () async {
+      final fresh = widget.api.documentActivity(widget.type, widget.name);
+      setState(() {
+        _future = fresh;
+      });
+      await fresh;
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Display('DOCUMENT ACTIVITY', size: 27),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh activity',
+            onPressed: _busy ? null : _reload,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _future,
+        builder: (context, state) {
+          if (state.hasError) {
+            return MessagePanel(
+              title: 'COULD NOT LOAD ACTIVITY',
+              message: state.error.toString(),
+              action: _reload,
+            );
+          }
+          if (!state.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = state.data!;
+          final permissions = objectMap(data['permissions']);
+          final attachments = (data['attachments'] as List).map(objectMap);
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1000),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${widget.type} · ${widget.name}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  Wrap(
-                    spacing: 12,
-                    children: [
-                      if (enabled(permissions['write']))
-                        TextButton.icon(
-                          onPressed: _busy ? null : () => _act(_upload),
-                          icon: const Icon(Icons.attach_file),
-                          label: const Text('Attach private file'),
-                        ),
-                      if (enabled(permissions['print']))
-                        TextButton.icon(
-                          onPressed: _busy
-                              ? null
-                              : () => _act(_print, reload: false),
-                          icon: const Icon(Icons.print_outlined),
-                          label: const Text('Print / PDF'),
-                        ),
-                      TextButton.icon(
-                        onPressed: _busy ? null : () => _act(_assign),
-                        icon: const Icon(Icons.person_add_alt),
-                        label: const Text('Assign'),
+                    if (_busy) const LinearProgressIndicator(),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(_error!),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Panel(
-                    border: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    Wrap(
+                      spacing: 12,
                       children: [
-                        const Display('FILES', size: 25),
-                        if (attachments.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text('No attached files.'),
+                        if (enabled(permissions['write']))
+                          TextButton.icon(
+                            onPressed: _busy ? null : () => _act(_upload),
+                            icon: const Icon(Icons.attach_file),
+                            label: const Text('Attach private file'),
                           ),
-                        for (final file in attachments)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(
-                              enabled(file['is_private'])
-                                  ? Icons.lock_outline
-                                  : Icons.insert_drive_file_outlined,
-                            ),
-                            title: Text(file['file_name'].toString()),
-                            subtitle: Text('${file['file_size'] ?? 0} bytes'),
-                            onTap: _busy
-                                ? null
-                                : () => _act(() async {
-                                    final result = await widget.api.attachment(
-                                      widget.type,
-                                      widget.name,
-                                      file['name'] as String,
-                                    );
-                                    if (context.mounted) {
-                                      await previewFile(
-                                        context,
-                                        result.name,
-                                        result.bytes,
-                                      );
-                                    }
-                                  }, reload: false),
-                            trailing: enabled(permissions['write'])
-                                ? IconButton(
-                                    tooltip: 'Remove ${file['file_name']}',
-                                    onPressed: _busy
-                                        ? null
-                                        : () => _act(
-                                            () =>
-                                                _remove(file['name'] as String),
-                                          ),
-                                    icon: const Icon(Icons.delete_outline),
-                                  )
-                                : null,
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Panel(
-                    border: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Display('ASSIGNED TO', size: 25),
-                        if ((data['assignments'] as List).isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text('No assignments.'),
-                          ),
-                        for (final user in (data['assignments'] as List).map(
-                          objectMap,
-                        ))
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(user['owner'].toString()),
-                            trailing: IconButton(
-                              tooltip: 'Remove assignment',
-                              onPressed: _busy
-                                  ? null
-                                  : () => _act(
-                                      () => widget.api.unassignDocument(
-                                        widget.type,
-                                        widget.name,
-                                        user['owner'] as String,
-                                      ),
-                                    ),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Panel(
-                    border: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Display('COMMENTS & HISTORY', size: 25),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _comment,
-                          minLines: 2,
-                          maxLines: 5,
-                          enabled: !_busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Write a comment',
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
+                        if (enabled(permissions['print']))
+                          TextButton.icon(
                             onPressed: _busy
                                 ? null
-                                : () => _act(() async {
-                                    await widget.api.comment(
-                                      widget.type,
-                                      widget.name,
-                                      _comment.text,
-                                    );
-                                    _comment.clear();
-                                  }),
-                            child: const Text('Add comment'),
+                                : () => _act(_print, reload: false),
+                            icon: const Icon(Icons.print_outlined),
+                            label: const Text('Print / PDF'),
                           ),
+                        TextButton.icon(
+                          onPressed: _busy ? null : () => _act(_assign),
+                          icon: const Icon(Icons.person_add_alt),
+                          label: const Text('Assign'),
                         ),
-                        for (final comment in (data['comments'] as List).map(
-                          objectMap,
-                        ))
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: SelectableText(
-                              plainReportText(comment['content']),
-                            ),
-                            subtitle: Text(
-                              '${comment['comment_type']} · ${comment['owner']} · ${comment['creation']}',
-                            ),
-                          ),
-                        for (final version in (data['versions'] as List).map(
-                          objectMap,
-                        ))
-                          ExpansionTile(
-                            expansionAnimationStyle:
-                                MediaQuery.disableAnimationsOf(context)
-                                ? AnimationStyle.noAnimation
-                                : const AnimationStyle(
-                                    duration: Duration(milliseconds: 180),
-                                    curve: Curves.easeOutCubic,
-                                  ),
-                            tilePadding: EdgeInsets.zero,
-                            title: Text('Edited by ${version['owner']}'),
-                            subtitle: Text(version['creation'].toString()),
-                            children: [
-                              for (final change in version['changed'] as List)
-                                ListTile(
-                                  title: Text(change[0].toString()),
-                                  subtitle: SelectableText(
-                                    '${jsonEncode(change[1])} → ${jsonEncode(change[2])}',
-                                  ),
-                                ),
-                            ],
-                          ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    Panel(
+                      border: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Display('FILES', size: 25),
+                          if (attachments.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Text('No attached files.'),
+                            ),
+                          for (final file in attachments)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                enabled(file['is_private'])
+                                    ? Icons.lock_outline
+                                    : Icons.insert_drive_file_outlined,
+                              ),
+                              title: Text(file['file_name'].toString()),
+                              subtitle: Text('${file['file_size'] ?? 0} bytes'),
+                              onTap: _busy
+                                  ? null
+                                  : () => _act(() async {
+                                      final result = await widget.api
+                                          .attachment(
+                                            widget.type,
+                                            widget.name,
+                                            file['name'] as String,
+                                          );
+                                      if (context.mounted) {
+                                        await previewFile(
+                                          context,
+                                          result.name,
+                                          result.bytes,
+                                          api: widget.api,
+                                        );
+                                      }
+                                    }, reload: false),
+                              trailing: enabled(permissions['write'])
+                                  ? IconButton(
+                                      tooltip: 'Remove ${file['file_name']}',
+                                      onPressed: _busy
+                                          ? null
+                                          : () => _act(
+                                              () => _remove(
+                                                file['name'] as String,
+                                              ),
+                                            ),
+                                      icon: const Icon(Icons.delete_outline),
+                                    )
+                                  : null,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Panel(
+                      border: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Display('ASSIGNED TO', size: 25),
+                          if ((data['assignments'] as List).isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Text('No assignments.'),
+                            ),
+                          for (final user in (data['assignments'] as List).map(
+                            objectMap,
+                          ))
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(user['owner'].toString()),
+                              trailing: IconButton(
+                                tooltip: 'Remove assignment',
+                                onPressed: _busy
+                                    ? null
+                                    : () => _act(
+                                        () => widget.api.unassignDocument(
+                                          widget.type,
+                                          widget.name,
+                                          user['owner'] as String,
+                                        ),
+                                      ),
+                                icon: const Icon(Icons.close),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Panel(
+                      border: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Display('COMMENTS & HISTORY', size: 25),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _comment,
+                            minLines: 2,
+                            maxLines: 5,
+                            enabled: !_busy,
+                            decoration: const InputDecoration(
+                              labelText: 'Write a comment',
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _act(() async {
+                                      await widget.api.comment(
+                                        widget.type,
+                                        widget.name,
+                                        _comment.text,
+                                      );
+                                      _comment.clear();
+                                    }),
+                              child: const Text('Add comment'),
+                            ),
+                          ),
+                          for (final comment in (data['comments'] as List).map(
+                            objectMap,
+                          ))
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: SelectableText(
+                                plainReportText(comment['content']),
+                              ),
+                              subtitle: Text(
+                                '${comment['comment_type']} · ${comment['owner']} · ${comment['creation']}',
+                              ),
+                            ),
+                          for (final version in (data['versions'] as List).map(
+                            objectMap,
+                          ))
+                            ExpansionTile(
+                              expansionAnimationStyle:
+                                  MediaQuery.disableAnimationsOf(context)
+                                  ? AnimationStyle.noAnimation
+                                  : const AnimationStyle(
+                                      duration: Duration(milliseconds: 180),
+                                      curve: Curves.easeOutCubic,
+                                    ),
+                              tilePadding: EdgeInsets.zero,
+                              title: Text('Edited by ${version['owner']}'),
+                              subtitle: Text(version['creation'].toString()),
+                              children: [
+                                for (final change in version['changed'] as List)
+                                  ListTile(
+                                    title: Text(change[0].toString()),
+                                    subtitle: SelectableText(
+                                      '${jsonEncode(change[1])} → ${jsonEncode(change[2])}',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     ),
   );
 }

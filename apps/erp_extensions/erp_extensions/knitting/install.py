@@ -20,9 +20,9 @@ SCHEMAS = {
         field("status", "Select", "Running\nCompleted\nCancelled", in_list_view=1),
         field("programme", "JSON"), field("target_kg"), field("revision", "Int"),
         field("charge_policy", "Select", "Included\nSeparate", permlevel=1), field("service_item", "Link", "Item", permlevel=1), field("rate", "Currency", permlevel=1), field("pricing", "JSON", permlevel=1),
-        field("quotation", "Link", "Quotation"), field("notes", "Small Text")],
+        field("quotation", "Link", "Quotation", unique=1), field("notes", "Small Text")],
     "Knitting Machine": [*BASE, field("title", reqd=1, in_list_view=1), field("workstation", "Link", "Workstation"),
-        field("dia"), field("gauge"), field("knit_type"), field("capacity_kg"), field("enabled", "Check", default=1)],
+        field("dia"), field("gauge"), field("knit_type"), field("capacity_kg"), field("shifts", "JSON"), field("enabled", "Check", default=1)],
     "Knitting Material Lot": [*BASE, field("item", "Link", "Item", reqd=1), field("party", "Link", "Customer"),
         field("material_owner", "Select", "Customer\nOwned"), field("warehouse", "Link", "Warehouse"),
         field("source_lot"), field("specification", "JSON"), field("charge_item", "Link", "Item", permlevel=1),
@@ -47,7 +47,7 @@ SCHEMAS = {
         field("defects", "JSON"), field("remarks", "Small Text"), field("event", "Link", "Knitting Event")],
     "Knitting Plan": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("machine", "Link", "Knitting Machine", reqd=1), field("programme_line"), field("required_yarn_kg"), field("produced_kg", default="0.000"),
         field("starts_at", "Datetime", reqd=1), field("ends_at", "Datetime", reqd=1), field("quantity_kg", reqd=1),
-        field("state", "Select", "Planned\nStarted\nCompleted\nCancelled"), field("event", "Link", "Knitting Event")],
+        field("state", "Select", "Planned\nStarted\nCompleted\nCancelled"), field("shift"), field("event", "Link", "Knitting Event")],
     "Knitting Subcontract": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("supplier", "Link", "Supplier", reqd=1),
         field("target_kg"), field("status", "Select", "Open\nCompleted\nCancelled"), field("rate", "Currency", permlevel=1),
         field("warehouse", "Link", "Warehouse"), field("purchase_order", "Link", "Purchase Order"), field("service_item", "Link", "Item")],
@@ -78,7 +78,8 @@ def install():
                             for role in ("System Manager", "Knitting Manager", "Knitting Accountant")]
         if frappe.db.exists("DocType", name):
             doc = frappe.get_doc("DocType", name)
-            changed = False
+            changed = bool(doc.track_changes)
+            doc.track_changes = 0
             for definition in fields:
                 existing = next((f for f in doc.fields if f.fieldname == definition["fieldname"]), None)
                 if existing is None:
@@ -86,6 +87,9 @@ def install():
                     changed = True
                 elif existing.permlevel != definition.get("permlevel", 0):
                     existing.permlevel = definition.get("permlevel", 0)
+                    changed = True
+                if existing and definition.get("unique") and not existing.unique:
+                    existing.unique = 1
                     changed = True
             for permission in permissions:
                 if not any(p.role == permission["role"] and p.permlevel == permission.get("permlevel", 0) for p in doc.permissions):
@@ -95,7 +99,10 @@ def install():
                 doc.save()
         else:
             frappe.get_doc({"doctype": "DocType", "name": name, "module": "Custom", "custom": 1,
-                            "autoname": "hash", "track_changes": 1, "fields": fields, "permissions": permissions}).insert()
+                            "autoname": "hash", "track_changes": 0, "fields": fields, "permissions": permissions}).insert()
+        # The immutable, permission-scoped event journal is the pack audit.
+        # Desk's generic Version feed does not enforce field-level privacy.
+        frappe.db.delete("Version", {"ref_doctype": name})
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
     create_custom_fields({name: [
         field("knitting_event", "Link", "Knitting Event", read_only=1, no_copy=1),
