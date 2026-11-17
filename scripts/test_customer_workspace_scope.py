@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class Row(dict):
@@ -125,6 +125,26 @@ class CustomerWorkspaceScopeTests(unittest.TestCase):
         catalog = self.api.catalog(self.company)
         self.assertNotIn('Sales Invoice', {row['name'] for row in catalog['types']})
         self.assertNotIn('Accounts Receivable', {row['name'] for row in catalog['reports']})
+
+    def test_existing_invoice_read_checks_the_register_company(self):
+        invoice = Mock(company='Second Mill')
+        framework = self.modules['frappe']
+        framework.PermissionError = PermissionError
+        def throw(message, error):
+            raise error(message)
+
+        framework.throw = throw
+        with patch.object(framework, 'get_doc', return_value=invoice), \
+                patch.object(self.api, '_meta', return_value=Row(issingle=False)), \
+                patch.object(self.api, '_result', return_value='visible'):
+            with self.assertRaises(PermissionError):
+                self.api.document('Sales Invoice', 'INV-1', company='First Mill')
+            invoice.run_method.assert_not_called()
+            self.assertEqual(self.api.document('Sales Invoice', 'INV-1', company='Second Mill'), 'visible')
+            self.assertEqual(self.api.document('Sales Invoice', 'INV-1'), 'visible')
+            invoice.check_permission.side_effect = PermissionError('Read denied')
+            with self.assertRaisesRegex(PermissionError, 'Read denied'):
+                self.api.document('Sales Invoice', 'INV-1', company='Second Mill')
 
 
 if __name__ == '__main__':

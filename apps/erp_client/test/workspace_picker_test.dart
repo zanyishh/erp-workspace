@@ -1,9 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:erp_client/design.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/erp_models.dart';
 import 'package:erp_client/workspace_picker.dart';
 
 void main() {
+  testWidgets(
+    'keyboard opens a filtered workspace without taking hands off search',
+    (t) async {
+      ErpModule? result;
+      await t.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () =>
+                    showWorkspacePicker(context, (m) => result = m),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.tap(find.text('Open'));
+      await t.pumpAndSettle();
+      await t.enterText(find.byType(TextField), 'Stock');
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pumpAndSettle();
+      expect(result, ErpModule.stock);
+      expect(find.text('Workspaces'), findsNothing);
+      await t.tap(find.text('Open'));
+      await t.pumpAndSettle();
+      await t.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pumpAndSettle();
+      expect(result, ErpModule.values.first);
+    },
+  );
+
   testWidgets(
     'workspace search stays usable above a phone keyboard at large text sizes',
     (tester) async {

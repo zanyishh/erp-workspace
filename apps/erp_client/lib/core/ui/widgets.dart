@@ -47,12 +47,12 @@ class Panel extends StatelessWidget {
     final useBlur = frosted && !solid;
     final fill = dark
         ? [
-            Color(frosted ? 0xDA292A29 : 0xFF242525),
-            Color(frosted ? 0xE31B1C1B : 0xFF1A1B1A),
+            Color(frosted ? 0xCC302F2D : 0xFF242525),
+            Color(frosted ? 0xE61C1C1B : 0xFF1A1B1A),
           ]
         : [
-            Color(frosted ? 0xBFFFFFFC : 0xFFFFFFFC),
-            Color(frosted ? 0xB5F3F3F1 : 0xFFF4F4F1),
+            Color(frosted ? 0xDAFFFFFC : 0xFFFFFFFC),
+            Color(frosted ? 0xBDF2F0EB : 0xFFF4F4F1),
           ];
     final content = DecoratedBox(
       decoration: BoxDecoration(
@@ -86,25 +86,71 @@ class Panel extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: corners,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x100D1F16),
-            blurRadius: 7,
-            offset: Offset(0, 2),
-          ),
-        ],
+        boxShadow: useBlur
+            ? const [
+                BoxShadow(
+                  color: Color(0x1F211E1A),
+                  blurRadius: 14,
+                  offset: Offset(0, 4),
+                ),
+              ]
+            : const [
+                BoxShadow(
+                  color: Color(0x10211E1A),
+                  blurRadius: 7,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       child: ClipRRect(
         borderRadius: corners,
         child: useBlur
             ? BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-                child: content,
+                filter: ui.ImageFilter.blur(sigmaX: 11, sigmaY: 11),
+                child: CustomPaint(
+                  foregroundPainter: _GlassEdge(radius, dark),
+                  child: content,
+                ),
               )
             : content,
       ),
     );
   }
+}
+
+/// A stationary rim keeps floating navigation legible above light and dark content.
+class _GlassEdge extends CustomPainter {
+  const _GlassEdge(this.radius, this.dark);
+  final double radius;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final rect = Offset.zero & size;
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: dark
+          ? const [Color(0x70FFFFFF), Color(0x12FFFFFF), Color(0x3824211F)]
+          : const [Color(0xFFFFFFFF), Color(0x70FFFFFF), Color(0x452D2926)],
+    );
+    final outline = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(radius),
+    ).deflate(.5);
+    canvas.drawRRect(
+      outline,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..shader = gradient.createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GlassEdge oldDelegate) =>
+      oldDelegate.dark != dark || oldDelegate.radius != radius;
 }
 
 /// Keeps record titles aligned with other route titles on compact screens.
@@ -117,7 +163,7 @@ class WorkspaceRouteTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = Text(title, maxLines: 1, overflow: TextOverflow.ellipsis);
-    if (MediaQuery.sizeOf(context).width < 600) return label;
+    if (workspaceUsesPhoneNavigation(context)) return label;
     return Row(
       children: [
         ExcludeSemantics(child: mark),

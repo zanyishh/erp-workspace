@@ -205,6 +205,8 @@ def document(doctype, name=None, company=None, tree_parent=None):
     if name or meta.issingle:
         doc = frappe.get_doc(doctype, name or doctype)
         doc.check_permission("read")
+        if doctype == "Sales Invoice" and company and doc.company != company:
+            frappe.throw("You cannot open this invoice in this company.", frappe.PermissionError)
         doc.run_method("onload")
     else:
         doc = frappe.new_doc(doctype)

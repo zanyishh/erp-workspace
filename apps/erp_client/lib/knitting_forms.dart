@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'ui/workspace_art.dart';
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -2226,17 +2224,29 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             : Form(
                 key: formKey,
                 onChanged: _markDirty,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (importedProgrammeBlocked)
-                      const _EntrySection(
-                        title: 'Original programme protected',
-                        child: Text(
-                          'Full programme revision is unavailable for imported jobs until original programme compatibility is supported. Use Revise rate to change the agreed rate while preserving the original programme.',
+                child: Panel(
+                  padding: EdgeInsets.all(
+                    workspaceUsesPhoneNavigation(context) ? 16 : 24,
+                  ),
+                  border: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (importedProgrammeBlocked)
+                        const _EntrySection(
+                          title: 'Original programme protected',
+                          child: Text(
+                            'Full programme revision is unavailable for imported jobs until original programme compatibility is supported. Use Revise rate to change the agreed rate while preserving the original programme.',
+                          ),
                         ),
-                      ),
-                    if (MediaQuery.sizeOf(context).width < 600) ...[
+                      for (final section in _entrySections(
+                        widget.action,
+                        fields,
+                      ).entries)
+                        _EntrySection(
+                          title: section.key,
+                          child: _grid(section.value, values),
+                        ),
                       if (const {
                         'produce',
                         'produce_bulk',
@@ -2270,50 +2280,15 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                             ),
                           ],
                         ),
-                    ] else ...[
-                      if (const {
-                        'produce',
-                        'produce_batch',
-                        'produce_bulk',
-                      }.contains(widget.action.id))
+                      if (fields.isEmpty && !importedProgrammeBlocked)
                         const _EntrySection(
-                          title: 'Machine attribution',
+                          title: 'Job completion',
                           child: Text(
-                            'Choose a configured machine or an original machine reference. An original reference records attribution; it does not allocate planning capacity. The optional original employee identifies the production operator separately from the signed-in account recording this entry.',
-                          ),
-                        ),
-                      if (widget.action.id == 'produce_batches')
-                        const _EntrySection(
-                          title: 'Measured production rows',
-                          child: Text(
-                            'Review all rows and post them together. Each row has its own job, fabric and actual yarn consumption. Posts at the current date and time. Recorded by the signed-in account; original employee attribution is separate.',
-                          ),
-                        ),
-                      if (widget.action.id == 'produce_batch')
-                        const _EntrySection(
-                          title: 'Measured batch',
-                          child: Text(
-                            'Record the total weight, recorded count and actual customer-owned yarn used. Posts at the current date and time. Individual roll weights are not inferred. Recorded by the signed-in account; the optional production operator is a preserved original employee reference.',
+                            'Review this job before marking it complete.',
                           ),
                         ),
                     ],
-                    for (final section in _entrySections(
-                      widget.action,
-                      fields,
-                      phone: MediaQuery.sizeOf(context).width < 600,
-                    ).entries)
-                      _EntrySection(
-                        title: section.key,
-                        child: _grid(section.value, values),
-                      ),
-                    if (fields.isEmpty && !importedProgrammeBlocked)
-                      const _EntrySection(
-                        title: 'Job completion',
-                        child: Text(
-                          'Review this job before marking it complete.',
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
       ),

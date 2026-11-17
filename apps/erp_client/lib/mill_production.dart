@@ -202,19 +202,16 @@ class _MillProductionChartState extends State<_MillProductionChart> {
         children: [
           Row(
             children: [
-              const WorkspaceArt(ArtObject.fabric, width: 54, height: 44),
-              const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Display('Posted production', size: 24),
-                    Text(
-                      day == null
-                          ? 'In-house output · kg'
-                          : '${DateFormat.MMMd().format(days.keys.first)} – ${DateFormat.yMMMd().format(days.keys.last)}',
-                      style: _meta,
-                    ),
+                    if (day != null)
+                      Text(
+                        '${DateFormat.MMMd().format(days.keys.first)} – ${DateFormat.yMMMd().format(days.keys.last)}',
+                        style: _meta,
+                      ),
                   ],
                 ),
               ),
@@ -277,18 +274,14 @@ class _MillProductionChartState extends State<_MillProductionChart> {
                 ],
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              complete
+                  ? 'All $loaded production entries in this period'
+                  : 'In-house output · $loaded loaded postings${missingDate ? ' · some dates unavailable' : ''}',
+              style: _meta,
+            ),
           ],
-          const SizedBox(height: 4),
-          Text(
-            !sourceAvailable
-                ? hasSummary
-                      ? 'Production totals unavailable'
-                      : 'Recent entries unavailable'
-                : complete
-                ? 'All $loaded production entries in this period'
-                : 'In-house output · $loaded loaded postings${missingDate ? ' · some dates unavailable' : ''}',
-            style: const TextStyle(fontSize: 11, color: WorkspaceTheme.muted),
-          ),
         ],
       ),
     );

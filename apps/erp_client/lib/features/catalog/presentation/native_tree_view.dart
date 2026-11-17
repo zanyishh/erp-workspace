@@ -181,10 +181,7 @@ class _NativeTreeViewState extends State<NativeTreeView> {
       appBar: AppBar(
         title: WorkspaceRouteTitle(
           '${widget.type.name} hierarchy',
-          mark: RecordIcon(
-            recordSymbol(widget.type.name, tree: true),
-            tone: moduleMark(widget.type.module).$2,
-          ),
+          mark: RecordIcon(recordSymbol(widget.type.name, tree: true)),
         ),
         actions: [
           IconButton(

@@ -170,6 +170,8 @@ class InvoicePaperContinuity extends StatelessWidget {
       ? child
       : Hero(
           tag: tag!,
+          transitionOnUserGestures: true,
+          createRectTween: (begin, end) => RectTween(begin: begin, end: end),
           flightShuttleBuilder: (_, animation, direction, from, to) =>
               Image.asset(
                 template.thumbnailAsset,

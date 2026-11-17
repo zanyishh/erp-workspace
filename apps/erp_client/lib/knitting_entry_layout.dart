@@ -1,7 +1,7 @@
 part of 'knitting_forms.dart';
 
-const _paper = Color(0xFFF8F8F6);
-const _sheet = Color(0xFFE9E9E6);
+const _paper = WorkspaceTheme.surface;
+const _sheet = WorkspaceTheme.canvas;
 const _nestedKinds = {'programme', 'entries', 'inputs', 'batch_rows'};
 
 String _entityFor(String kind) => switch (kind) {
@@ -108,24 +108,23 @@ const _retainedProgrammeFields = [
 
 Map<String, List<KnitField>> _entrySections(
   KnitAction action,
-  List<KnitField> fields, {
-  required bool phone,
-}) {
-  final phoneReceipt = phone && action.id == 'receive_yarn';
+  List<KnitField> fields,
+) {
+  final receipt = action.id == 'receive_yarn';
   final sections = <String, List<KnitField>>{};
   for (final field in fields) {
     final section = switch (field.key) {
       'job' ||
       'item' ||
       'quantity_kg' ||
-      'units' when phoneReceipt => 'Yarn received',
+      'units' when receipt => 'Yarn received',
       'material_owner' ||
       'party' ||
-      'warehouse' ||
+      'warehouse' when receipt => 'Ownership & storage',
       'source_lot' ||
       'party_dc_number' ||
       'party_dc_date' ||
-      'purchase_order' when phoneReceipt => 'Ownership & source',
+      'purchase_order' when receipt => 'Receipt references',
       'programme' || 'entries' || 'inputs' => field.label,
       'reason' || 'notes' || 'remarks' => 'Notes & instructions',
       'customer' ||
@@ -138,13 +137,6 @@ Map<String, List<KnitField>> _entrySections(
       'customer' ||
       'material_mode' ||
       'target_kg' when action.id == 'create_estimate' => 'Estimate details',
-      'material_owner' ||
-      'party' ||
-      'item' ||
-      'purchase_order' ||
-      'party_dc_number' ||
-      'party_dc_date' ||
-      'source_lot' when action.id == 'receive_yarn' => 'Yarn & ownership',
       'starts_at' ||
       'ends_at' ||
       'shift' ||
@@ -200,15 +192,18 @@ Map<String, List<KnitField>> _entrySections(
     };
     (sections[section] ??= []).add(field);
   }
-  // Keep references ahead of quantities and put remarks at the end of the entry.
+  final titles = <String>{
+    'Source & destination',
+    if (receipt) ...[
+      'Yarn received',
+      'Ownership & storage',
+      'Receipt references',
+    ],
+    ...sections.keys.where((s) => s != 'Notes & instructions'),
+    'Notes & instructions',
+  };
   return {
-    for (final title in [
-      'Source & destination',
-      ...sections.keys.where(
-        (s) => s != 'Source & destination' && s != 'Notes & instructions',
-      ),
-      'Notes & instructions',
-    ])
+    for (final title in titles)
       if (sections.containsKey(title)) title: sections[title]!,
   };
 }
@@ -286,7 +281,7 @@ class _EntryPage extends StatelessWidget {
                   padding: EdgeInsets.all(narrow ? 14 : 32),
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1250),
+                      constraints: const BoxConstraints(maxWidth: 1140),
                       child: narrow
                           ? Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,13 +325,10 @@ class _EntryPage extends StatelessWidget {
                   ),
                 ),
               if (footer != null)
-                DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: _paper,
-                    border: Border(
-                      top: BorderSide(color: WorkspaceTheme.border),
-                    ),
-                  ),
+                Panel(
+                  frosted: true,
+                  padding: EdgeInsets.zero,
+                  radius: 0,
                   child: SafeArea(
                     top: false,
                     child: Padding(
@@ -346,10 +338,15 @@ class _EntryPage extends StatelessWidget {
                       ),
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1250),
+                          constraints: const BoxConstraints(maxWidth: 1140),
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: footer,
+                            child: phone
+                                ? SizedBox(
+                                    width: double.infinity,
+                                    child: footer,
+                                  )
+                                : footer,
                           ),
                         ),
                       ),
@@ -430,69 +427,30 @@ class _EntryPage extends StatelessWidget {
         ],
       );
     }
-    final object = switch (action.group) {
-      'Yarn' => ArtObject.yarn,
-      'Factory' || 'Planning' || 'Production' => ArtObject.machine,
-      'Quality' => ArtObject.inspection,
-      'Delivery' => ArtObject.dispatch,
-      'Billing' => ArtObject.invoice,
-      _ => ArtObject.fabric,
-    };
-    final title = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Display(action.title, size: compact ? 27 : 33, light: true),
-        const SizedBox(height: 8),
-        Text(
-          detail,
-          style: const TextStyle(
-            color: Color(0xFFE7E6E3),
-            fontSize: 12,
-            height: 1.4,
-          ),
-        ),
-      ],
-    );
     return Panel(
       dark: true,
-      radius: 17,
-      padding: const EdgeInsets.all(12),
+      radius: 16,
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (compact)
-            Row(
-              children: [
-                Expanded(child: title),
-                const SizedBox(width: 12),
-                WorkspaceArt(object, width: 86, height: 66),
-              ],
-            )
-          else ...[
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFFAFAF9), Color(0xFFE7E7E4)],
-                ),
-              ),
-              child: WorkspaceArt(object, width: double.infinity, height: 144),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(5, 18, 5, 8),
-              child: title,
-            ),
-          ],
-          const SizedBox(height: 12),
+          Semantics(
+            headingLevel: 1,
+            child: Display(action.title, size: compact ? 28 : 36, light: true),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            detail,
+            style: const TextStyle(color: WorkspaceTheme.light, height: 1.45),
+          ),
           if (action.id == 'revise_rate') ...[
+            const SizedBox(height: 10),
             const Text(
               'Existing programme and earlier delivery prices stay unchanged.',
-              style: TextStyle(color: Color(0xFFE7E6E3), height: 1.4),
+              style: TextStyle(color: WorkspaceTheme.light, height: 1.4),
             ),
-            const SizedBox(height: 12),
           ],
+          const SizedBox(height: 22),
           Semantics(
             liveRegion: true,
             label: [
@@ -592,56 +550,14 @@ class _EntrySection extends StatelessWidget {
   final Widget child;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Panel(
-      radius: 17,
-      border: true,
-      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 16 : 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: WorkspaceTheme.palePeach,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  switch (title) {
-                    'Fabric programme' ||
-                    'Production entries' => Icons.layers_outlined,
-                    'Quantities' || 'Yarn received' => Icons.scale_outlined,
-                    'Source & destination' => Icons.alt_route_rounded,
-                    'Dispatch details' => Icons.local_shipping_outlined,
-                    'Material ownership' ||
-                    'Yarn & ownership' ||
-                    'Ownership & source' => Icons.person_outline,
-                    'Yarn inputs' => Icons.move_to_inbox_outlined,
-                    'Machine & programme' ||
-                    'Factory details' => Icons.precision_manufacturing_outlined,
-                    'Timing' => Icons.schedule_outlined,
-                    'Inspection' => Icons.fact_check_outlined,
-                    'Job brief' || 'Job details' => Icons.assignment_outlined,
-                    'Estimate details' => Icons.calculate_outlined,
-                    'Pricing' || 'Commercial details' => Icons.sell_outlined,
-                    'Notes & instructions' => Icons.notes_rounded,
-                    _ => Icons.list_alt_outlined,
-                  },
-                  size: 19,
-                  color: WorkspaceTheme.ink,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: Text(title, style: displayStyle(24))),
-            ],
-          ),
-          const SizedBox(height: 18),
-          child,
-        ],
-      ),
+    padding: const EdgeInsets.only(top: 4, bottom: 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(headingLevel: 2, child: Display(title, size: 24)),
+        const SizedBox(height: 12),
+        child,
+      ],
     ),
   );
 }

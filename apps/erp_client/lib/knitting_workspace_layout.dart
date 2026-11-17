@@ -97,19 +97,11 @@ class KnittingWorkspaceLayout extends StatelessWidget {
       ),
     );
 
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF333432),
-            Color(0xFF262725),
-            WorkspaceTheme.charcoal,
-          ],
-          stops: [0, .28, 1],
-        ),
-      ),
+    return Panel(
+      frosted: true,
+      dark: true,
+      radius: 0,
+      padding: EdgeInsets.zero,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 24, 14, 12),
@@ -120,18 +112,10 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(6, 0, 0, 24),
                 child: Row(
                   children: [
-                    Container(
-                      width: 37,
-                      height: 37,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3C5A8),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.texture_rounded,
-                        size: 23,
-                        color: WorkspaceTheme.ink,
-                      ),
+                    const Icon(
+                      Icons.texture_rounded,
+                      size: 25,
+                      color: WorkspaceTheme.palePeach,
                     ),
                     const SizedBox(width: 11),
                     const Flexible(
@@ -281,15 +265,23 @@ class KnittingWorkspaceLayout extends StatelessWidget {
           if (wide && workspace.company != null)
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: onCompany,
-                icon: const Icon(Icons.business_outlined, size: 17),
-                label: Text(
-                  workspace.company!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              child: onCompany == null
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                        workspace.company!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    )
+                  : TextButton.icon(
+                      onPressed: onCompany,
+                      icon: const Icon(Icons.business_outlined, size: 17),
+                      label: Text(
+                        workspace.company!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
             ),
           if (compact) ...[
             if (workspace.company != null || actions.isNotEmpty)
@@ -331,15 +323,6 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                         onPressed: onBack,
                         tooltip: backLabel,
                         icon: const Icon(Icons.arrow_back_rounded),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(end: 10),
-                        child: Icon(
-                          _destinations[page]!.$1,
-                          size: 23,
-                          color: WorkspaceTheme.ink,
-                        ),
                       ),
                     Flexible(
                       child: Semantics(

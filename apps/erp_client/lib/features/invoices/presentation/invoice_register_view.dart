@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../../../core/ui/design.dart';
 import '../../../core/ui/retained_load.dart';
+import '../../../core/ui/record_identity.dart';
 import '../../../core/ui/widgets.dart';
 import '../models/invoice_register_page.dart';
 import '../models/invoice_templates.dart';
 import 'invoice_register_view_model.dart';
 import 'invoice_register_row.dart';
+import 'invoice_gallery.dart';
 
 enum _Section { invoices, templates }
 
@@ -19,6 +21,8 @@ class InvoiceRegisterView extends StatefulWidget {
     required this.company,
     required this.canCreate,
     this.onImportedHistory,
+    this.identityFor,
+    this.templateScope,
     required this.gallery,
     required this.openEditor,
     required this.sample,
@@ -26,6 +30,8 @@ class InvoiceRegisterView extends StatefulWidget {
     required this.settings,
     required this.protect,
   });
+  final RecordIdentityTransition Function(String)? identityFor;
+  final Object? templateScope;
   final InvoiceRegisterViewModel model;
   final String company;
   final bool canCreate;
@@ -546,9 +552,15 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
                                 ),
                                 child: AspectRatio(
                                   aspectRatio: 210 / 297,
-                                  child: Image.asset(
-                                    invoiceTemplateById(id).thumbnailAsset,
-                                    fit: BoxFit.contain,
+                                  child: InvoicePaperContinuity(
+                                    tag: widget.templateScope == null
+                                        ? null
+                                        : (widget.templateScope, id),
+                                    template: invoiceTemplateById(id),
+                                    child: Image.asset(
+                                      invoiceTemplateById(id).thumbnailAsset,
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -666,6 +678,7 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
                   final row = rows[index - (compact ? 0 : 1)];
                   return InvoiceRegisterRow(
                     key: ValueKey(row['name']),
+                    identity: widget.identityFor?.call(row['name'] as String),
                     focusNode: _rowFocus.putIfAbsent(
                       row['name'].toString(),
                       () => FocusNode(debugLabel: row['name'].toString()),

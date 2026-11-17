@@ -100,6 +100,53 @@ void main() {
     );
   }
 
+  testWidgets('overview activity keeps whole-row targets and enforces access', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var unpaid = false;
+    ErpModule? module;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: WorkspaceTheme.theme,
+        home: Scaffold(
+          body: OverviewScreen(
+            data: const ErpSnapshot(
+              company: 'Example Co',
+              currency: 'EUR',
+              counts: {
+                ErpModule.selling: 12,
+                ErpModule.buying: null,
+                ErpModule.stock: null,
+              },
+              unpaidInvoices: 4,
+            ),
+            onModule: (selected) => module = selected,
+            onUnpaid: () => unpaid = true,
+            onNew: () {},
+          ),
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Open Stock'), findsNothing);
+    final sales = find.bySemanticsLabel('Sales orders, 12. Open Selling');
+    await tester.ensureVisible(sales);
+    expect(tester.getSize(sales).height, greaterThanOrEqualTo(48));
+    await tester.tap(sales);
+    expect(module, ErpModule.selling);
+    final purchases = find.bySemanticsLabel('Purchase orders, no access');
+    await tester.ensureVisible(purchases);
+    expect(tester.widget<Semantics>(purchases).properties.onTap, isNull);
+    final invoices = find.bySemanticsLabel('Unpaid invoices, 4. Open Accounts');
+    await tester.ensureVisible(invoices);
+    await tester.tap(invoices);
+    expect(unpaid, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'refresh keeps the inspected date within the same reporting period',
     (tester) async {

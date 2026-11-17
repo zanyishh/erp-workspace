@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/ui/design.dart';
+import '../../../core/ui/record_identity.dart';
 import '../models/invoice_number.dart';
 
 class InvoiceRegisterRow extends StatelessWidget {
   const InvoiceRegisterRow({
     super.key,
     required this.focusNode,
+    this.identity,
     required this.row,
     required this.compact,
     required this.onOpen,
     required this.onPreview,
   });
+  final RecordIdentityTransition? identity;
   final FocusNode focusNode;
   final Map row;
   final bool compact;
@@ -54,12 +57,14 @@ class InvoiceRegisterRow extends StatelessWidget {
             onPressed: onPreview,
           )
         : const SizedBox.shrink();
-    final title = Text(
-      id,
-      style: const TextStyle(fontWeight: FontWeight.w700),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
+    final title =
+        identity?.label() ??
+        Text(
+          id,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        );
     if (compact) {
       return InkWell(
         focusNode: focusNode,

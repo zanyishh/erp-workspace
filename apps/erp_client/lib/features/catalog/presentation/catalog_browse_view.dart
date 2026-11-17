@@ -214,11 +214,8 @@ class _CatalogBrowseViewState extends State<CatalogBrowseView> {
                       minVerticalPadding: 6,
                       minTileHeight: module.isEmpty ? 60 : 50,
                       leading: generic
-                          ? _CatalogInitials(
-                              name: name,
-                              tone: moduleMark(group).$2,
-                            )
-                          : RecordIcon(symbol, tone: moduleMark(group).$2),
+                          ? _CatalogInitials(name: name)
+                          : RecordIcon(symbol),
                       title: Text(
                         name,
                         style: const TextStyle(
@@ -294,7 +291,7 @@ class _CatalogBrowseViewState extends State<CatalogBrowseView> {
                                         textColor: WorkspaceTheme.light,
                                         selectedColor: WorkspaceTheme.ink,
                                         leading: Icon(
-                                          moduleMark(name).$1,
+                                          moduleSymbol(name),
                                           size: 21,
                                           color: module == name
                                               ? WorkspaceTheme.ink
@@ -334,9 +331,8 @@ class _CatalogBrowseViewState extends State<CatalogBrowseView> {
 /// Site-defined record types have no supplied icon. Their initials keep the
 /// list aligned without filling the catalogue with identical document glyphs.
 class _CatalogInitials extends StatelessWidget {
-  const _CatalogInitials({required this.name, required this.tone});
+  const _CatalogInitials({required this.name});
   final String name;
-  final Color tone;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +350,7 @@ class _CatalogInitials extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: tone.withValues(alpha: .24)),
+          border: Border.all(color: WorkspaceTheme.border),
         ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -363,7 +359,7 @@ class _CatalogInitials extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 12,
-              color: tone,
+              color: WorkspaceTheme.ink,
             ),
           ),
         ),

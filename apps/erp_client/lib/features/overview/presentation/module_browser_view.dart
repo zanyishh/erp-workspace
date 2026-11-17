@@ -156,10 +156,7 @@ class _ModuleBrowserViewState extends State<ModuleBrowserView> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!workspaceUsesPhoneNavigation(context)) ...[
-                RecordHeaderMark(
-                  widget.module.doctype,
-                  tone: moduleMark(widget.module.label).$2,
-                ),
+                RecordHeaderMark(widget.module.doctype),
                 const SizedBox(width: 10),
               ],
               Flexible(

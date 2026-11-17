@@ -9,11 +9,9 @@ import 'sales_chart_view_model.dart';
 import '../../../core/ui/design.dart';
 import '../../../core/models/erp_models.dart';
 import '../../../core/ui/workspace_ui.dart';
-import '../../../core/ui/workspace_art.dart';
 import '../../../core/ui/widgets.dart';
 
 const _muted = WorkspaceTheme.muted;
-const _accent = Color(0xFFA35631);
 
 DateTime _date(DateTime value) =>
     DateTime.utc(value.year, value.month, value.day);
@@ -61,33 +59,27 @@ class _SalesChartState extends State<SalesChart> {
         : '${DateFormat.MMMd().format(range.start)} – ${DateFormat.yMMMd().format(_date(range.end).subtract(const Duration(days: 1)))}';
     return Panel(
       border: true,
-      padding: EdgeInsets.fromLTRB(pad, 12, pad, 6),
+      padding: EdgeInsets.fromLTRB(pad, 18, pad, 9),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Display('BILLED SALES', size: 23),
-                    Text(
-                      money(data.billed, data.currency),
-                      style: TextStyle(
-                        fontSize: compact ? 26 : 31,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                        letterSpacing: -.9,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const WorkspaceArt(ArtObject.sales, width: 74, height: 52),
-            ],
+          Semantics(
+            headingLevel: 2,
+            child: const Display('BILLED SALES', size: 25),
           ),
+          if (data.invoicesAvailable) ...[
+            const SizedBox(height: 3),
+            Text(
+              money(data.billed, data.currency),
+              style: TextStyle(
+                fontSize: compact ? 33 : 38,
+                fontWeight: FontWeight.w600,
+                height: 1.15,
+                letterSpacing: -1.2,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
           const SizedBox(height: 5),
           Wrap(
             spacing: 10,
@@ -109,25 +101,11 @@ class _SalesChartState extends State<SalesChart> {
           if (buckets.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 15),
-              child: Row(
-                children: [
-                  Icon(
-                    data.invoicesAvailable
-                        ? Icons.show_chart
-                        : Icons.lock_outline,
-                    color: _muted,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      data.invoicesAvailable
-                          ? 'No posted invoices yet'
-                          : 'Invoice access unavailable',
-                      style: const TextStyle(color: _muted),
-                    ),
-                  ),
-                ],
+              child: Text(
+                data.invoicesAvailable
+                    ? 'No posted invoices yet'
+                    : 'Invoice access unavailable',
+                style: const TextStyle(color: _muted),
               ),
             )
           else ...[
@@ -162,15 +140,6 @@ class _SalesChartState extends State<SalesChart> {
 
     return Row(
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: _accent,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 9),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,7 +378,7 @@ class _SeriesPainter extends CustomPainter {
           ..shader = const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0x76EBBE9F), Color(0x07E6AE88)],
+            colors: [Color(0x30222322), Color(0x04222322)],
           ).createShader(Offset.zero & size),
       );
       canvas.drawPath(
@@ -436,8 +405,8 @@ class _SeriesPainter extends CustomPainter {
         guide,
       );
     }
-    canvas.drawCircle(position, 7.5, Paint()..color = const Color(0x46FFAE80));
-    canvas.drawCircle(position, 4.5, Paint()..color = _accent);
+    canvas.drawCircle(position, 7.5, Paint()..color = WorkspaceTheme.palePeach);
+    canvas.drawCircle(position, 4.5, Paint()..color = WorkspaceTheme.ink);
     canvas.drawCircle(position, 2, Paint()..color = WorkspaceTheme.light);
   }
 

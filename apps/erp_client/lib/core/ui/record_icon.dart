@@ -4,18 +4,11 @@ import '../models/erp_models.dart';
 import 'design.dart';
 import 'workspace_art.dart';
 
-/// Compact navigation marks. Colour identifies a workspace; the silhouette
-/// identifies the record or task. The adjacent text remains its accessible name.
+/// The silhouette identifies the record. The adjacent label supplies its name.
 class RecordIcon extends StatelessWidget {
-  const RecordIcon(
-    this.icon, {
-    super.key,
-    this.size = 36,
-    this.tone = const Color(0xFF445963),
-  });
+  const RecordIcon(this.icon, {super.key, this.size = 36});
   final IconData icon;
   final double size;
-  final Color tone;
 
   @override
   Widget build(BuildContext context) {
@@ -26,21 +19,16 @@ class RecordIcon extends StatelessWidget {
         width: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: highContrast
-              ? Colors.white
-              : Color.alphaBlend(
-                  tone.withValues(alpha: .11),
-                  WorkspaceTheme.surface,
-                ),
+          color: highContrast ? Colors.white : WorkspaceTheme.surface,
           border: Border.all(
-            color: highContrast ? Colors.black : tone.withValues(alpha: .22),
+            color: highContrast ? Colors.black : WorkspaceTheme.border,
           ),
           borderRadius: BorderRadius.circular(size * .28),
         ),
         child: Icon(
           icon,
-          size: size * .58,
-          color: highContrast ? Colors.black : tone,
+          size: size >= 36 ? 20 : 16,
+          color: highContrast ? Colors.black : WorkspaceTheme.ink,
         ),
       ),
     );
@@ -49,14 +37,8 @@ class RecordIcon extends StatelessWidget {
 
 /// Use the same physical object when a business record is listed and edited.
 class RecordHeaderMark extends StatelessWidget {
-  const RecordHeaderMark(
-    this.doctype, {
-    super.key,
-    this.tone,
-    this.settings = false,
-  });
+  const RecordHeaderMark(this.doctype, {super.key, this.settings = false});
   final String doctype;
-  final Color? tone;
   final bool settings;
 
   @override
@@ -86,35 +68,20 @@ class RecordHeaderMark extends StatelessWidget {
       _ => null,
     };
     return object == null
-        ? RecordIcon(
-            recordSymbol(doctype, settings: settings),
-            tone: tone ?? const Color(0xFF445963),
-          )
+        ? RecordIcon(recordSymbol(doctype, settings: settings))
         : WorkspaceArt(object, width: 60, height: 40);
   }
 }
 
-(IconData, Color) moduleMark(String module) {
+IconData moduleSymbol(String module) {
   final key = module.toLowerCase();
   final standard = ErpModule.values
       .where((m) => m.label.toLowerCase() == key)
       .firstOrNull;
   if (standard != null) {
-    return (
-      moduleIcon(standard),
-      switch (standard) {
-        ErpModule.accounts => const Color(0xFF2C6051),
-        ErpModule.selling => const Color(0xFF835135),
-        ErpModule.buying => const Color(0xFF555687),
-        ErpModule.stock => const Color(0xFF476132),
-        ErpModule.manufacturing => const Color(0xFF426479),
-        ErpModule.projects => const Color(0xFF745570),
-        ErpModule.assets => const Color(0xFF765F35),
-        ErpModule.quality => const Color(0xFF28646B),
-      },
-    );
+    return moduleIcon(standard);
   }
-  final icon = switch (key) {
+  return switch (key) {
     'quality management' => Icons.fact_check_outlined,
     'crm' => Icons.forum_outlined,
     'maintenance' => Icons.home_repair_service_outlined,
@@ -143,7 +110,6 @@ class RecordHeaderMark extends StatelessWidget {
     '' => Icons.apps_rounded,
     _ => Icons.folder_outlined,
   };
-  return (icon, const Color(0xFF445963));
 }
 
 IconData recordSymbol(
@@ -175,7 +141,7 @@ IconData recordSymbol(
     'Purchase Invoice' => Icons.request_quote_outlined,
     'Sales Order' => Icons.assignment_outlined,
     'Purchase Order' => Icons.shopping_cart_outlined,
-    'Quotation' || 'Supplier Quotation' => Icons.format_quote_outlined,
+    'Quotation' || 'Supplier Quotation' => Icons.request_quote_outlined,
     'Delivery Note' => Icons.local_shipping_outlined,
     'Purchase Receipt' => Icons.move_to_inbox_outlined,
     'Payment Entry' => Icons.payments_outlined,

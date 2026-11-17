@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../document_editor.dart';
+import '../../core/ui/record_identity.dart';
 import '../../erp_api.dart' show ErpApi;
 import '../../invoice_composer.dart';
 import '../../imported_history.dart';
@@ -35,6 +36,7 @@ class _InvoiceHubState extends State<InvoiceHub> {
   late InvoiceRegisterViewModel _model;
   late Object _owned;
   Object? _access;
+  final _scopeChanges = ValueNotifier(0);
   Object get _ownership =>
       (widget.api, widget.api.baseUri, widget.api.account, widget.company);
   void _create() {
@@ -56,6 +58,7 @@ class _InvoiceHubState extends State<InvoiceHub> {
 
   void _accessChanged() {
     if (!mounted) return;
+    _scopeChanges.value++;
     if (_owned != _ownership) {
       _model.dispose();
       _create();
@@ -76,6 +79,7 @@ class _InvoiceHubState extends State<InvoiceHub> {
     if (_owned != _ownership) {
       _model.dispose();
       _create();
+      _scopeChanges.value++;
     }
   }
 
@@ -83,11 +87,24 @@ class _InvoiceHubState extends State<InvoiceHub> {
   void dispose() {
     widget.api.removeAccessListener(_accessChanged);
     _model.dispose();
+    _scopeChanges.dispose();
     super.dispose();
   }
 
   bool _current(InvoiceRegisterViewModel model, Object scope) =>
       mounted && identical(model, _model) && model.isCurrent(scope);
+  RecordIdentityTransition _identityFor(String name) {
+    final model = _model, scope = model.scope;
+    return RecordIdentityTransition(
+      name: name,
+      scopeChanges: _scopeChanges,
+      tag: (model, scope, name),
+      isCurrent: () =>
+          _current(model, scope) &&
+          model.loadedPage?.rows.any((row) => row['name'] == name) == true,
+    );
+  }
+
   Future<String?> _openEditor(
     InvoiceRegisterPage page,
     String? name,
@@ -115,20 +132,25 @@ class _InvoiceHubState extends State<InvoiceHub> {
         ),
       );
     } else {
+      final identity = _identityFor(name);
       await Navigator.push<void>(
         context,
         MaterialPageRoute(
+          allowSnapshotting: false,
           builder: (_) => DocumentEditor(
             api: api,
             company: company,
             doctype: 'Sales Invoice',
             name: name,
+            transition: identity,
           ),
         ),
       );
     }
     return _current(model, scope) ? result : null;
   }
+
+  Object get _sampleScope => (_model, _model.scope, 'invoice-sample');
 
   Future<InvoiceTemplate?> _sample(
     InvoiceRegisterPage? page,
@@ -140,17 +162,16 @@ class _InvoiceHubState extends State<InvoiceHub> {
         api = widget.api,
         company = widget.company;
     if (!model.isCurrent(scope)) return null;
+    final tag = (_sampleScope, template.id);
     final chosen = await Navigator.push<InvoiceTemplate>(
       context,
       MaterialPageRoute(
+        allowSnapshotting: false,
         builder: (routeContext) => InvoicePreviewScreen(
           api: api,
           company: company,
           initialTemplate: template,
-          transitionTag: (
-            (api.baseUri, api.account, company, 'invoice-sample'),
-            template.id,
-          ),
+          transitionTag: tag,
           onCreate:
               canCreate && widget.canCreate && model.canCreate(model.loadedPage)
               ? (style) => Navigator.pop(routeContext, style)
@@ -222,6 +243,8 @@ class _InvoiceHubState extends State<InvoiceHub> {
         (widget.api.contextFor(widget.company)?.canReadImportedHistory == true
             ? _openHistory
             : null),
+    identityFor: _identityFor,
+    templateScope: _sampleScope,
     openEditor: _openEditor,
     sample: _sample,
     preview: _preview,
@@ -229,12 +252,7 @@ class _InvoiceHubState extends State<InvoiceHub> {
     gallery: (selected, onChoose) => InvoiceGallery(
       selectedId: selected,
       companyDefault: true,
-      transitionScope: (
-        widget.api.baseUri,
-        widget.api.account,
-        widget.company,
-        'invoice-sample',
-      ),
+      transitionScope: _sampleScope,
       onChoose: onChoose,
     ),
     protect: (child, reload) => AccessGate(

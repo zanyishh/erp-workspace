@@ -298,7 +298,6 @@ class _MillOverviewBody extends StatelessWidget {
           detail: totals != null
               ? 'All jobs: ${balance('yarn_kg')} kg'
               : 'Recent jobs: ${balance('yarn_kg')} kg',
-          art: ArtObject.yarn,
           onTap: balance('running_yarn_kg') == '—'
               ? null
               : () => showBalances(
@@ -312,20 +311,17 @@ class _MillOverviewBody extends StatelessWidget {
           title: 'Awaiting invoice',
           amount: balance('unbilled_kg'),
           detail: 'Delivered and unbilled',
-          art: ArtObject.invoice,
           onTap: balance('unbilled_kg') == '—'
               ? null
               : () => showBalances('unbilled_kg', 'Awaiting invoice'),
         ),
     ];
-    final queues = <(String, String, String, IconData, Color, int?)>[
+    final queues = <(String, String, String, int?)>[
       if (workspace.allows('quality')) ...[
         (
           'Awaiting inspection',
           'Quality',
           'Awaiting QC',
-          Icons.fact_check_outlined,
-          const Color(0xFFF7D8BD),
           totals?['rolls']?['Awaiting QC'] as int? ??
               (snapshot.data['rolls'] is List
                   ? rolls.where((r) => r['state'] == 'Awaiting QC').length
@@ -335,8 +331,6 @@ class _MillOverviewBody extends StatelessWidget {
           'On hold',
           'Quality',
           'On Hold',
-          Icons.pause_circle_outline,
-          const Color(0xFFF2DCA9),
           totals?['rolls']?['On Hold'] as int? ??
               (snapshot.data['rolls'] is List
                   ? rolls.where((r) => r['state'] == 'On Hold').length
@@ -348,8 +342,6 @@ class _MillOverviewBody extends StatelessWidget {
           'Ready to dispatch',
           'Delivery',
           'Released',
-          Icons.local_shipping_outlined,
-          const Color(0xFFD2E4D5),
           totals?['rolls']?['Released'] as int? ??
               (snapshot.data['rolls'] is List
                   ? rolls.where((r) => r['state'] == 'Released').length
@@ -360,8 +352,6 @@ class _MillOverviewBody extends StatelessWidget {
           'Planned runs',
           'Planning',
           'Planned',
-          Icons.calendar_month_outlined,
-          const Color(0xFFD0E1E9),
           totals?['plans']?['Planned'] as int? ??
               (snapshot.data['plans'] is List
                   ? snapshot
@@ -398,18 +388,6 @@ class _MillOverviewBody extends StatelessWidget {
             if (i > 0) const Divider(height: 1),
             ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              minLeadingWidth: 0,
-              horizontalTitleGap: 10,
-              leading: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: q.$5,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(q.$4, size: 20, color: WorkspaceTheme.ink),
-                ),
-              ),
               title: Text(
                 q.$1,
                 style: const TextStyle(
@@ -421,7 +399,7 @@ class _MillOverviewBody extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    q.$6?.toString() ?? '—',
+                    q.$4?.toString() ?? '—',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -481,17 +459,17 @@ class _MillOverviewBody extends StatelessWidget {
     );
     final showChart = workspace.allows('production');
     final summary = Panel(
-      dark: true,
-      padding: const EdgeInsets.all(12),
+      border: true,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(4, 3, 4, 12),
-            child: Display('Material balances', size: 24, light: true),
+            padding: EdgeInsets.only(bottom: 7),
+            child: Display('Material balances', size: 25),
           ),
           for (final (i, card) in balances.indexed) ...[
-            if (i > 0) const SizedBox(height: 6),
+            if (i > 0) const Divider(height: 1),
             card,
           ],
         ],
@@ -526,32 +504,6 @@ class _MillOverviewBody extends StatelessWidget {
               children: children,
             );
             final hasQueue = queues.isNotEmpty || canViewBatches;
-            if (box.maxWidth >= 1040 && scale < 1.5) {
-              return column([
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (balances.isNotEmpty) ...[
-                      Expanded(flex: 22, child: summary),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      flex: 51,
-                      child: column([
-                        stage,
-                        if (showChart) ...[gap, chart],
-                      ]),
-                    ),
-                    if (hasQueue) ...[
-                      const SizedBox(width: 12),
-                      Expanded(flex: 25, child: queue),
-                    ],
-                  ],
-                ),
-                gap,
-                register,
-              ]);
-            }
             if (box.maxWidth >= 700 &&
                 scale < 1.5 &&
                 (balances.isNotEmpty || hasQueue)) {
@@ -559,7 +511,7 @@ class _MillOverviewBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 57,
+                    flex: 8,
                     child: column([
                       stage,
                       if (showChart) ...[gap, chart],
@@ -567,12 +519,12 @@ class _MillOverviewBody extends StatelessWidget {
                       register,
                     ]),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
-                    flex: 39,
+                    flex: 5,
                     child: column([
-                      if (balances.isNotEmpty) summary,
-                      if (hasQueue) ...[if (balances.isNotEmpty) gap, queue],
+                      if (hasQueue) queue,
+                      if (balances.isNotEmpty) ...[if (hasQueue) gap, summary],
                     ]),
                   ),
                 ],
@@ -628,50 +580,58 @@ class _JobSummary extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(15, 12, 15, 9),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final textScale =
+                    MediaQuery.textScalerOf(context).scale(14) / 14;
+                final showArt = constraints.maxWidth >= 280 * textScale;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Expanded(child: Display('Running jobs', size: 26)),
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Display('Running jobs', size: 24),
+                          const SizedBox(height: 8),
+                          Text(
+                            running?.toString() ?? '—',
+                            style: displayStyle(54)
+                                .copyWith(fontFeatures: _numeric.fontFeatures),
+                          ),
+                          Text(
+                            count == null
+                                ? 'Register unavailable'
+                                : complete
+                                ? 'of $count jobs'
+                                : 'of $count recent jobs',
+                            style: _meta,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (showArt)
+                      Expanded(
+                        flex: 8,
+                        child: WorkspaceArt(
+                          ArtObject.machine,
+                          width: double.infinity,
+                          height: (constraints.maxWidth * .34).clamp(
+                            114.0,
+                            202.0,
+                          ),
+                        ),
+                      ),
                     const Icon(
                       Icons.north_east,
                       size: 17,
                       color: WorkspaceTheme.muted,
                     ),
                   ],
-                ),
-                LayoutBuilder(
-                  builder: (_, box) => WorkspaceArt(
-                    ArtObject.machine,
-                    height: (box.maxWidth * .46).clamp(144.0, 275.0),
-                    width: box.maxWidth,
-                  ),
-                ),
-                const Divider(height: 10),
-                Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      running?.toString() ?? '—',
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      count == null
-                          ? 'Register unavailable'
-                          : complete
-                          ? 'of $count jobs'
-                          : 'of $count recent jobs',
-                      style: _meta,
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -685,21 +645,17 @@ class _BalanceCard extends StatelessWidget {
     required this.title,
     required this.amount,
     required this.detail,
-    required this.art,
     required this.onTap,
   });
   final String title, amount, detail;
-  final ArtObject art;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Material(
-    color: WorkspaceTheme.surface,
-    clipBehavior: Clip.antiAlias,
-    borderRadius: BorderRadius.circular(13),
+    color: Colors.transparent,
     child: InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -715,19 +671,19 @@ class _BalanceCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 5),
-                const Icon(
-                  Icons.north_east,
-                  size: 14,
-                  color: WorkspaceTheme.muted,
-                ),
+                if (onTap != null)
+                  const Icon(
+                    Icons.north_east,
+                    size: 14,
+                    color: WorkspaceTheme.muted,
+                  ),
               ],
             ),
-            WorkspaceArt(art, width: double.infinity, height: 79),
+            const SizedBox(height: 6),
             Text.rich(
               TextSpan(
                 text: amount,
-                style: const TextStyle(
+                style: _numeric.copyWith(
                   fontSize: 25,
                   fontWeight: FontWeight.w600,
                   letterSpacing: -.7,
@@ -774,7 +730,8 @@ class MillJobRegister extends StatelessWidget {
   final Widget? action;
 
   bool _wide(BuildContext context, double width) =>
-      width >= 820 && MediaQuery.textScalerOf(context).scale(12) < 18;
+      width >=
+      700 * (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(1.0, 2.0);
   @override
   Widget build(BuildContext context) {
     final width = sliverWidth;
@@ -830,8 +787,6 @@ class MillJobRegister extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
           child: Row(
             children: [
-              const WorkspaceArt(ArtObject.fabric, width: 48, height: 45),
-              const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

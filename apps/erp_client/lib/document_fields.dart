@@ -39,6 +39,7 @@ class DocumentFields extends StatefulWidget {
     required this.schema,
     required this.data,
     required this.onChanged,
+    this.visibleStepFields,
     this.errors = const {},
     this.editable = true,
     this.onLink,
@@ -50,6 +51,7 @@ class DocumentFields extends StatefulWidget {
     this.scopeKey,
   });
   final NativeSchema schema;
+  final List<NativeField>? visibleStepFields;
   final Map<String, dynamic> data;
   final VoidCallback onChanged;
   final Map<String, String> errors;
@@ -284,10 +286,10 @@ class DocumentFieldsState extends State<DocumentFields> {
         fields = [];
       }
 
-      for (final field in widget.schema.visibleFields(
-        widget.data,
-        parent: widget.parent,
-      )) {
+      _fieldSections.clear();
+      for (final field
+          in widget.visibleStepFields ??
+              widget.schema.visibleFields(widget.data, parent: widget.parent)) {
         if (const {
               'Section Break',
               'Tab Break',
