@@ -5,8 +5,11 @@ import os
 from pathlib import Path
 import secrets
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'scripts/quality'))
+from native_target import python_command
 CONNECT = """
 import json
 import os
@@ -148,10 +151,7 @@ print(json.dumps({"site": frappe.local.site, "actor": d["username"], "system_man
 
 
 def on_site(fixture, script):
-    command = [
-        "docker", "--context", "colima-erp", "compose", "-f", "infrastructure/erpnext/compose.yaml",
-        "exec", "-T", "native-test-backend", "/home/frappe/frappe-bench/env/bin/python", "-",
-    ]
+    command = python_command('-')
     result = subprocess.run(command, cwd=ROOT, input=CONNECT + f"\nd = {fixture!r}\n" + script,
                             text=True, capture_output=True)
     if result.returncode:

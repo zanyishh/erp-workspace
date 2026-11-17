@@ -6,6 +6,10 @@ import secrets
 import subprocess
 import sys
 
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'scripts/quality'))
+from native_target import python_command
+
 
 PROVISION = """
 import os
@@ -46,10 +50,7 @@ def main():
     }
     with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
         json.dump(identity, stream)
-    command = [
-        "docker", "--context", "colima-erp", "compose", "-f", "infrastructure/erpnext/compose.yaml",
-        "exec", "-T", "native-test-backend", "/home/frappe/frappe-bench/env/bin/python", "-",
-    ]
+    command = python_command('-')
     result = subprocess.run(command, cwd=root, input=f"identity = {identity!r}\n{PROVISION}",
                             text=True, capture_output=True)
     if result.returncode:

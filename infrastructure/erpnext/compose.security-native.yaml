@@ -1,0 +1,194 @@
+# Derived from Frappe Docker v4.2.0 (MIT; ../../licenses/frappe_docker/LICENSE).
+# Local isolation/launcher changes: GPL-3.0; see ../../NOTICE.md.
+# Fresh synthetic data only; never merge with compose.yaml.
+name: erp-secure-native
+
+x-app: &app
+  image: ${ERP_SECURE_IMAGE:?Use the prepared immutable ERP image ID}
+  pull_policy: never
+  user: frappe
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  networks: [native]
+  environment:
+    PYTHONPATH: /home/frappe/frappe-bench/apps/erp_extensions
+    NATIVE_TEST_SITE: native-test.localhost
+    FRAPPE_REDIS_CACHE: redis://redis-cache:6379
+    FRAPPE_REDIS_QUEUE: redis://redis-queue:6379
+  volumes:
+    - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
+    - sites:/home/frappe/frappe-bench/sites
+    - logs:/home/frappe/frappe-bench/logs
+  restart: "no"
+
+services:
+  asset-seed:
+    image: ${ERP_SECURE_IMAGE:?Use the prepared immutable ERP image ID}
+    pull_policy: never
+    user: root
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: [no-new-privileges:true]
+    profiles: [bootstrap]
+    mem_limit: 128m
+    cpus: 0.5
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+        volume: {nocopy: true}
+      - type: volume
+        source: logs
+        target: /home/frappe/frappe-bench/logs
+        volume: {nocopy: true}
+    entrypoint: [/home/frappe/frappe-bench/env/bin/python, "-"]
+
+  initializer:
+    <<: *app
+    profiles: [bootstrap]
+    mem_limit: 768m
+    cpus: 1.0
+    secrets: [db_root, site_admin]
+    entrypoint: [/home/frappe/frappe-bench/env/bin/python, "-"]
+
+  db:
+    image: ${ERP_SECURE_DB_IMAGE:?Use the prepared immutable database image ID}
+    pull_policy: never
+    networks: [native]
+    mem_limit: 384m
+    cpus: 0.75
+    restart: "no"
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root
+    secrets: [db_root]
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --innodb-snapshot-isolation=OFF
+      - --innodb-buffer-pool-size=96M
+      - --max-connections=40
+    volumes: [db-data:/var/lib/mysql]
+    healthcheck:
+      test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  redis-cache: &redis
+    image: ${ERP_SECURE_REDIS_IMAGE:?Use the prepared immutable Redis image ID}
+    pull_policy: never
+    networks: [native]
+    mem_limit: 96m
+    cpus: 0.25
+    restart: "no"
+    command: [redis-server, --maxmemory, 48mb, --maxmemory-policy, allkeys-lru]
+    volumes: [redis-cache-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-queue:
+    <<: *redis
+    command: [redis-server, --appendonly, "yes", --maxmemory, 64mb, --maxmemory-policy, noeviction]
+    volumes: [redis-queue-data:/data]
+
+  native-test-backend:
+    <<: *app
+    mem_limit: 768m
+    cpus: 1.0
+    command:
+      - /home/frappe/frappe-bench/env/bin/gunicorn
+      - --chdir=/home/frappe/frappe-bench/sites
+      - --bind=0.0.0.0:8000
+      - --workers=1
+      - --threads=2
+      - --worker-class=gthread
+      - --worker-tmp-dir=/dev/shm
+      - --timeout=120
+      - frappe.app:application
+    healthcheck:
+      test:
+        - CMD
+        - /home/frappe/frappe-bench/env/bin/python
+        - -c
+        - "import json,urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/api/method/ping',headers={'Host':'native-test.localhost'}); assert json.load(urllib.request.build_opener(urllib.request.ProxyHandler({})).open(r,timeout=3))['message']=='pong'"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  websocket:
+    <<: *app
+    mem_limit: 128m
+    cpus: 0.25
+    command: [node, /home/frappe/frappe-bench/apps/frappe/socketio.js]
+
+  worker:
+    <<: *app
+    mem_limit: 256m
+    cpus: 0.5
+    command: [bench, worker, --queue, "short,default,long"]
+
+  native-test-frontend:
+    <<: *app
+    mem_limit: 96m
+    cpus: 0.25
+    command: [nginx-entrypoint.sh]
+    environment:
+      BACKEND: native-test-backend:8000
+      FRAPPE_SITE_NAME_HEADER: native-test.localhost
+      SOCKETIO: websocket:9000
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "off"
+      PROXY_READ_TIMEOUT: "120"
+      CLIENT_MAX_BODY_SIZE: 50m
+    volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
+      - sites:/home/frappe/frappe-bench/sites:ro
+      - logs:/home/frappe/frappe-bench/logs
+      - ${ERP_SECURE_STATE:?Run the preparation launcher}/native-api-methods.conf:/etc/nginx/conf.d/native-api-methods.conf:ro
+      - ${ERP_SECURE_STATE:?Run the preparation launcher}/security_headers.conf:/etc/nginx/snippets/security_headers.conf:ro
+    ports: ["127.0.0.1:8081:8080"]
+
+secrets:
+  db_root:
+    file: ${ERP_SECURE_STATE:?Run the preparation launcher}/secrets/db-root
+  site_admin:
+    file: ${ERP_SECURE_STATE:?Run the preparation launcher}/secrets/site-admin
+
+volumes:
+  sites:
+    name: erp-secure-native-sites
+    driver: local
+    driver_opts: {type: none, o: bind, device: /var/lib/erp-secure-native/sites}
+    labels: {erp.scope: synthetic-native-only}
+  logs:
+    name: erp-secure-native-logs
+    driver: local
+    driver_opts: {type: none, o: bind, device: /var/lib/erp-secure-native/logs}
+    labels: {erp.scope: synthetic-native-only}
+  db-data:
+    name: erp-secure-native-db-data
+    driver: local
+    driver_opts: {type: none, o: bind, device: /var/lib/erp-secure-native/db-data}
+    labels: {erp.scope: synthetic-native-only}
+  redis-cache-data:
+    name: erp-secure-native-redis-cache-data
+    driver: local
+    driver_opts: {type: none, o: bind, device: /var/lib/erp-secure-native/redis-cache-data}
+    labels: {erp.scope: synthetic-native-only}
+  redis-queue-data:
+    name: erp-secure-native-redis-queue-data
+    driver: local
+    driver_opts: {type: none, o: bind, device: /var/lib/erp-secure-native/redis-queue-data}
+    labels: {erp.scope: synthetic-native-only}
+
+networks:
+  native:
+    name: erp-secure-native
+    internal: true

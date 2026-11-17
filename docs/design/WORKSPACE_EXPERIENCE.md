@@ -54,8 +54,8 @@ Motion communicates hierarchy, selection and actual completion. All screens use 
 
 | Interaction | Proposed motion |
 | --- | --- |
-| Button/card hover or keyboard focus | 140 ms colour/shadow transition; interactive cards may rise 2 logical pixels; no movement of reading rows |
-| Card first appearance | 220 ms fade and 8-pixel settle; optional 25 ms stagger capped at 150 ms; only on first entry |
+| Button/card hover or keyboard focus | A brief colour or focus-outline transition makes the target clear; cards and reading rows remain still |
+| Card first appearance | Immediate stable content; no entrance stagger, lifting or decorative settling |
 | Tab/route change | 200 to 240 ms short fade/slide preserving scroll, identity and focus; reduced motion uses immediate change or a short fade |
 | Expansion and selection | 160 to 200 ms size/highlight transition; selected roll/job remains visible |
 | Planner queue movement | 180 ms movement after local selection; Review and Apply remains explicit; no fake background posting |

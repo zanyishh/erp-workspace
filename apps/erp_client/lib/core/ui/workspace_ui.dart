@@ -1,0 +1,216 @@
+import 'package:flutter/material.dart';
+
+import 'design.dart';
+import 'widgets.dart';
+
+Duration workspaceMotion(BuildContext context) => workspaceReduceMotion(context)
+    ? Duration.zero
+    : const Duration(milliseconds: 180);
+
+class WorkspacePage extends StatelessWidget {
+  const WorkspacePage({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.actions = const [],
+  });
+  final String title, subtitle;
+  final Widget child;
+  final List<Widget> actions;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(title)),
+    body: WorkspaceBackdrop(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1440),
+          child: Padding(
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width < 600 ? 16 : 24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    if (subtitle.isNotEmpty)
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    if (actions.isNotEmpty)
+                      Wrap(spacing: 8, runSpacing: 8, children: actions),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class WorkspaceSelection extends StatelessWidget {
+  const WorkspaceSelection({
+    super.key,
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+  final List<String> labels;
+  final String selected;
+  final ValueChanged<String> onSelected;
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: [
+        for (final label in labels)
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Semantics(
+              selected: selected == label,
+              child: AnimatedContainer(
+                duration: workspaceMotion(context),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: selected == label
+                      ? WorkspaceTheme.charcoal
+                      : WorkspaceTheme.surface,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: TextButton(
+                  onPressed: () => onSelected(label),
+                  style: TextButton.styleFrom(
+                    foregroundColor: selected == label
+                        ? WorkspaceTheme.light
+                        : WorkspaceTheme.ink,
+                  ),
+                  child: Text(label),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+class WorkspaceSteps extends StatelessWidget {
+  const WorkspaceSteps({super.key, required this.current});
+  final int current;
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 12,
+    runSpacing: 10,
+    children: [
+      for (final (i, label) in [
+        'Programme',
+        'Yarn',
+        'Production',
+        'Quality',
+        'Delivery',
+        'Invoice',
+      ].indexed)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: i <= current
+                  ? WorkspaceTheme.charcoal
+                  : WorkspaceTheme.border,
+              child: Text(
+                '${i + 1}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: i <= current
+                      ? WorkspaceTheme.light
+                      : WorkspaceTheme.ink,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: i <= current ? WorkspaceTheme.ink : WorkspaceTheme.muted,
+              ),
+            ),
+            if (i < 5)
+              const Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 14,
+                  color: WorkspaceTheme.muted,
+                ),
+              ),
+          ],
+        ),
+    ],
+  );
+}
+
+/// Animate only the incoming destination. Outgoing fields are immediately
+/// removed from focus, semantics and hit testing, including on access changes.
+class WorkspaceDestinationTransition extends StatefulWidget {
+  const WorkspaceDestinationTransition({
+    super.key,
+    required this.location,
+    required this.child,
+  });
+  final Object? location;
+  final Widget child;
+  @override
+  State<WorkspaceDestinationTransition> createState() =>
+      _WorkspaceDestinationTransitionState();
+}
+
+class _WorkspaceDestinationTransitionState
+    extends State<WorkspaceDestinationTransition>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(vsync: this, value: 1);
+  late final _curve = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
+  @override
+  void didUpdateWidget(covariant WorkspaceDestinationTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.location != widget.location &&
+        !workspaceReduceMotion(context)) {
+      _controller.duration = workspaceMotion(context);
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (workspaceReduceMotion(context)) _controller.value = 1;
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    key: const ValueKey('workspace-destination-transition'),
+    opacity: Tween<double>(begin: .58, end: 1).animate(_curve),
+    child: widget.child,
+  );
+}

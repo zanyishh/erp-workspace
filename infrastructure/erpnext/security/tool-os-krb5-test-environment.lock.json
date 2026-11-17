@@ -1,0 +1,70 @@
+{
+  "status": "reviewed-benign-prerequisite-passed-full-ordinary-tests-pending",
+  "uid": 194812,
+  "profile_sha256": "2260ea56fb0651494f22338652221f95f888ffc15c9c6b54ecd24c973630d807",
+  "default_sha256": "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74",
+  "key_ttl_seconds": 5700,
+  "test_timeout_seconds": 4800,
+  "engine": {
+    "version": "29.5.2",
+    "commit": "568f755ebeb1ac9c6a8febbda6cd371ea0a9630b",
+    "API": "1.54"
+  },
+  "kernel_version": "6.8.0-117-generic",
+  "official_profile": {
+    "module": "github.com/moby/profiles/seccomp v0.2.3",
+    "commit": "836ae4d37ef2ec995c77c99fc55f5b5f3af3a897",
+    "tag_object": "f1a0fd6b5a369fca061b041539129661ed337ef5",
+    "source": "https://github.com/moby/profiles/blob/836ae4d37ef2ec995c77c99fc55f5b5f3af3a897/seccomp/default.json"
+  },
+  "delta": "Preserve all33 original rules/architectures/defaultERRNO1; append only add_key,keyctl,request_key ALLOW. Per-container; no global policies changed.",
+  "prerequisite": {
+    "source": ".local/quality/security-remediation/krb5-keyring-prereq/actual-probe-1/receipt.json",
+    "bytes": 17752,
+    "sha256": "3dacdbafef279c90d8122a638045ae73a981db2a5d84ff00cfd1065dbb44e5fb",
+    "expected": "native highUID pass, Docker builtin EPERM1, exact narrow profile highUID pass; owned cleanup and no UID key/process rows"
+  },
+  "files": {
+    "tool-os-krb5-seccomp-default.json": {
+      "bytes": 13470,
+      "sha256": "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74"
+    },
+    "tool-os-krb5-seccomp.json": {
+      "bytes": 16774,
+      "sha256": "2260ea56fb0651494f22338652221f95f888ffc15c9c6b54ecd24c973630d807"
+    },
+    "tool-os-krb5-seccomp.LICENSE": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "tool-os-krb5-seccomp.NOTICE": {
+      "bytes": 1071,
+      "sha256": "b3280b383757777bcb838d1d5acd1f2dd3242ba707ea54bc1b353b9238c19e5e"
+    },
+    "tool-os-krb5-test-environment.py": {
+      "bytes": 20858,
+      "sha256": "5ad62300d63c98d3a71ca1d28d577f2a3c33774cce6d0d5c77a6ef06d87fc91c"
+    },
+    "tool-os-build-krb5.py": {
+      "bytes": 18583,
+      "sha256": "8b0e10d527a3eef41601dbd0548002bdb3301cdb4615acfe235a3cb5b8bc8004"
+    },
+    "tool-os-build-krb5.sh": {
+      "bytes": 3067,
+      "sha256": "628a8a221b6d4cfe47bf5d0a17c763fc4fabafb0374d73526d840cee61cd4268"
+    },
+    "tool-os-package-krb5.py": {
+      "bytes": 17845,
+      "sha256": "9cba12aaa0ad01375dde93310ad64adf6d6d7abd1fd763cf90e68cb20f3bf92e"
+    },
+    "tool-os-krb5-consumers.py": {
+      "bytes": 3721,
+      "sha256": "e62949f81cc9f03bd81e9bad618b5804563cf42f09d8bc28bcc987630e04f6bf"
+    },
+    "tool-os-krb5-abi-exception.json": {
+      "bytes": 2201,
+      "sha256": "4fd91f19c42adab555b42b8f194b08cbbe6eac5071ceed79c9eb5adc3868e2ee"
+    }
+  },
+  "ordinary_test_contract": "Complete unchanged make-j1check plus complete verbose t_cccol.py/t_ccache.py; all original standard skips retained, no extra exclusions. All test commands must pass. Zero capabilities/nnp1/Seccomp2 under exclusiveUID/freshsession. Native UID absence must independently authorize packaging."
+}

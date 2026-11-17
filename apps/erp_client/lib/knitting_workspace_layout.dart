@@ -9,6 +9,8 @@ import 'workspace_context.dart';
 const _destinations = <String, (IconData, String)>{
   'Overview': (Icons.space_dashboard_outlined, 'Mill overview'),
   'Jobs': (Icons.assignment_outlined, 'Job register'),
+  'Estimation': (Icons.calculate_outlined, 'Estimation'),
+  'Subcontracting': (Icons.handshake_outlined, 'Subcontracting'),
   'Yarn': (Icons.all_inbox_outlined, 'Yarn store'),
   'Planning': (Icons.calendar_month_outlined, 'Machine planning'),
   'Production': (Icons.precision_manufacturing_outlined, 'Production'),
@@ -35,6 +37,8 @@ class KnittingWorkspaceLayout extends StatelessWidget {
     this.onCompany,
     this.onRecords,
     this.onGeneral,
+    this.onInvoices,
+    this.onHistory,
     this.onBusinessModule,
     this.onAccount,
   });
@@ -46,7 +50,8 @@ class KnittingWorkspaceLayout extends StatelessWidget {
   final ValueChanged<bool>? onDrawerChanged;
   final bool jobDetail;
   final ValueChanged<String> onDestination;
-  final VoidCallback? onCompany, onRecords, onAccount, onGeneral;
+  final VoidCallback? onCompany, onRecords, onAccount, onGeneral, onInvoices;
+  final VoidCallback? onHistory;
   final ValueChanged<ErpModule>? onBusinessModule;
   final List<Widget> actions;
   final Widget child;
@@ -147,16 +152,30 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                       ),
                     if (onRecords != null)
                       const Divider(color: Color(0xFF50504D), height: 24),
+                    if (onHistory != null)
+                      entry(
+                        'Imported history',
+                        Icons.history_outlined,
+                        onHistory!,
+                      ),
+                    if (onInvoices != null)
+                      entry(
+                        'Invoices',
+                        Icons.receipt_long_outlined,
+                        onInvoices!,
+                      ),
                     if (onRecords != null)
                       entry(
-                        'Business records',
+                        workspace.knittingOnly
+                            ? 'Masters & accounts'
+                            : 'Business records',
                         Icons.library_books_outlined,
                         onRecords!,
                       ),
                   ],
                 ),
               ),
-              if (onGeneral != null) ...[
+              if (onGeneral != null && !workspace.knittingOnly) ...[
                 const Divider(color: Color(0xFF50504D), height: 12),
                 Row(
                   children: [
@@ -202,26 +221,28 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                   ],
                 ),
               ],
-              if (onCompany != null || onAccount != null) ...[
+              if ((drawer && onCompany != null) || onAccount != null) ...[
                 const Divider(color: Color(0xFF50504D), height: 20),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: onCompany == null
-                            ? null
-                            : () => choose(onCompany!),
-                        style: TextButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                          foregroundColor: WorkspaceTheme.light,
-                        ),
-                        child: Text(
-                          workspace.company ?? 'Switch company',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                    if (!drawer) const Spacer(),
+                    if (drawer)
+                      Expanded(
+                        child: TextButton(
+                          onPressed: onCompany == null
+                              ? null
+                              : () => choose(onCompany!),
+                          style: TextButton.styleFrom(
+                            alignment: Alignment.centerLeft,
+                            foregroundColor: WorkspaceTheme.light,
+                          ),
+                          child: Text(
+                            workspace.company ?? 'Switch company',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
-                    ),
                     if (onAccount != null)
                       IconButton(
                         tooltip: 'Account',
@@ -241,9 +262,12 @@ class KnittingWorkspaceLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+
+    final title = jobDetail ? 'Job details' : _destinations[page]!.$2;
     final wide =
-        MediaQuery.sizeOf(context).width >= 1140 &&
-        MediaQuery.textScalerOf(context).scale(14) < 19;
+        width >= 1140 && MediaQuery.textScalerOf(context).scale(14) < 19;
+    final compact = !wide;
     final content = Padding(
       padding: EdgeInsets.fromLTRB(
         wide ? 22 : 14,
@@ -254,47 +278,83 @@ class KnittingWorkspaceLayout extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+          if (wide && workspace.company != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onCompany,
+                icon: const Icon(Icons.business_outlined, size: 17),
+                label: Text(
+                  workspace.company!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          if (compact) ...[
+            if (workspace.company != null || actions.isNotEmpty)
+              Wrap(
+                spacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (onBack != null)
-                    IconButton(
-                      onPressed: onBack,
-                      tooltip: backLabel,
-                      icon: const Icon(Icons.arrow_back_rounded),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 10),
-                      child: Icon(
-                        _destinations[page]!.$1,
-                        size: 23,
-                        color: WorkspaceTheme.ink,
-                      ),
-                    ),
-                  Flexible(
-                    child: Semantics(
-                      header: true,
-                      child: Display(
-                        jobDetail ? 'Job details' : _destinations[page]!.$2,
-                        size: wide ? 37 : 30,
-                      ),
-                    ),
-                  ),
+                  if (workspace.company != null)
+                    onCompany == null
+                        ? Text(
+                            workspace.company!,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          )
+                        : TextButton.icon(
+                            onPressed: onCompany,
+                            icon: const Icon(Icons.business_outlined, size: 17),
+                            label: Text(
+                              workspace.company!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                  if (actions.isNotEmpty) Wrap(spacing: 6, children: actions),
                 ],
               ),
-              Wrap(spacing: 8, runSpacing: 4, children: actions),
-            ],
-          ),
+          ] else
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onBack != null)
+                      IconButton(
+                        onPressed: onBack,
+                        tooltip: backLabel,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 10),
+                        child: Icon(
+                          _destinations[page]!.$1,
+                          size: 23,
+                          color: WorkspaceTheme.ink,
+                        ),
+                      ),
+                    Flexible(
+                      child: Semantics(
+                        headingLevel: 1,
+                        child: Display(title, size: wide ? 37 : 30),
+                      ),
+                    ),
+                  ],
+                ),
+                Wrap(spacing: 8, runSpacing: 4, children: actions),
+              ],
+            ),
           SizedBox(height: wide ? 14 : 9),
           Expanded(
-            child: _MillPageTransition(
+            child: WorkspaceDestinationTransition(
               location: (page, jobDetail),
               child: child,
             ),
@@ -306,11 +366,31 @@ class KnittingWorkspaceLayout extends StatelessWidget {
       appBar: wide
           ? null
           : AppBar(
-              title: Text(
-                workspace.company ?? 'Knitting ERP',
-                overflow: TextOverflow.ellipsis,
+              leading: compact && onBack != null
+                  ? IconButton(
+                      tooltip: backLabel ?? 'Back',
+                      icon: const BackButtonIcon(),
+                      onPressed: onBack,
+                    )
+                  : null,
+              excludeHeaderSemantics: true,
+              title: Semantics(
+                headingLevel: 1,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               actions: [
+                if (compact && onBack != null)
+                  Builder(
+                    builder: (context) => IconButton(
+                      tooltip: 'Open navigation menu',
+                      icon: const Icon(Icons.menu),
+                      onPressed: Scaffold.of(context).openDrawer,
+                    ),
+                  ),
                 if (onAccount != null)
                   IconButton(
                     tooltip: 'Account',
@@ -337,58 +417,4 @@ class KnittingWorkspaceLayout extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Animate only the incoming destination. Outgoing fields are immediately
-/// removed from focus, semantics and hit testing, including on access changes.
-class _MillPageTransition extends StatefulWidget {
-  const _MillPageTransition({required this.location, required this.child});
-  final (String, bool) location;
-  final Widget child;
-  @override
-  State<_MillPageTransition> createState() => _MillPageTransitionState();
-}
-
-class _MillPageTransitionState extends State<_MillPageTransition>
-    with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, value: 1);
-  late final _curve = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeOutCubic,
-  );
-  @override
-  void didUpdateWidget(covariant _MillPageTransition oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.location != widget.location &&
-        !MediaQuery.disableAnimationsOf(context)) {
-      _controller.duration = workspaceMotion(context);
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) _controller.value = 1;
-  }
-
-  @override
-  void dispose() {
-    _curve.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-    key: const ValueKey('mill-destination-transition'),
-    opacity: Tween<double>(begin: .58, end: 1).animate(_curve),
-    child: SlideTransition(
-      position: Tween<Offset>(
-        begin: const Offset(.018, 0),
-        end: Offset.zero,
-      ).animate(_curve),
-      child: widget.child,
-    ),
-  );
 }

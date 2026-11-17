@@ -49,12 +49,16 @@ def render(company, format, value=None):
         event = d.reference('Knitting Event', f.get('event'), company)
         permissions.require_event_scope(event)
         event.check_permission('print')
-        if event.kind != 'deliver' or event.cancelled:
+        if event.kind not in ('deliver', 'deliver_batch') or event.cancelled:
             frappe.throw('Select an active confirmed delivery.')
         job = d.reference('Knitting Job', event.job, company)
         value = d.json_value(event.result, {})
-        rows = ''.join('<tr><td>' + html.escape(str(row['roll'])) + '</td><td>' + html.escape(str(row['programme_line'])) +
-            '</td><td>' + html.escape(str(row['quantity_kg'])) + '</td></tr>' for row in value.get('sources', []))
+        batch = event.kind == 'deliver_batch'
+        identifier = 'batch' if batch else 'roll'
+        count = value['roll_count'] if batch else len(value['rolls'])
+        rows = ''.join('<tr>' + ''.join('<td>' + html.escape(str(cell)) + '</td>' for cell in
+            (row[identifier], row['programme_line'], row['rolls'] if batch else 1, row['quantity_kg'])) + '</tr>'
+            for row in value.get('sources', []))
         def text(key): return html.escape(str(value.get(key) or 'Not recorded'))
         from frappe.utils.pdf import get_pdf
         content = get_pdf(f'''<html><body style="font-family:Arial,sans-serif;padding:24px;color:#191b19">
@@ -62,8 +66,8 @@ def render(company, format, value=None):
           <p>Confirmed {html.escape(str(event.occurred_at))}<br>Customer {html.escape(job.customer)}<br>Job {html.escape(job.name)}</p>
           <p>Destination: {text('destination')}<br>Transport: {text('transport')}<br>Transport reference: {text('transport_reference')}</p>
           <p>Material ownership: {html.escape(job.material_mode)}. This challan records physical delivery; it is not a tax invoice.</p>
-          <table border="1" cellpadding="7"><thead><tr><th>Roll</th><th>Programme</th><th>Actual kg</th></tr></thead><tbody>{rows}</tbody></table>
-          <h2>Total {text('quantity_kg')} kg · {len(value.get('rolls', []))} rolls</h2>
+          <table border="1" cellpadding="7"><thead><tr><th>{identifier.title()}</th><th>Programme</th><th>Rolls / pieces</th><th>Actual kg</th></tr></thead><tbody>{rows}</tbody></table>
+          <h2>Total {text('quantity_kg')} kg · {html.escape(str(count))} rolls / pieces</h2>
           <p>Dispatched by: ____________________ &nbsp; Received by: ____________________</p></body></html>''', options={'disable-javascript':''})
         return {'name':event.name+'-challan.pdf','mime':'application/pdf','content':base64.b64encode(content).decode()}
     if format == "roll_label":
@@ -89,7 +93,7 @@ def render(company, format, value=None):
     if format in ("gst_review", "tally_review"):
         report = "billing"
         value = {**value, "group_by": None}
-    source_type = {"yarn": "Knitting Ledger Entry", "fabric": "Knitting Roll", "rolls": "Knitting Roll"}.get(report, "Knitting Job")
+    source_type = {"yarn": "Knitting Ledger Entry", "yarn_inwards": "Knitting Ledger Entry", "yarn_returns": "Knitting Ledger Entry", "fabric": "Knitting Roll", "rolls": "Knitting Roll"}.get(report, "Knitting Job")
     if not frappe.has_permission(source_type, "export"):
         frappe.throw("This account cannot export these records.", frappe.PermissionError)
     result = reports.run(company, report, value, paged=False)

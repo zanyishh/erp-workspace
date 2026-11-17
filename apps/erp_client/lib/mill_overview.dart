@@ -5,10 +5,13 @@ import 'package:intl/intl.dart';
 
 import 'design.dart';
 import 'knitting_models.dart';
+import 'knitting_register.dart';
 import 'erp_api.dart';
 import 'ui/workspace_ui.dart';
 import 'ui/workspace_art.dart';
+
 import 'dart:math' as math;
+
 import 'widgets.dart';
 import 'workspace_context.dart';
 
@@ -45,7 +48,10 @@ String _kg(Object? raw) {
 BigInt? _milli(Object? value) {
   if (value == null) return null;
   try {
-    return Kg.parse(value.toString()).milli;
+    final text = value.toString();
+    final negative = text.startsWith('-');
+    final quantity = Kg.parse(negative ? text.substring(1) : text).milli;
+    return negative ? -quantity : quantity;
   } on FormatException {
     return null;
   }
@@ -53,16 +59,18 @@ BigInt? _milli(Object? value) {
 
 String _quantity(BigInt milli) {
   final scale = BigInt.from(1000);
-  final whole = milli ~/ scale;
-  final fraction = (milli % scale)
+  final absolute = milli.abs();
+  final whole = absolute ~/ scale;
+  final fraction = (absolute % scale)
       .toString()
       .padLeft(3, '0')
       .replaceFirst(RegExp(r'0+$'), '');
-  final integer = NumberFormat.decimalPattern('en_US').format(whole.toInt());
+  final integer =
+      '${milli.isNegative ? '-' : ''}${NumberFormat.decimalPattern('en_US').format(whole.toInt())}';
   return fraction.isEmpty ? integer : '$integer.$fraction';
 }
 
-class MillOverview extends StatelessWidget {
+class MillOverview extends StatefulWidget {
   const MillOverview({
     super.key,
     required this.api,
@@ -70,6 +78,7 @@ class MillOverview extends StatelessWidget {
     required this.workspace,
     required this.onDestination,
     required this.onJob,
+    this.onOriginalProduction,
   });
 
   final ErpApi api;
@@ -77,25 +86,155 @@ class MillOverview extends StatelessWidget {
   final WorkspaceContext workspace;
   final void Function(String, {String? filter}) onDestination;
   final ValueChanged<Map<String, dynamic>> onJob;
+  final VoidCallback? onOriginalProduction;
+
+  @override
+  State<MillOverview> createState() => _MillOverviewState();
+}
+
+class _MillOverviewState extends State<MillOverview> {
+  Future<Map<String, dynamic>>? summary;
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  @override
+  void didUpdateWidget(covariant MillOverview old) {
+    super.didUpdateWidget(old);
+    if (old.snapshot != widget.snapshot || old.api != widget.api) load();
+  }
+
+  void load() {
+    summary = widget.snapshot.paginated
+        ? widget.api.knittingOverview(widget.snapshot.company)
+        : null;
+  }
+
+  Widget body(KnittingSnapshot snapshot) => _MillOverviewBody(
+    api: widget.api,
+    snapshot: snapshot,
+    workspace: widget.workspace,
+    onDestination: widget.onDestination,
+    onJob: widget.onJob,
+    onOriginalProduction: widget.onOriginalProduction,
+  );
+  @override
+  Widget build(BuildContext context) {
+    if (summary == null) return body(widget.snapshot);
+    return FutureBuilder<Map<String, dynamic>>(
+      future: summary,
+      builder: (context, state) {
+        if (state.connectionState != ConnectionState.done) {
+          return const Center(
+            child: CircularProgressIndicator(
+              semanticsLabel: 'Loading company totals',
+            ),
+          );
+        }
+        final value = state.data;
+        if (state.hasError ||
+            value?['version'] != 1 ||
+            value?['company'] != widget.snapshot.company) {
+          return MessagePanel(
+            title: 'COULD NOT LOAD MILL TOTALS',
+            message:
+                state.error?.toString() ??
+                'The company summary was unavailable.',
+            action: () => setState(load),
+          );
+        }
+        return body(
+          KnittingSnapshot(widget.snapshot.company, {
+            ...widget.snapshot.data,
+            'overview': value,
+          }),
+        );
+      },
+    );
+  }
+}
+
+class _MillOverviewBody extends StatelessWidget {
+  const _MillOverviewBody({
+    required this.api,
+    required this.snapshot,
+    required this.workspace,
+    required this.onDestination,
+    required this.onJob,
+    this.onOriginalProduction,
+  });
+
+  final ErpApi api;
+  final KnittingSnapshot snapshot;
+  final WorkspaceContext workspace;
+  final void Function(String, {String? filter}) onDestination;
+  final ValueChanged<Map<String, dynamic>> onJob;
+  final VoidCallback? onOriginalProduction;
 
   @override
   Widget build(BuildContext context) {
     final jobs = snapshot.rows('jobs');
     final rolls = snapshot.rows('rolls');
-    final hasJobs = snapshot.data['jobs'] is List;
-    final running = jobs.where((j) => j['status'] == 'Running').length;
+    final totals = snapshot.data['overview'] as Map?;
+    final hasJobs = totals?['jobs'] is Map || snapshot.data['jobs'] is List;
+    final running =
+        totals?['jobs']?['running'] as int? ??
+        jobs.where((j) => j['status'] == 'Running').length;
+    final jobCount = totals?['jobs']?['total'] as int? ?? jobs.length;
     String balance(String field) {
+      if (totals != null) {
+        final amount = _milli((totals['balances'] as Map?)?[field]);
+        return amount == null ? '—' : _quantity(amount);
+      }
       var sum = BigInt.zero;
       if (!hasJobs) return '—';
       for (final job in jobs) {
-        final quantity = _milli((job['balances'] as Map?)?[field]);
+        if (field == 'running_yarn_kg') {
+          if (job['status'] == null) return '—';
+          if (job['status'] != 'Running') continue;
+        }
+        final quantity = _milli(
+          (job['balances'] as Map?)?[field == 'running_yarn_kg'
+              ? 'yarn_kg'
+              : field],
+        );
         if (quantity == null) return '—';
         sum += quantity;
       }
       return _quantity(sum);
     }
 
-    void showBalances(String field, String title) {
+    void showBalances(String field, String title, {String? state}) {
+      if (snapshot.paginated) {
+        _showMillSources(
+          context,
+          api,
+          (_) => KnittingSourcesDialog(
+            api: api,
+            snapshot: snapshot,
+            collection: 'jobs',
+            title: title,
+            state: state,
+            row: (job) => ListTile(
+              title: Text(knittingJobTitle(job)),
+              subtitle: Text(
+                knittingCustomerTitle(job, fallback: 'Customer unavailable'),
+              ),
+              trailing: Text('${_kg((job['balances'] as Map?)?[field])} kg'),
+              onTap: () {
+                Navigator.pop(context);
+                onJob(job);
+              },
+            ),
+          ),
+        );
+        return;
+      }
+      final selectedJobs = state == null
+          ? jobs
+          : jobs.where((job) => job['status'] == state).toList();
       _showMillSources(
         context,
         api,
@@ -106,17 +245,23 @@ class MillOverview extends StatelessWidget {
             child: ListView(
               shrinkWrap: true,
               children: [
-                Text('Balances for ${jobs.length} recent jobs', style: _meta),
-                if (jobs.isEmpty)
+                Text(
+                  'Balances for ${selectedJobs.length} recent ${state == 'Running' ? 'running ' : ''}jobs',
+                  style: _meta,
+                ),
+                if (selectedJobs.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
                     child: Text('No source jobs in this snapshot.'),
                   ),
-                for (final job in jobs)
+                for (final job in selectedJobs)
                   ListTile(
-                    title: Text(job['name'].toString()),
+                    title: Text(knittingJobTitle(job)),
                     subtitle: Text(
-                      job['customer']?.toString() ?? 'Customer unavailable',
+                      knittingCustomerTitle(
+                        job,
+                        fallback: 'Customer unavailable',
+                      ),
                     ),
                     trailing: Text(
                       '${_kg((job['balances'] as Map?)?[field])} kg',
@@ -141,17 +286,26 @@ class MillOverview extends StatelessWidget {
 
     final stage = _JobSummary(
       running: hasJobs ? running : null,
-      count: hasJobs ? jobs.length : null,
+      count: hasJobs ? jobCount : null,
+      complete: totals != null,
       onTap: () => onDestination('Jobs', filter: 'Running'),
     );
     final balances = <Widget>[
       if (workspace.allows('materials'))
         _BalanceCard(
-          title: 'Job yarn in store',
-          amount: balance('yarn_kg'),
-          detail: 'Allocated to recent jobs',
+          title: 'Yarn for running jobs',
+          amount: balance('running_yarn_kg'),
+          detail: totals != null
+              ? 'All jobs: ${balance('yarn_kg')} kg'
+              : 'Recent jobs: ${balance('yarn_kg')} kg',
           art: ArtObject.yarn,
-          onTap: () => showBalances('yarn_kg', 'Job yarn in store'),
+          onTap: balance('running_yarn_kg') == '—'
+              ? null
+              : () => showBalances(
+                  'yarn_kg',
+                  'Yarn for running jobs',
+                  state: 'Running',
+                ),
         ),
       if (workspace.allows('billing'))
         _BalanceCard(
@@ -159,7 +313,9 @@ class MillOverview extends StatelessWidget {
           amount: balance('unbilled_kg'),
           detail: 'Delivered and unbilled',
           art: ArtObject.invoice,
-          onTap: () => showBalances('unbilled_kg', 'Awaiting invoice'),
+          onTap: balance('unbilled_kg') == '—'
+              ? null
+              : () => showBalances('unbilled_kg', 'Awaiting invoice'),
         ),
     ];
     final queues = <(String, String, String, IconData, Color, int?)>[
@@ -170,9 +326,10 @@ class MillOverview extends StatelessWidget {
           'Awaiting QC',
           Icons.fact_check_outlined,
           const Color(0xFFF7D8BD),
-          snapshot.data['rolls'] is List
-              ? rolls.where((r) => r['state'] == 'Awaiting QC').length
-              : null,
+          totals?['rolls']?['Awaiting QC'] as int? ??
+              (snapshot.data['rolls'] is List
+                  ? rolls.where((r) => r['state'] == 'Awaiting QC').length
+                  : null),
         ),
         (
           'On hold',
@@ -180,9 +337,10 @@ class MillOverview extends StatelessWidget {
           'On Hold',
           Icons.pause_circle_outline,
           const Color(0xFFF2DCA9),
-          snapshot.data['rolls'] is List
-              ? rolls.where((r) => r['state'] == 'On Hold').length
-              : null,
+          totals?['rolls']?['On Hold'] as int? ??
+              (snapshot.data['rolls'] is List
+                  ? rolls.where((r) => r['state'] == 'On Hold').length
+                  : null),
         ),
       ],
       if (workspace.allows('delivery'))
@@ -192,9 +350,10 @@ class MillOverview extends StatelessWidget {
           'Released',
           Icons.local_shipping_outlined,
           const Color(0xFFD2E4D5),
-          snapshot.data['rolls'] is List
-              ? rolls.where((r) => r['state'] == 'Released').length
-              : null,
+          totals?['rolls']?['Released'] as int? ??
+              (snapshot.data['rolls'] is List
+                  ? rolls.where((r) => r['state'] == 'Released').length
+                  : null),
         ),
       if (workspace.allows('planning'))
         (
@@ -203,14 +362,19 @@ class MillOverview extends StatelessWidget {
           'Planned',
           Icons.calendar_month_outlined,
           const Color(0xFFD0E1E9),
-          snapshot.data['plans'] is List
-              ? snapshot
-                    .rows('plans')
-                    .where((r) => r['state'] == 'Planned')
-                    .length
-              : null,
+          totals?['plans']?['Planned'] as int? ??
+              (snapshot.data['plans'] is List
+                  ? snapshot
+                        .rows('plans')
+                        .where((r) => r['state'] == 'Planned')
+                        .length
+                  : null),
         ),
     ];
+    final canViewBatches =
+        workspace.allows('production') ||
+        workspace.allows('quality') ||
+        workspace.allows('delivery');
     final queue = Panel(
       border: true,
       padding: const EdgeInsets.all(12),
@@ -221,9 +385,14 @@ class MillOverview extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(4, 3, 4, 0),
             child: Display('Work queues', size: 25),
           ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(4, 2, 4, 12),
-            child: Text('From recent rolls and plans', style: _meta),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 2, 4, 12),
+            child: Text(
+              totals != null
+                  ? 'Individual rolls and plans · all company records'
+                  : 'Individual rolls and plans · recent records',
+              style: _meta,
+            ),
           ),
           for (final (i, q) in queues.indexed) ...[
             if (i > 0) const Divider(height: 1),
@@ -269,10 +438,47 @@ class MillOverview extends StatelessWidget {
               onTap: () => onDestination(q.$2, filter: q.$3),
             ),
           ],
+          if (canViewBatches) ...[
+            const Divider(height: 1),
+            TextButton.icon(
+              onPressed: () => _showMillSources(
+                context,
+                api,
+                (_) => KnittingSourcesDialog(
+                  api: api,
+                  snapshot: snapshot,
+                  collection: 'batches',
+                  title: 'Fabric batches',
+                  row: (batch) => ListTile(
+                    title: Text(
+                      (batch['source_reference']?.toString().isNotEmpty ??
+                              false)
+                          ? batch['source_reference'].toString()
+                          : batch['name'].toString(),
+                    ),
+                    subtitle: Text(
+                      '${_kg(batch['quantity_kg'])} kg · ${batch['rolls'] ?? '—'} rolls / PCS',
+                    ),
+                    trailing: Text(batch['state']?.toString() ?? '—'),
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.layers_outlined),
+              label: const Text('Fabric batches'),
+            ),
+            const Text(
+              'Batch balances are separate from individual-roll queues.',
+              style: _meta,
+            ),
+          ],
         ],
       ),
     );
-    final chart = _MillProductionChart(snapshot: snapshot, api: api);
+    final chart = _MillProductionChart(
+      snapshot: snapshot,
+      api: api,
+      onOriginalProduction: onOriginalProduction,
+    );
     final showChart = workspace.allows('production');
     final summary = Panel(
       dark: true,
@@ -295,7 +501,9 @@ class MillOverview extends StatelessWidget {
       jobs: jobs.take(5).toList(),
       onJob: onJob,
       title: 'Recent jobs',
-      caption: 'Most recently updated',
+      caption: snapshot.paginated
+          ? 'Latest order dates first'
+          : 'Most recently updated',
       showOutput: workspace.allows('production'),
       empty: hasJobs ? 'No recent jobs.' : 'Job records unavailable.',
       action: TextButton.icon(
@@ -317,7 +525,7 @@ class MillOverview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: children,
             );
-            final hasQueue = queues.isNotEmpty;
+            final hasQueue = queues.isNotEmpty || canViewBatches;
             if (box.maxWidth >= 1040 && scale < 1.5) {
               return column([
                 Row(
@@ -381,8 +589,10 @@ class MillOverview extends StatelessWidget {
           },
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Snapshot covers up to 200 recent jobs and 500 recent records per register.',
+        Text(
+          totals != null
+              ? 'Company totals include all permitted records. Registers open in pages of 100.'
+              : 'Recent records only. Refresh with the current server to view complete company totals.',
           style: _meta,
         ),
       ],
@@ -401,7 +611,9 @@ class _JobSummary extends StatelessWidget {
     required this.running,
     required this.count,
     required this.onTap,
+    this.complete = false,
   });
+  final bool complete;
   final int? running, count;
   final VoidCallback onTap;
   @override
@@ -452,6 +664,8 @@ class _JobSummary extends StatelessWidget {
                     Text(
                       count == null
                           ? 'Register unavailable'
+                          : complete
+                          ? 'of $count jobs'
                           : 'of $count recent jobs',
                       style: _meta,
                     ),
@@ -476,7 +690,7 @@ class _BalanceCard extends StatelessWidget {
   });
   final String title, amount, detail;
   final ArtObject art;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Material(
     color: WorkspaceTheme.surface,
@@ -646,7 +860,7 @@ class MillJobRegister extends StatelessWidget {
               child: Row(
                 children: [
                   heading('JOB / CUSTOMER', 25),
-                  heading('DUE DATE', 12),
+                  heading('ORDER DATE', 12),
                   heading('MATERIAL', 12, icon: Icons.layers_outlined),
                   heading('TARGET KG', 11, icon: Icons.flag_outlined),
                   if (showOutput)
@@ -696,7 +910,17 @@ class MillJobRegister extends StatelessWidget {
               ? Row(
                   children: [
                     Expanded(flex: 25, child: _JobIdentity(job)),
-                    cell(job['due_date']?.toString() ?? '—', 12),
+                    Expanded(
+                      flex: 12,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(job['job_date']?.toString() ?? '—'),
+                          if (job['due_date'] != null)
+                            Text('Due ${job['due_date']}', style: _meta),
+                        ],
+                      ),
+                    ),
                     cell(job['material_mode']?.toString() ?? '—', 12),
                     cell(_kg(job['target_kg']), 11, style: _numeric),
                     if (showOutput)
@@ -729,6 +953,7 @@ class MillJobRegister extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 7),
+                    Text('Order date ${job['job_date'] ?? '—'}', style: _meta),
                     Text(
                       'Target ${_kg(job['target_kg'])} kg  ·  Due ${job['due_date'] ?? '—'}',
                       style: _meta,
@@ -751,12 +976,18 @@ class _JobIdentity extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          job['name'].toString(),
+          knittingJobTitle(job),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           overflow: TextOverflow.ellipsis,
         ),
+        if (knittingJobTitle(job) != job['name'])
+          Text(
+            job['name'].toString(),
+            style: const TextStyle(fontSize: 10, color: WorkspaceTheme.muted),
+            overflow: TextOverflow.ellipsis,
+          ),
         Text(
-          job['customer']?.toString() ?? '—',
+          knittingCustomerTitle(job),
           style: _meta,
           overflow: TextOverflow.ellipsis,
         ),

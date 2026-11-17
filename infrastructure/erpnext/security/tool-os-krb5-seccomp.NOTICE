@@ -1,0 +1,18 @@
+The Moby Authors — Apache License, Version 2.0.
+
+The preserved original default profile is from github.com/moby/profiles/seccomp
+v0.2.3, commit 836ae4d37ef2ec995c77c99fc55f5b5f3af3a897. Docker Engine
+29.5.2 commit 568f755ebeb1ac9c6a8febbda6cd371ea0a9630b pins this module.
+The corresponding Apache license is preserved in tool-os-krb5-seccomp.LICENSE.
+
+Local modification, 16 November 2026: tool-os-krb5-seccomp.json preserves every
+original profile rule and appends one allow rule for add_key, keyctl and
+request_key. It is used only by the isolated Kerberos ordinary-test builder.
+Tests use an exclusive nonroot UID, zero capabilities and private keyrings.
+Kernel keyrings are not namespaced. No global policy is changed.
+
+Sources:
+https://github.com/moby/profiles/blob/836ae4d37ef2ec995c77c99fc55f5b5f3af3a897/seccomp/default.json
+https://github.com/moby/profiles/blob/836ae4d37ef2ec995c77c99fc55f5b5f3af3a897/seccomp/default_linux.go
+https://github.com/moby/moby/blob/568f755ebeb1ac9c6a8febbda6cd371ea0a9630b/go.mod
+https://docs.docker.com/engine/security/seccomp/

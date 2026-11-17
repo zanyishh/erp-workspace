@@ -1,0 +1,61 @@
+{
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "component": "curl",
+  "upstream_version": "8.23.0",
+  "package_version": "8.23.0-2+erp1",
+  "sources": {
+    "tool-os-curl-8.23.0.tar.xz": {
+      "url": "https://curl.se/download/curl-8.23.0.tar.xz",
+      "bytes": 2990916,
+      "sha256": "8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5"
+    },
+    "tool-os-curl_8.23.0-2.debian.tar.xz": {
+      "url": "https://deb.debian.org/debian/pool/main/c/curl/curl_8.23.0-2.debian.tar.xz",
+      "bytes": 66044,
+      "sha256": "ef63b646058c8732492faf53005407a9910e4e2797abb73d213fc5d2c6813dad"
+    }
+  },
+  "signature": {
+    "fingerprint": "27EDEAF22F3ABCEB50DB9A125CC908FDB71E12C2",
+    "authority": "https://github.com/curl/curl/blob/curl-8_23_0/docs/VERIFY.md",
+    "receipt": "tool-os-curl-signature.log"
+  },
+  "runtime_dependencies": {
+    "libnghttp3-9": "1.15.0-1~bpo13+1",
+    "libngtcp2-16": "1.22.1-1~bpo13+1",
+    "libngtcp2-crypto-gnutls8": "1.22.1-1~bpo13+1",
+    "libngtcp2-crypto-ossl0": "1.22.1-1~bpo13+1"
+  },
+  "dependency_authority": "Debian trixie-backports signed apt metadata; fetched only inside isolated builder and retained with receipts",
+  "protocol_contract": {
+    "upstream_removed_protocols": [
+      "smb",
+      "smbs",
+      "rtmp"
+    ],
+    "upstream_removed_features": [
+      "TLS-SRP"
+    ],
+    "application_consumer_review": "Exact source/current Flutter/ERP/direct curl evidence retained in rtmp review. No direct current RTMP consumer found; arbitrary stored URLs, indirect native uses, custom scripts and future integrations remain outside proof.",
+    "remaining_baseline_features_required": true,
+    "scope": "exact pinned8.23.0 ERP candidate only; no generic protocol parity claim",
+    "rtmp_removal_review": {
+      "source": ".local/quality/security-remediation/curl-baseline-protocol-review/review.json",
+      "bytes": 6056,
+      "sha256": "8ac236cb4f5d93be72bf16547e6ce8482cc90eb91087fd864c73b4c76ccbb495"
+    },
+    "NTLM": "Restore upstream-supported --enable-ntlm to preserve baseline; legacy weakness documented, no blanket security claim"
+  },
+  "patches": [
+    {
+      "file": "tool-os-curl-https-mtls-dependency.patch",
+      "bytes": 252,
+      "sha256": "b38b954c46507b9c2c035ef283358131ff376acaa406b6ee12bcdf218935e5b7",
+      "target": "tests/servers.pm",
+      "original_sha256": "8d07bf529d7fd3423bfe0ccd52f169e07ab98657fa085aebace835ffab0d033b",
+      "patched_sha256": "019af30846df55a410b9c5ef39ce359aaeefd71b6fde386c8e14b8567b10659d",
+      "scope": "test-fixture dependency lifecycle only; restart mTLS proxy when shared HTTP backend changes; no TLS/auth/assertion/production changes",
+      "causal_review_sha256": "a6696f2e46adcb658b3b4bdb2aaeca3b59702ff30f90a0d203e00cf7309c1916"
+    }
+  ]
+}

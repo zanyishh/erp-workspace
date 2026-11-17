@@ -1,0 +1,28 @@
+{
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "libsndfile": {
+    "upstream_version": "1.2.2",
+    "package_version": "1.2.2-2+deb13u1+erp1",
+    "sources": {
+      "libsndfile_1.2.2.orig.tar.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libs/libsndfile/libsndfile_1.2.2.orig.tar.gz",
+        "sha256": "ffe12ef8add3eaca876f04087734e6e8e029350082f3251f565fa9da55b52121",
+        "bytes": 684875
+      },
+      "libsndfile_1.2.2-2+deb13u1.debian.tar.xz": {
+        "url": "https://deb.debian.org/debian/pool/main/libs/libsndfile/libsndfile_1.2.2-2+deb13u1.debian.tar.xz",
+        "sha256": "2549d7a791ca177213918fbcf9c9e39c5734a2e18782341b44d71e4b39365296",
+        "bytes": 29472
+      }
+    },
+    "helpers": [
+      "tool-os-libsndfile-CVE-2026-37555.patch"
+    ],
+    "patch_sha256": "19828cfdc17b80f13c8d1fcc8b828ea5c328071d91171c6d80f94a2e1499b719",
+    "commit": "cdadf9a65fdc1f28da9d235eb443d5f5e57010d2",
+    "upstream_pull_request": "https://github.com/libsndfile/libsndfile/pull/1123",
+    "advisory": "https://security-tracker.debian.org/tracker/CVE-2026-37555",
+    "tracker_discrepancy": "Debian tracker Fixed by points at c32c090ff9bb45e1dae637957c9c9b47b3967623, an unrelated SDS change. The linked approved/merged PR1123 actually contains cdadf9a65fdc1f28da9d235eb443d5f5e57010d2 and the two missing sf_count_t casts in IMA WAV and close paths. Both downloaded patch files are retained; only the matching maintained fix is applied.",
+    "validation": "Complete original Debian build/make check, exported-symbol and SONAME comparison, complete available-codec comparison, normal WAV/AIFF PCM16 roundtrip. No malformed security samples."
+  }
+}

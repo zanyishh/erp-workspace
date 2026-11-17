@@ -1,10 +1,11 @@
 """Knitting domain records and quantity invariants; no accounting mathematics in clients."""
 from collections.abc import Mapping
+from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import erpnext
 import frappe
-from frappe.utils import now_datetime
+from frappe.utils import getdate, now_datetime
 
 from . import permissions
 
@@ -51,7 +52,7 @@ def current_rows(doctype, filters=None, fields=None, order_by=None, limit=None, 
 
 def insert(doctype, **values):
     from frappe.model.naming import make_autoname
-    tags = {"Knitting Job": "JOB", "Knitting Event": "EVT", "Knitting Roll": "ROLL", "Knitting Material Lot": "LOT",
+    tags = {"Knitting Job": "JOB", "Knitting Event": "EVT", "Knitting Roll": "ROLL", "Knitting Fabric Batch": "BATCH", "Knitting Material Lot": "LOT",
             "Knitting Machine": "MC", "Knitting Plan": "PLAN", "Knitting QC": "QC", "Knitting Subcontract": "SC", "Knitting Component": "COMP"}
     if doctype in tags and values.get("company"):
         abbr = frappe.get_cached_value("Company", values["company"], "abbr")
@@ -76,6 +77,8 @@ def reference(doctype, name, company=None, *, lock=False):
     doc.check_permission("read")
     if company and doc.meta.has_field("company") and doc.company != company:
         frappe.throw("The selected record belongs to another business.", frappe.PermissionError)
+    if doctype in ("Knitting Event", "Knitting Roll", "Knitting Fabric Batch") and not permissions.source_scope(doc):
+        frappe.throw("This record includes original production references outside your current access.", frappe.PermissionError)
     return doc
 
 
@@ -130,45 +133,60 @@ def ledger(event, lot, quantity, job=None, custodian="Warehouse", voucher=None, 
 def balances(job, *, workflow=None, programme=()):
     company = frappe.db.get_value("Knitting Job", job, "company")
     permissions.require_aggregate_scope(company, job)
+    events = job_events(job)
+    permissions.require_event_sources(events)
     entries = current_rows("Knitting Ledger Entry", filters={"job": job}, fields=["quantity_kg", "custodian", "lot", "units"] if workflow is not None else ["quantity_kg", "custodian"])
     rolls = current_rows("Knitting Roll", filters={"job": job}, fields=["state", "weight_kg", "name"] if workflow is not None else ["state", "weight_kg"])
-    return _balance_totals(job, job_events(job), entries, rolls, workflow=workflow, programme=programme)
+    batches = current_rows("Knitting Fabric Batch", filters={"job": job}, fields=["name", "quantity_kg", "rolls", "state"])
+    return _balance_totals(job, events, entries, rolls, batches=batches, workflow=workflow, programme=programme)
 
 
 def register_balances(company, jobs):
     """Read all source rows for the bounded register after checking the entire company reconciliation."""
     permissions.require_aggregate_scope(company)
     names = {row.name for row in jobs}
-    events, entries, rolls = ({name: [] for name in names} for _ in range(3))
+    events, entries, rolls, batches = ({name: [] for name in names} for _ in range(4))
     if names:
         scope = ["in", list(names)]
-        for row in frappe.get_all("Knitting Event", filters={"company": company, "cancelled": 0},
-                or_filters={"job": scope, "target_job": scope}, fields=["job", "target_job", "kind", "result"]):
+        source_events = frappe.get_all("Knitting Event", filters={"company": company, "cancelled": 0},
+                or_filters={"job": scope, "target_job": scope}, fields=["name", "job", "target_job", "kind", "result"])
+        permissions.require_event_sources(source_events)
+        for row in source_events:
             if row.job in names:
                 events[row.job].append(row)
             if row.target_job in names and row.target_job != row.job:
                 events[row.target_job].append(row)
         for doctype, fields, target in (("Knitting Ledger Entry", ["job", "custodian", "quantity_kg"], entries),
-                                         ("Knitting Roll", ["job", "state", "weight_kg"], rolls)):
+                                         ("Knitting Roll", ["job", "state", "weight_kg"], rolls),
+                                         ("Knitting Fabric Batch", ["job", "quantity_kg", "rolls", "state"], batches)):
             for row in frappe.get_all(doctype, filters={"company": company, "job": scope}, fields=fields):
                 target[row.job].append(row)
-    return {name: _balance_totals(name, events[name], entries[name], rolls[name]) for name in names}
+    return {name: _balance_totals(name, events[name], entries[name], rolls[name], batches=batches[name]) for name in names}
 
 
-def _balance_totals(job, events, entries, rolls, *, workflow=None, programme=()):
+def _balance_totals(job, events, entries, rolls, *, batches=(), workflow=None, programme=()):
     totals = {k: ZERO for k in ("received_kg", "consumed_kg", "returned_kg", "produced_kg", "delivered_kg", "billed_kg", "loss_kg", "fabric_transfer_in_kg", "fabric_transfer_out_kg", "yarn_transfer_in_kg", "yarn_transfer_out_kg")}
     output, deliveries = {}, {}
+    captured_output, captured_billing = None, {}
     billing = workflow is not None and {"billing", "financial_read"} <= permissions.capabilities()
     for event in events:
         result = json_value(event.result, {})
         kind = event.kind
+        if kind == "migration_stock_initialization" and event.job == job:
+            captured_output = sum((Decimal(row["quantity_kg"]) for row in result.get("programme_output", [])), ZERO)
+            totals["produced_kg"] += captured_output
+        if kind == "migration_billing_initialization" and event.job == job:
+            for key in ("delivered_kg", "billed_kg", "unbilled_kg"):
+                captured_billing["captured_" + key] = result["captured_" + key]
+                if key != "unbilled_kg":
+                    totals[key] += Decimal(result["captured_" + key])
         if workflow is not None:
             for line, quantity in production_lines(event, job):
                 output[line] = output.get(line, ZERO) + quantity
         if billing and event.job == job:
-            if kind == "deliver":
+            if kind in ("deliver", "deliver_batch", "migration_delivery_reference"):
                 deliveries[event.name] = deliveries.get(event.name, ZERO) + Decimal(result["quantity_kg"])
-            elif kind == "return_fabric":
+            elif kind in ("return_fabric", "return_batch"):
                 delivery = result["delivery"]
                 deliveries[delivery] = deliveries.get(delivery, ZERO) - Decimal(result["quantity_kg"])
             elif kind in ("invoice", "credit_invoice"):
@@ -181,22 +199,24 @@ def _balance_totals(job, events, entries, rolls, *, workflow=None, programme=())
             totals[f"{prefix}_transfer_{'in' if event.target_job == job else 'out'}_kg"] += Decimal(result["quantity_kg"])
         if kind == "credit_invoice":
             totals["billed_kg"] -= Decimal(result["quantity_kg"])
-        if kind == "return_fabric":
+        if kind in ("return_fabric", "return_batch"):
             totals["delivered_kg"] -= Decimal(result["quantity_kg"])
         key = {"receive_yarn": "received_kg", "allocate_yarn": "received_kg", "return_yarn": "returned_kg",
-               "produce": "produced_kg", "produce_bulk": "produced_kg", "subcontract_receive": "produced_kg", "deliver": "delivered_kg", "invoice": "billed_kg"}.get(kind)
+               "produce": "produced_kg", "produce_bulk": "produced_kg", "produce_batch": "produced_kg", "subcontract_receive": "produced_kg", "deliver": "delivered_kg", "deliver_batch": "delivered_kg", "invoice": "billed_kg"}.get(kind)
         if key:
             totals[key] += Decimal(result.get("quantity_kg", "0"))
-        if kind in ("produce", "produce_bulk", "repack_yarn", "subcontract_receive"):
+        if kind in ("produce", "produce_bulk", "produce_batch", "repack_yarn", "subcontract_receive"):
             totals["consumed_kg"] += Decimal(result.get("consumed_kg", "0"))
             totals["loss_kg"] += Decimal(result.get("loss_kg", "0"))
     totals["yarn_kg"] = sum((Decimal(e.quantity_kg) for e in entries if e.custodian == "Warehouse"), ZERO)
     totals["subcontract_kg"] = sum((Decimal(e.quantity_kg) for e in entries if (e.custodian or "").startswith("SC:")), ZERO)
     totals["fabric_kg"] = sum((Decimal(r.weight_kg) for r in rolls if r.state not in ("Delivered", "Split", "Cancelled")), ZERO)
+    totals["fabric_kg"] += sum((Decimal(b.quantity_kg) for b in batches), ZERO)
+    totals["batch_rolls"] = sum((Decimal(b.rolls) for b in batches), ZERO)
     totals["unbilled_kg"] = totals["delivered_kg"] - totals["billed_kg"]
     if workflow is not None:
         workflow["remaining_lines"] = [line["id"] for line in programme if output.get(line["id"], ZERO) < Decimal(line["target_kg"])]
-        workflow["units"] = str(sum((Decimal(e.units or "0") for e in entries), ZERO))
+        workflow["units"] = str(sum((Decimal(e.units or "0") for e in entries), ZERO) + totals["batch_rolls"])
         workflow["open_subcontract"] = bool(frappe.db.exists("Knitting Subcontract", {"job": job, "status": "Open"}))
         warehouse_lots = {}
         for entry in entries:
@@ -208,11 +228,17 @@ def _balance_totals(job, events, entries, rolls, *, workflow=None, programme=())
         for group, states in (("inspection", {"Awaiting QC"}), ("held", {"On Hold", "Rework", "Rejected"}), ("released", {"Released"})):
             names = [roll.name for roll in rolls if roll.state in states]
             workflow[group] = {"count": len(names), "only": names[0] if len(names) == 1 else None}
+        for group, state in (("inspection", "Awaiting review"), ("held", "On Hold"), ("released", "Released")):
+            names = [batch.name for batch in batches if batch.state == state and
+                (Decimal(batch.quantity_kg) > 0 or Decimal(batch.rolls) > 0)]
+            workflow["batch_" + group] = {"count": len(names), "only": names[0] if len(names) == 1 and
+                permissions.link_visible("Knitting Fabric Batch", names[0]) else None}
         if billing:
             outstanding = [name for name, amount in deliveries.items() if amount > 0]
             if len(outstanding) == 1 and permissions.link_visible("Knitting Event", outstanding[0]):
                 workflow["only_delivery"] = outstanding[0]
-    return {key: kg(value) for key, value in totals.items()}
+    return {**{key: kg(value) for key, value in totals.items()},
+        **({"captured_produced_kg": kg(captured_output)} if captured_output is not None else {}), **captured_billing}
 
 
 def production_lines(event, job):
@@ -221,10 +247,15 @@ def production_lines(event, job):
     if not value:
         return
     if event.job == job:
-        if event.kind in ("produce", "subcontract_receive"):
+        if event.kind in ("produce", "produce_batch", "subcontract_receive"):
             yield json_value(event.payload, {}).get("programme_line"), Decimal(value["quantity_kg"])
         elif event.kind == "produce_bulk":
             for row in value.get("entries", []):
+                yield row.get("programme_line"), Decimal(row["quantity_kg"])
+        elif event.kind == "migration_stock_initialization":
+            # Captured cumulative output prevents producing the programme twice;
+            # it is not a newly dated historical production event.
+            for row in value.get("programme_output", []):
                 yield row.get("programme_line"), Decimal(row["quantity_kg"])
     if event.target_job == job and event.kind == "transfer_fabric":
         yield value.get("target_programme_line"), Decimal(value["quantity_kg"])
@@ -241,6 +272,27 @@ def programme(job, line):
     if not match:
         frappe.throw("Choose a programme line belonging to this job.")
     return match
+
+
+def physical_specification(job, specification):
+    """Resolve source diameter identities for comparison without changing saved specifications."""
+    if not any(key in specification for key in ("source_fabric_id", "source_size_id")):
+        if is_imported_job(job):
+            frappe.throw("The imported programme lacks verified original dimension identities for compatibility checks.")
+        return specification
+    from erp_extensions.migration.dimensions import Projection
+    resolved = Projection(job.company, jobs=[job.name]).line(specification, job=job.name)
+    label = resolved.get("dia_display")
+    if resolved.get("dia_basis") != "source_master_id" or not isinstance(label, str) or not label.strip():
+        frappe.throw("The original diameter is unrecorded or unresolved. Verify its source identity before matching physical specifications.")
+    try:
+        numeric = Decimal(label)
+    except InvalidOperation:
+        pass  # Non-numeric physical labels still require an exact specification match.
+    else:
+        if not numeric.is_finite() or numeric <= 0:
+            frappe.throw("The original diameter has no valid physical measurement for compatibility checks.")
+    return {**specification, "dia": label}
 
 
 def line_pricing(company, customer, lines, fallback="0", overrides=None):
@@ -290,7 +342,17 @@ def validate_programme(lines):
 
 
 def create_job(event, data, job):
+    job_date = getdate(event.occurred_at)
+    if "job_date" in data:
+        value = data["job_date"]
+        try:
+            if not isinstance(value, str) or len(value) != 10 or date.fromisoformat(value).isoformat() != value:
+                raise ValueError()
+            job_date = date.fromisoformat(value)
+        except ValueError:
+            frappe.throw("Use a valid Order date in YYYY-MM-DD format.")
     customer = reference("Customer", data.get("customer"))
+    billing_customer = reference("Customer", data["billing_customer"]) if data.get("billing_customer") else customer
     mode, kind = data.get("material_mode", "Customer"), data.get("kind", "Order")
     if mode not in ("Customer", "Owned") or kind not in ("Order", "Sample"):
         frappe.throw("Choose valid material ownership and order/sample kind.")
@@ -305,7 +367,7 @@ def create_job(event, data, job):
         if item.is_stock_item:
             frappe.throw("Choose a non-stock knitting service item.")
     rate = decimal(data.get("rate", "0"), precision=2)
-    job = insert("Knitting Job", company=event.company, customer=customer.name,
+    job = insert("Knitting Job", company=event.company, customer=customer.name, billing_customer=billing_customer.name, job_date=job_date,
                  fabric_owner=customer.name if mode == "Customer" else None, kind=kind, material_mode=mode,
                  status="Running", target_kg=kg(target), programme=frappe.as_json(lines), revision=1,
                  rate=rate, charge_policy=settings(event.company).get("lycra_charge", "Included"), pricing=frappe.as_json(line_pricing(event.company, customer.name, lines, rate, data.get("pricing"))),
@@ -315,6 +377,16 @@ def create_job(event, data, job):
 
 def receive_yarn(event, data, job):
     from . import posting
+    dc_number = data.get("party_dc_number")
+    dc_date = data.get("party_dc_date")
+    if dc_number is not None and (not isinstance(dc_number, str) or len(dc_number) > 140):
+        frappe.throw("Use a party challan number of up to 140 characters.")
+    if dc_date not in (None, ""):
+        try:
+            if not isinstance(dc_date, str) or date.fromisoformat(dc_date).isoformat() != dc_date:
+                raise ValueError()
+        except ValueError:
+            frappe.throw("Use a valid party challan date in YYYY-MM-DD format.")
     item = reference("Item", data.get("item"))
     if not item.is_stock_item:
         frappe.throw("Yarn receipts require a stock item measured in kilograms.")
@@ -351,7 +423,7 @@ def receive_yarn(event, data, job):
                 frappe.throw("Set the company's Stock Received But Not Billed account before receiving owned yarn.")
         voucher = posting.stock(event, "Material Receipt", [row])
     ledger(event, lot, quantity, job.name if job else None, voucher=voucher, units=units)
-    return {"lot": lot.name, "quantity_kg": kg(quantity), "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
+    return {"lot": lot.name, "party_dc_number": dc_number or None, "party_dc_date": dc_date or None, "quantity_kg": kg(quantity), "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
 
 
 def return_yarn(event, data, job):
@@ -414,9 +486,18 @@ def repack_yarn(event, data, job):
             "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
 
 
+def is_imported_job(job):
+    return bool(job.get("source_record") or any(
+        isinstance(line, Mapping) and any(key.startswith("source_") for key in line)
+        for line in json_value(job.get("programme"), [])
+    ))
+
+
 def revise_job(event, data, job):
     if not data.get("reason"):
         frappe.throw("Give a reason for the programme or commercial revision.")
+    if "programme" in data and is_imported_job(job):
+        frappe.throw("Full programme revision is unavailable for imported jobs. Use a rate-only revision to preserve the original programme.")
     before = {"rate": money(job.rate or 0), "programme": json_value(job.programme, []), "target_kg": job.target_kg}
     if "rate" in data:
         job.rate = decimal(data["rate"], precision=2)
@@ -487,14 +568,30 @@ def split_roll(event, data, job):
     return {"rolls": children, "parent_roll": roll.name, "quantity_kg": roll.weight_kg, "previous_state": previous}
 
 
-def produce(event, data, job, *, custodian="Warehouse", source_warehouse=None, additional_costs=None):
+def produce(event, data, job, *, custodian="Warehouse", source_warehouse=None, additional_costs=None, aggregate=False):
     from . import posting
+    from .machines import attribution as machine_attribution
+    from .operators import attribution as operator_attribution
+    recorded_attribution = {**machine_attribution(event.company, data, event.kind),
+        **operator_attribution(event.company, data, event.kind)}
     line = programme(job, data.get("programme_line"))
-    weights = data.get("weights_kg")
-    if not isinstance(weights, list) or not weights or len(weights) > 200:
-        frappe.throw("Enter between one and 200 roll weights.")
-    weights = [decimal(w, positive=True) for w in weights]
-    quantity, loss = sum(weights, ZERO), decimal(data.get("loss_kg", "0"))
+    if aggregate:
+        if job.material_mode != "Customer":
+            frappe.throw("Batch production supports customer-owned material only. Use individual rolls for owned or mixed stock.")
+        quantity = decimal(data.get("quantity_kg"), positive=True)
+        roll_count = decimal(data.get("rolls"), precision=0)
+        remarks = data.get("remarks", "")
+        if not isinstance(remarks, str) or len(remarks) > 1000:
+            frappe.throw("Keep production remarks within 1,000 characters.")
+        if not isinstance(data.get("shift", ""), str) or len(data.get("shift", "")) > 140:
+            frappe.throw("Use a shift name within 140 characters.")
+    else:
+        weights = data.get("weights_kg")
+        if not isinstance(weights, list) or not weights or len(weights) > 200:
+            frappe.throw("Enter between one and 200 roll weights.")
+        weights = [decimal(w, positive=True) for w in weights]
+        quantity = sum(weights, ZERO)
+    loss = decimal(data.get("loss_kg", "0"))
     produced = programme_produced(job, line["id"])
     excess = decimal(settings(event.company).get("allow_production_excess_pct", "0"))
     if produced + quantity > decimal(line["target_kg"]) * (Decimal(1) + excess / 100):
@@ -504,8 +601,12 @@ def produce(event, data, job, *, custodian="Warehouse", source_warehouse=None, a
         frappe.throw("Select the source yarn lots and actual consumption.")
     lots, total, seen = [], ZERO, set()
     for entry in inputs:
+        if not isinstance(entry, Mapping):
+            frappe.throw("Each yarn input must contain a lot and measured consumption.")
         entry = dict(entry)
         lot = reference("Knitting Material Lot", entry.get("lot"), event.company)
+        if aggregate and lot.material_owner != "Customer":
+            frappe.throw("Batch production supports customer-owned inputs only. Use individual rolls for owned or mixed stock.")
         consumed = decimal(entry.get("quantity_kg"), positive=True)
         if lot.name in seen or consumed > lot_balance(lot.name, job.name, custodian):
             frappe.throw("Yarn consumption exceeds the selected lot allocation.")
@@ -528,7 +629,8 @@ def produce(event, data, job, *, custodian="Warehouse", source_warehouse=None, a
         frappe.throw("Consumed kg must equal fabric kg plus the explicitly declared process loss.")
     godown = warehouse(data.get("warehouse") or settings(event.company).get("warehouse"), event.company)
     machine = reference("Knitting Machine", data["machine"], event.company) if data.get("machine") else None
-    if machine and (not machine.enabled or any(str(line.get(k, "")).casefold() != str(machine.get(k, "")).casefold() for k in ("dia", "gauge", "knit_type") if line.get(k))):
+    physical = physical_specification(job, line) if machine else line
+    if machine and (not machine.enabled or any(str(physical.get(k, "")).casefold() != str(machine.get(k, "")).casefold() for k in ("dia", "gauge", "knit_type") if physical.get(k))):
         frappe.throw("The selected machine is unavailable or incompatible with this fabric.")
     fabric_item = line.get("fabric_item") or settings(event.company).get("fabric_item")
     owned_rows = [{"item_code": lot.item, "qty": used, "s_warehouse": source_warehouse or lot.warehouse} for lot, used, _ in lots if lot.material_owner == "Owned"]
@@ -546,14 +648,25 @@ def produce(event, data, job, *, custodian="Warehouse", source_warehouse=None, a
         units = movement_units(entry, lot, used, job.name, custodian)
         ledger(event, lot, -used, job.name, custodian=custodian, voucher=voucher if lot.material_owner == "Owned" else None, units=-units)
     charges = [{"item": entry["charge_item"], "quantity_kg": kg(used), "rate": money(decimal(entry["charge_rate"], precision=2))} for lot, used, entry in lots if lot.material_owner == "Owned" and entry.get("charge_item")] if job.material_mode == "Customer" and (job.charge_policy or settings(event.company).get("lycra_charge")) == "Separate" else []
-    shares = charge_shares(weights, charges)
     rolls = []
-    for index, weight in enumerate(weights):
-        roll = insert("Knitting Roll", company=event.company, job=job.name, programme_line=line["id"],
-            job_revision=job.revision, weight_kg=kg(weight), fabric_item=fabric_item, warehouse=godown,
-            machine=machine.name if machine else None, operator=frappe.session.user, shift=data.get("shift"),
-            produced_at=event.occurred_at, state="Awaiting QC", production=event.name, specification=frappe.as_json(line), charges=frappe.as_json(shares[index]))
-        rolls.append(roll.name)
+    if aggregate:
+        batch = insert("Knitting Fabric Batch", company=event.company, job=job.name, programme_line=line["id"],
+            quantity_kg=kg(quantity), rolls=str(int(roll_count)), state="Awaiting review", production=event.name,
+            warehouse=godown, specification=frappe.as_json(line))
+        if frappe.db.get_value("Knitting Fabric Batch", batch.name, "production") != event.name:
+            frappe.throw("Production could not be saved safely. Ask your system manager to update the knitting setup, then retry.")
+        snapshot = {"name": batch.name, "job": job.name, "programme_line": line["id"], "job_revision": job.revision,
+            "quantity_kg": kg(quantity), "rolls": str(int(roll_count)), "state": batch.state, "specification": line,
+            "warehouse": godown, "machine": machine.name if machine else None, "operator": frappe.session.user,
+            "shift": data.get("shift"), "produced_at": str(event.occurred_at), "production": event.name, **recorded_attribution}
+    else:
+        shares = charge_shares(weights, charges)
+        for index, weight in enumerate(weights):
+            roll = insert("Knitting Roll", company=event.company, job=job.name, programme_line=line["id"],
+                job_revision=job.revision, weight_kg=kg(weight), fabric_item=fabric_item, warehouse=godown,
+                machine=machine.name if machine else None, operator=frappe.session.user, shift=data.get("shift"),
+                produced_at=event.occurred_at, state="Awaiting QC", production=event.name, specification=frappe.as_json(line), charges=frappe.as_json(shares[index]))
+            rolls.append(roll.name)
     plan_progress = []
     if machine:
         remaining = quantity
@@ -578,7 +691,8 @@ def produce(event, data, job, *, custodian="Warehouse", source_warehouse=None, a
             record.run_kg = kg(Decimal(before) + quantity)
             record.save()
             component_progress.append({"component": record.name, "before_kg": before, "after_kg": record.run_kg, "modified_after": str(record.modified)})
-    return {"rolls": rolls, "quantity_kg": kg(quantity), "consumed_kg": kg(total), "loss_kg": kg(loss), "plan_progress": plan_progress, "component_progress": component_progress,
+    output = {"batch": batch.name, "roll_count": str(int(roll_count)), "batch_snapshot": snapshot} if aggregate else {"rolls": rolls}
+    return {**output, **recorded_attribution, "quantity_kg": kg(quantity), "consumed_kg": kg(total), "loss_kg": kg(loss), "plan_progress": plan_progress, "component_progress": component_progress,
             "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
 
 
@@ -639,13 +753,15 @@ def deliver(event, data, job):
             "voucher": voucher.name if voucher else None, "voucher_type": voucher.doctype if voucher else None}
 
 
-def delivery_billed(job, delivery, line=None, roll=None):
+def delivery_billed(job, delivery, line=None, roll=None, *, batch=None, legacy_line=None):
     total = ZERO
     for event in job_events(job):
         if event.kind not in ("invoice", "credit_invoice"):
             continue
         for row in json_value(event.result, {}).get("allocations", []):
-            if row["delivery"] == delivery and (line is None or row.get("programme_line") == line) and (roll is None or row.get("roll") == roll):
+            if (row["delivery"] == delivery and (line is None or row.get("programme_line") == line)
+                    and (roll is None or row.get("roll") == roll) and (batch is None or row.get("batch") == batch)
+                    and (legacy_line is None or row.get("legacy_line") == legacy_line)):
                 total += Decimal(row["quantity_kg"]) * (-1 if event.kind == "credit_invoice" else 1)
     return total
 
@@ -659,21 +775,31 @@ def invoice(event, data, job, *, preview=False):
     allocations, rows, total = [], [], ZERO
     for name in names:
         source = reference("Knitting Event", name, event.company)
-        if source.job != job.name or source.kind != "deliver" or source.cancelled:
+        if source.job != job.name or source.kind not in ("deliver", "deliver_batch", "migration_delivery_reference") or source.cancelled:
             frappe.throw("Invoice sources must be confirmed deliveries from this job.")
         value = json_value(source.result, {})
+        original_delivery = source.kind == "migration_delivery_reference"
+        if original_delivery and (not job.migration_digest or job.material_mode != "Customer"
+                or value.get("billing_reference") is not True):
+            frappe.throw("Use a verified original delivery reference from this customer order.")
         for line in value.get("sources", value.get("lines", [{"programme_line": None, "quantity_kg": value["quantity_kg"], "rate": value.get("rate", job.rate)}])):
-            available = Decimal(line["quantity_kg"]) - returned_delivery(job.name, name, line["programme_line"], line.get("roll")) - delivery_billed(job.name, name, line["programme_line"], line.get("roll"))
+            if original_delivery and not line.get("legacy_line"):
+                frappe.throw("The original delivery line identity is unavailable for billing.")
+            source_keys = {key: line.get(key) for key in ("batch", "legacy_line")}
+            available = Decimal(line["quantity_kg"]) - returned_delivery(job.name, name, line["programme_line"], line.get("roll"), **source_keys) - delivery_billed(job.name, name, line["programme_line"], line.get("roll"), **source_keys)
             quantity = min(available, remaining) if remaining is not None else available
             if quantity <= 0:
                 continue
-            rate = decimal(line["rate"], precision=2)
+            rate = decimal(json_value(job.pricing, {}).get(line["programme_line"]) if original_delivery else line["rate"], precision=2)
             item = job.service_item if job.material_mode == "Customer" else line.get("fabric_item")
             if not item:
                 frappe.throw("Configure the service or fabric billing item before invoicing.")
             rows.append({"item_code": item, "qty": quantity, "rate": rate, "knitting_delivery": name,
                          **({k: line[k] for k in ("delivery_note", "dn_detail")} if line.get("dn_detail") else {})})
-            allocations.append({"delivery": name, "programme_line": line["programme_line"], "roll": line.get("roll"), "quantity_kg": kg(quantity), "charges": []})
+            allocations.append({"delivery": name, "programme_line": line["programme_line"], "roll": line.get("roll"),
+                **{key: value for key, value in source_keys.items() if value is not None},
+                **({"rate_basis": "Current agreed rate", "original_dc_rate": line.get("original_dc_rate")} if original_delivery else {}),
+                "quantity_kg": kg(quantity), "charges": []})
             total += quantity
             if remaining is not None:
                 remaining -= quantity
@@ -715,7 +841,8 @@ def invoice(event, data, job, *, preview=False):
                 if quantity:
                     allocation["charges"].append({"row_index": len(rows), "quantity": str(quantity), 'charge_key':key})
                     rows.append({"item_code": charge["item"], "qty": quantity, "rate": rate, "knitting_delivery": allocation["delivery"]})
-    doc = posting.invoice(event, job, rows, preview=preview)
+    doc = posting.invoice(event, job, rows, preview=preview,
+        tax_template=data.get("tax_template"), no_tax=data.get("no_tax", False))
     if preview:
         return doc
     if data.get("preview_hash"):
@@ -774,7 +901,7 @@ def roll_dependents(names, source):
     return False
 
 
-CORRECTABLE = ("invoice", "deliver", "quality", "produce", "produce_bulk", "transfer_fabric", "split_roll",
+CORRECTABLE = ("invoice", "deliver", "quality", "produce", "produce_bulk", "produce_batch", "transfer_fabric", "split_roll",
                "credit_invoice", "return_fabric", "receive_yarn", "bill_yarn", "create_yarn_order",
                "subcontract_receive", "subcontract_bill")
 
@@ -820,9 +947,15 @@ def cancel_event(event, data, job):
         for receipt in current_rows("Knitting Event", filters={"company": event.company, "kind": "receive_yarn", "cancelled": 0}, fields=["payload"]):
             if json_value(receipt.payload, {}).get("purchase_order") == result["purchase_order"]:
                 frappe.throw("Cancel dependent unused receipts before cancelling the yarn order.")
-    if source.kind in ("produce", "produce_bulk", "subcontract_receive"):
-        rolls = [reference("Knitting Roll", name, event.company) for name in result["rolls"]]
-        if any(r.job != job_name or r.state != "Awaiting QC" for r in rolls) or roll_dependents(result["rolls"], source):
+    if source.kind in ("produce", "produce_bulk", "produce_batch", "subcontract_receive"):
+        rolls = [reference("Knitting Roll", name, event.company) for name in result.get("rolls", [])]
+        if source.kind == "produce_batch":
+            produced_batch = reference("Knitting Fabric Batch", result["batch"], event.company)
+            if (produced_batch.job != job_name or produced_batch.production != source.name or produced_batch.state != "Awaiting review"
+                    or Decimal(produced_batch.quantity_kg) != Decimal(result["quantity_kg"]) or Decimal(produced_batch.rolls) != Decimal(result["roll_count"])
+                    or any(json_value(e.result, {}).get("batch") == produced_batch.name for e in job_events(job_name) if e.name != source.name)):
+                frappe.throw("Later batch inspection or movement depends on this production.")
+        if any(r.job != job_name or r.state != "Awaiting QC" for r in rolls) or (rolls and roll_dependents(result["rolls"], source)):
             frappe.throw("Correct dependent inspections, splits or deliveries before cancelling production.")
         vouchers = result.get("vouchers", []) or ([{"voucher": result["voucher"], "voucher_type": result["voucher_type"]}] if result.get("voucher") else [])
         for voucher in reversed(vouchers):
@@ -855,6 +988,9 @@ def cancel_event(event, data, job):
         for roll in rolls:
             roll.state = "Cancelled"
             roll.save()
+        if source.kind == "produce_batch":
+            produced_batch.quantity_kg, produced_batch.rolls, produced_batch.state = "0.000", "0", "Cancelled"
+            produced_batch.save()
     if source.kind == "credit_invoice":
         reference("Knitting Event", result["invoice_event"], event.company)
         for allocation in result["allocations"]:
@@ -900,7 +1036,7 @@ def cancel_event(event, data, job):
             roll.save()
         target.save()
         event.target_job = target.name
-    if result.get("voucher") and source.kind not in ("produce", "produce_bulk", "subcontract_receive"):
+    if result.get("voucher") and source.kind not in ("produce", "produce_bulk", "produce_batch", "subcontract_receive"):
         doc = reference(result["voucher_type"], result["voucher"], event.company)
         doc.check_permission("cancel")
         doc.cancel()
@@ -1001,15 +1137,39 @@ def transfer_fabric(event, data, job):
     rolls = [reference("Knitting Roll", name, event.company) for name in names]
     quantity = sum((Decimal(r.weight_kg) for r in rolls), ZERO)
     existing = sum((Decimal(r.weight_kg) for r in current_rows("Knitting Roll", filters={"job": target.name, "programme_line": line["id"], "state": ["not in", ["Split", "Cancelled"]]}, fields=["weight_kg"])), ZERO)
+    existing = max(existing, programme_produced(target, line["id"]))
     if existing + quantity > decimal(line["target_kg"]):
         frappe.throw("Transferred fabric exceeds the destination programme balance.")
     target_item = line.get("fabric_item") or settings(event.company).get("fabric_item")
+    physical_line = physical_specification(target, line)
     text_fields = ("fabric", "colour", "dia", "gauge", "knit_type", "yarn_count", "finish_dia", "finish_gsm",
                    "brand", "construct", "organic", "regenagri")
     previous = []
     for roll in rolls:
         spec = json_value(roll.specification, {})
-        different_spec = any(str(spec.get(k) or "").strip().casefold() != str(line.get(k) or "").strip().casefold() for k in text_fields)
+        if any(key in spec for key in ("source_fabric_id", "source_size_id")):
+            origin = reference("Knitting Event", roll.production, event.company)
+            if origin.cancelled or origin.kind not in ("produce", "produce_bulk", "subcontract_receive"):
+                frappe.throw("The roll has no active verified production origin for its original dimensions.")
+            root = roll
+            seen = set()
+            while root.parent_roll:
+                if root.name in seen or len(seen) >= 100:
+                    frappe.throw("The roll has an invalid or excessively deep split origin.")
+                seen.add(root.name)
+                root = reference("Knitting Roll", root.parent_roll, event.company)
+                if root.production != origin.name or json_value(root.specification, {}) != spec:
+                    frappe.throw("The split roll does not preserve its production origin and physical specification.")
+            result = json_value(origin.result, {})
+            produced = result.get("rolls", []) if origin.kind != "produce_bulk" else [
+                name for entry in result.get("entries", []) for name in entry.get("rolls", [])]
+            if root.name not in produced:
+                frappe.throw("The roll does not belong to its recorded production origin.")
+            source = reference("Knitting Job", origin.job, event.company)
+            physical = physical_specification(source, spec)
+        else:
+            physical = spec
+        different_spec = any(str(physical.get(k) or "").strip().casefold() != str(physical_line.get(k) or "").strip().casefold() for k in text_fields)
         different_measurements = any([decimal(v) for v in spec.get(k, [])] != [decimal(v) for v in line.get(k, [])]
                                      for k in ("gsm", "ll"))
         if (roll.job != job.name or roll.state in ("Delivered", "Split", "Cancelled") or different_spec
@@ -1032,7 +1192,7 @@ def credited_allocations(job, invoice):
         value = json_value(event.result, {})
         if value.get("invoice_event") == invoice:
             for row in value["allocations"]:
-                key = row.get("invoice_item") or (row["delivery"], row.get("programme_line"), row.get("roll"))
+                key = row.get("invoice_item") or (row["delivery"], row.get("programme_line"), row.get("roll"), row.get("batch"), row.get("legacy_line"))
                 totals[key] = totals.get(key, ZERO) + Decimal(row["quantity_kg"])
     return totals
 
@@ -1062,7 +1222,7 @@ def credit_invoice(event, data, job):
     remaining, credited = quantity, credited_allocations(job.name, source.name)
     selected, quantities = [], {}
     for index, allocation in enumerate(value["allocations"]):
-        key = allocation.get("invoice_item") or (allocation["delivery"], allocation.get("programme_line"), allocation.get("roll"))
+        key = allocation.get("invoice_item") or (allocation["delivery"], allocation.get("programme_line"), allocation.get("roll"), allocation.get("batch"), allocation.get("legacy_line"))
         available = Decimal(allocation["quantity_kg"]) - credited.get(key, ZERO)
         used = min(remaining, available)
         if used > 0:
@@ -1106,13 +1266,17 @@ def credit_invoice(event, data, job):
         "amount": money(doc.grand_total), "reason": data["reason"], "voucher": doc.name, "voucher_type": doc.doctype}
 
 
-def returned_delivery(job, delivery, line=None, roll=None):
+def returned_delivery(job, delivery, line=None, roll=None, *, batch=None, legacy_line=None):
     total = ZERO
-    for event in job_events(job, "return_fabric"):
+    for event in job_events(job):
+        if event.kind not in ("return_fabric", "return_batch"):
+            continue
         value = json_value(event.result, {})
         if value.get("delivery") == delivery:
             for row in value["allocations"]:
-                if (line is None or row["programme_line"] == line) and (roll is None or row.get("roll") == roll):
+                if ((line is None or row["programme_line"] == line) and (roll is None or row.get("roll") == roll)
+                        and (batch is None or row.get("batch") == batch)
+                        and (legacy_line is None or row.get("legacy_line") == legacy_line)):
                     total += Decimal(row["quantity_kg"])
     return total
 

@@ -1,0 +1,13 @@
+{
+  "version": "2.10.0",
+  "local_package_version": "2.10.0-0+erp1",
+  "source_url": "https://github.com/libexpat/libexpat/releases/download/R_2_10_0/expat-2.10.0.tar.xz",
+  "source_sha256": "c624ba2998fc65df1163a49641ff3f9ab73138b11641d92c86bee0fb01b1bc7f",
+  "source_bytes": 543404,
+  "checksum_source": "https://api.github.com/repos/libexpat/libexpat/releases/tags/R_2_10_0",
+  "published_at": "2026-11-02T09:18:35Z",
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "advisories": ["CVE-2026-113351", "CVE-2026-115506", "CVE-2026-117610", "CVE-2026-118370"],
+  "upstream_release": "https://github.com/libexpat/libexpat/releases/tag/R_2_10_0",
+  "status": "verified-source-build-and-runtime-validation-required"
+}

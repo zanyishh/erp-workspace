@@ -57,6 +57,16 @@ class WorkspaceSelectionTests(unittest.TestCase):
             with self.assertRaises(frappe.PermissionError):
                 workspace.select_company(selected)
 
+    def test_imported_history_capability_and_access_revision_follow_server_scope(self):
+        company='ERP Native Verification'
+        with patch('erp_extensions.migration.api.available',return_value=False):
+            hidden=workspace.context(company)
+        with patch('erp_extensions.migration.api.available',return_value=True):
+            shown=workspace.context(company)
+        self.assertFalse(hidden['can_read_imported_history'])
+        self.assertTrue(shown['can_read_imported_history'])
+        self.assertNotEqual(hidden['access_fingerprint'],shown['access_fingerprint'])
+
     def test_signed_in_user_without_company_read_gets_an_empty_workspace(self):
         user = frappe.get_doc({"doctype": "User", "email": "no-company-" + frappe.generate_hash(length=8) + "@example.invalid",
                                "first_name": "Unassigned worker", "user_type": "Website User", "send_welcome_email": 0}).insert()
@@ -65,5 +75,16 @@ class WorkspaceSelectionTests(unittest.TestCase):
         context = workspace.context()
         self.assertIsNone(context["company"])
         self.assertEqual(context["companies"], [])
+        self.assertFalse(context['can_read_imported_history'])
         with self.assertRaises(frappe.PermissionError):
             workspace.context("ERP Native Verification")
+
+    def test_customer_navigation_and_access_revision_follow_scope_membership(self):
+        company = 'ERP Native Verification'
+        with patch('erp_extensions.migration.api.customer_workspace', return_value=False):
+            general = workspace.context(company)
+        with patch('erp_extensions.migration.api.customer_workspace', return_value=True):
+            customer = workspace.context(company)
+        self.assertFalse(general['knitting_only'])
+        self.assertTrue(customer['knitting_only'])
+        self.assertNotEqual(general['access_fingerprint'], customer['access_fingerprint'])

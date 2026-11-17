@@ -149,9 +149,7 @@ void main() {
 
   for (final owner in [true, false]) {
     testWidgets(
-      owner
-          ? 'a created company can sign in again if its first login fails'
-          : 'joined staff can retry login without redeeming the invitation twice',
+      owner ? 'a created company can sign in again if its first login fails' : 'joined staff can retry login without redeeming the invitation twice',
       (t) async {
         final api = _GuestApi();
         t.view.devicePixelRatio = 1;
@@ -164,9 +162,8 @@ void main() {
           MaterialApp(
             theme: WorkspaceTheme.theme,
             builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: const TextScaler.linear(1.5)),
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(1.5)),
               child: child!,
             ),
             home: SignInScreen(

@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "platform": "darwin-arm64",
+  "verified_at": "2026-11-15T13:43:09.163498+00:00",
+  "verification": "Official GitHub release API asset digests and publisher SHA-256 checksum files; archive downloads independently hashed before installation.",
+  "tools": [
+    {
+      "name": "crane",
+      "repository": "google/go-containerregistry",
+      "version": "0.22.1",
+      "tag": "v0.22.1",
+      "release_url": "https://github.com/google/go-containerregistry/releases/tag/v0.22.1",
+      "release_api_url": "https://api.github.com/repos/google/go-containerregistry/releases/382402591",
+      "published_at": "2026-09-04T00:17:00Z",
+      "archive": {
+        "filename": "go-containerregistry_Darwin_arm64.tar.gz",
+        "url": "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Darwin_arm64.tar.gz",
+        "sha256": "2231fc8df8806d20d680ff1225db44e095a55dd6ac1ae8eced4faf4b278b78fb",
+        "size_bytes": 15441389
+      },
+      "checksums": {
+        "filename": "checksums.txt",
+        "url": "https://github.com/google/go-containerregistry/releases/download/v0.22.1/checksums.txt",
+        "sha256": "889e6996ef939c12d613f4cae657cc2ecce822e69ea74a58a453a95d723a857d",
+        "size_bytes": 1387
+      },
+      "binary_member": "crane",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "version"
+      ]
+    },
+    {
+      "name": "gitleaks",
+      "repository": "gitleaks/gitleaks",
+      "version": "8.30.1",
+      "tag": "v8.30.1",
+      "release_url": "https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1",
+      "release_api_url": "https://api.github.com/repos/gitleaks/gitleaks/releases/299662760",
+      "published_at": "2026-03-21T02:17:58Z",
+      "archive": {
+        "filename": "gitleaks_8.30.1_darwin_arm64.tar.gz",
+        "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz",
+        "sha256": "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5",
+        "size_bytes": 7897593
+      },
+      "checksums": {
+        "filename": "gitleaks_8.30.1_checksums.txt",
+        "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_checksums.txt",
+        "sha256": "061476c21adaf5441516f96f185c1a4706a83cd6329b9b38762271b3d4a52fae",
+        "size_bytes": 999
+      },
+      "binary_member": "gitleaks",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "version"
+      ]
+    },
+    {
+      "name": "trivy",
+      "repository": "aquasecurity/trivy",
+      "version": "0.76.2",
+      "tag": "v0.76.2",
+      "release_url": "https://github.com/aquasecurity/trivy/releases/tag/v0.76.2",
+      "release_api_url": "https://api.github.com/repos/aquasecurity/trivy/releases/435196879",
+      "published_at": "2026-11-05T12:50:25Z",
+      "archive": {
+        "filename": "trivy_0.76.2_macOS-ARM64.tar.gz",
+        "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_macOS-ARM64.tar.gz",
+        "sha256": "ae7ea358326960406b703c77b2ac490190797d80b306b5b50c2a27221da0a5b8",
+        "size_bytes": 49840394
+      },
+      "checksums": {
+        "filename": "trivy_0.76.2_checksums.txt",
+        "url": "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_checksums.txt",
+        "sha256": "802e4ac1418ed967cd3c4b901f4f71ca00b7363ede67778665a22d9f13f58c83",
+        "size_bytes": 2121
+      },
+      "binary_member": "trivy",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "--version"
+      ]
+    },
+    {
+      "name": "syft",
+      "repository": "anchore/syft",
+      "version": "1.57.1",
+      "tag": "v1.57.1",
+      "release_url": "https://github.com/anchore/syft/releases/tag/v1.57.1",
+      "release_api_url": "https://api.github.com/repos/anchore/syft/releases/439245901",
+      "published_at": "2026-11-09T14:39:42Z",
+      "archive": {
+        "filename": "syft_1.57.1_darwin_arm64.tar.gz",
+        "url": "https://github.com/anchore/syft/releases/download/v1.57.1/syft_1.57.1_darwin_arm64.tar.gz",
+        "sha256": "e0a74a5d2688d1254b4e17b71f068a83215e3625f846265bf6614c7ba06f3a96",
+        "size_bytes": 28240225
+      },
+      "checksums": {
+        "filename": "syft_1.57.1_checksums.txt",
+        "url": "https://github.com/anchore/syft/releases/download/v1.57.1/syft_1.57.1_checksums.txt",
+        "sha256": "92466b2b1a4695ee908f8a1567f4ff074e0fbb4f34da28463927a2630901fe2c",
+        "size_bytes": 2690
+      },
+      "binary_member": "syft",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "version"
+      ]
+    },
+    {
+      "name": "grype",
+      "repository": "anchore/grype",
+      "version": "0.121.3",
+      "tag": "v0.121.3",
+      "release_url": "https://github.com/anchore/grype/releases/tag/v0.121.3",
+      "release_api_url": "https://api.github.com/repos/anchore/grype/releases/439289992",
+      "published_at": "2026-11-09T15:17:25Z",
+      "archive": {
+        "filename": "grype_0.121.3_darwin_arm64.tar.gz",
+        "url": "https://github.com/anchore/grype/releases/download/v0.121.3/grype_0.121.3_darwin_arm64.tar.gz",
+        "sha256": "54336f2cd8cdee8b3d8ea83462561ff7fa9293498054c7c53a193db44bfea4c8",
+        "size_bytes": 29409096
+      },
+      "checksums": {
+        "filename": "grype_0.121.3_checksums.txt",
+        "url": "https://github.com/anchore/grype/releases/download/v0.121.3/grype_0.121.3_checksums.txt",
+        "sha256": "1f8cea030e00f362d6b0bb0d1843b123af1d6baad70975dff1cf6fe14096866f",
+        "size_bytes": 1468
+      },
+      "binary_member": "grype",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "version"
+      ]
+    },
+    {
+      "name": "k6",
+      "repository": "grafana/k6",
+      "version": "2.4.0",
+      "tag": "v2.4.0",
+      "release_url": "https://github.com/grafana/k6/releases/tag/v2.4.0",
+      "release_api_url": "https://api.github.com/repos/grafana/k6/releases/442984534",
+      "published_at": "2026-11-12T13:27:33Z",
+      "archive": {
+        "filename": "k6-v2.4.0-macos-arm64.zip",
+        "url": "https://github.com/grafana/k6/releases/download/v2.4.0/k6-v2.4.0-macos-arm64.zip",
+        "sha256": "5715745adf4e5ebc92965b26b7785e54e685a370466448cb587b383330a24f20",
+        "size_bytes": 30571659
+      },
+      "checksums": {
+        "filename": "k6-v2.4.0-checksums.txt",
+        "url": "https://github.com/grafana/k6/releases/download/v2.4.0/k6-v2.4.0-checksums.txt",
+        "sha256": "a8233db9f0e647d1c15d1ba6506d10445d6bd2aff0c40796cfb8c4d7e6ffee5a",
+        "size_bytes": 746
+      },
+      "binary_member": "k6-v2.4.0-macos-arm64/k6",
+      "notice_members": [],
+      "version_args": [
+        "version"
+      ],
+      "additional_notices": [
+        {
+          "filename": "LICENSE.md",
+          "url": "https://raw.githubusercontent.com/grafana/k6/v2.4.0/LICENSE.md",
+          "sha256": "45bd5efa5e66840e253253f3cc172d07213cb812206cda7bb71cd5b9dbd5a985"
+        }
+      ]
+    },
+    {
+      "name": "ffuf",
+      "repository": "ffuf/ffuf",
+      "version": "2.3.0",
+      "tag": "v2.3.0",
+      "release_url": "https://github.com/ffuf/ffuf/releases/tag/v2.3.0",
+      "release_api_url": "https://api.github.com/repos/ffuf/ffuf/releases/385781396",
+      "published_at": "2026-09-09T19:16:19Z",
+      "archive": {
+        "filename": "ffuf_2.3.0_macOS_arm64.tar.gz",
+        "url": "https://github.com/ffuf/ffuf/releases/download/v2.3.0/ffuf_2.3.0_macOS_arm64.tar.gz",
+        "sha256": "891e6358f7c72c951ce6fcef82a3736e91b34034e95edbd305505c9d31cfff13",
+        "size_bytes": 4103832
+      },
+      "checksums": {
+        "filename": "ffuf_2.3.0_checksums.txt",
+        "url": "https://github.com/ffuf/ffuf/releases/download/v2.3.0/ffuf_2.3.0_checksums.txt",
+        "sha256": "e23603e903d40453c8bd477561466d494db0e502f2dccbd93926378fead9d0f0",
+        "size_bytes": 1539
+      },
+      "binary_member": "ffuf",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "-V"
+      ]
+    },
+    {
+      "name": "scorecard",
+      "repository": "ossf/scorecard",
+      "version": "5.6.0",
+      "tag": "v5.6.0",
+      "release_url": "https://github.com/ossf/scorecard/releases/tag/v5.6.0",
+      "release_api_url": "https://api.github.com/repos/ossf/scorecard/releases/410002488",
+      "published_at": "2026-10-12T00:21:01Z",
+      "archive": {
+        "filename": "scorecard_5.6.0_darwin_arm64.tar.gz",
+        "url": "https://github.com/ossf/scorecard/releases/download/v5.6.0/scorecard_5.6.0_darwin_arm64.tar.gz",
+        "sha256": "1537183c0fcc6d8d1572aabc7a949091a36a2ee6be5bcb65f487cbb0a7b40381",
+        "size_bytes": 25777148
+      },
+      "checksums": {
+        "filename": "scorecard_checksums.txt",
+        "url": "https://github.com/ossf/scorecard/releases/download/v5.6.0/scorecard_checksums.txt",
+        "sha256": "7885cd81e0bf6ef30492de2c4252f3c293929da5716df8b9c2863dd5a1674422",
+        "size_bytes": 612
+      },
+      "binary_member": "scorecard",
+      "notice_members": [
+        "LICENSE"
+      ],
+      "version_args": [
+        "version"
+      ]
+    }
+  ]
+}

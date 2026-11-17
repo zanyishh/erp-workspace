@@ -1,0 +1,70 @@
+{
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "base_id": "sha256:16b7aa47677b074ebf2dbcad6c6536504f63ec0390f6143d15e2d70c2441bc08",
+  "source_lock_sha256": "d6ab629c452a227f189c82bde4fc1185a274c5de5cf261d69250fefbaa8a4f56",
+  "prior_helpers": {
+    "build-lxml.sh": "3991b8f7de693e8918f2c797f1ed13f7483b5642cdacbbed73dff30884396c8f",
+    "build-lxml-inside.py": "3f1f8e311df73a955955440a8e1b8c44bad27ce0d8c7b3cba53c7eada55500ff",
+    "lxml-offline-setup.py": "0037adf570aae85b8cba8b4857877bcb93c4f8ff9c17bf79396fa1e33d8167a5",
+    "lxml-ordinary-compatibility.py": "e0272726e08ec7decbdba8d4911da2a9d07edd406fa60d299304f9d30663fec0",
+    "lxml-artifacts.lock.json": "d6ab629c452a227f189c82bde4fc1185a274c5de5cf261d69250fefbaa8a4f56"
+  },
+  "files": {
+    "resource-receipt.json": {
+      "bytes": 3837,
+      "sha256": "77aac696743673b0195b9da4252c93ceaa3866b337f9571e38caed3d9ba7d1d4"
+    },
+    "compiled-source.json": {
+      "bytes": 2162,
+      "sha256": "d1ccabe2404609d33752c8d002e89200920c4152c9225ddd3ffd2dced4beedec"
+    },
+    "compiled-source.tar.gz": {
+      "bytes": 53168036,
+      "sha256": "179ae5741946632a3ffec8c0ddb1ff66c6f777554cdef7df5769f9120863946a"
+    },
+    "steps.json": {
+      "bytes": 1021,
+      "sha256": "cb8cb5b3cc4551ccba1ec5378dd082da52aeb9ce8bb6ddd73c215c7ee03fdfdb"
+    },
+    "build-package-versions.txt": {
+      "bytes": 9385,
+      "sha256": "838affedc8e08fe6898fc1eda702c511febfd55dfd45af1b38f1d50b7548e175"
+    },
+    "dependency-test-environment.json": {
+      "bytes": 848,
+      "sha256": "901d3ffddd202108a7cf5273724e11c8505337c425f57f381733a1dad6296260"
+    },
+    "compile.log": {
+      "bytes": 169913,
+      "sha256": "377c32af4864e5607ebe7165a0b505b48d1ef982afe0ba93cabaa503d1447025"
+    },
+    "venv.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build-dependencies.log": {
+      "bytes": 354,
+      "sha256": "544d936c4e05a3201b564212a1a1bcc20c3c2afe2f248c4f5a7ed9d27ff2047a"
+    },
+    "build-dependency-check.log": {
+      "bytes": 123,
+      "sha256": "2abf5c3bf7b3145efbaba0af6081c90b8bed42dc6d1e351f8319fec6338dbcce"
+    },
+    "zlib-ordinary-tests.log": {
+      "bytes": 869,
+      "sha256": "321e63c997e8c82b404e0386ba0d5d7ac2a47899c0ed9e8e227a6fc062792cb5"
+    },
+    "libiconv-ordinary-tests.log": {
+      "bytes": 12384,
+      "sha256": "237d9eb83a3081527521a6b9ffa566f84f70887835e5056c3e3ded2e68d0e87b"
+    },
+    "libxml2-ordinary-tests.log": {
+      "bytes": 10340,
+      "sha256": "5e8be24d46c1c49f8bfa430d6eac55dff264d7ab2dcc232a298ebc855796cad4"
+    }
+  },
+  "archive_root": "lxml-6.1.3",
+  "archive_entries_limit": 10000,
+  "archive_expanded_bytes_limit": 209715200,
+  "retained_failure": "Static-only upstream libtool does not create .libs/testdso.so required by the original module-loader test. Rebuild only the unchanged upstream test fixture as shared; retain every original test and original production binary hash."
+}

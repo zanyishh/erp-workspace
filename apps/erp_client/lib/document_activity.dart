@@ -1,10 +1,14 @@
 import 'ui/workspace_art.dart';
 import 'ui/access_gate.dart';
+
 import 'dart:convert';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+
 import 'erp_api.dart';
 import 'file_actions.dart';
+import 'invoice_preview.dart';
 import 'native_models.dart';
 import 'native_reports.dart';
 import 'widgets.dart';
@@ -15,9 +19,11 @@ class DocumentActivityScreen extends StatefulWidget {
     required this.api,
     required this.type,
     required this.name,
+    this.company,
   });
   final ErpApi api;
   final String type, name;
+  final String? company;
   @override
   State<DocumentActivityScreen> createState() => _DocumentActivityScreenState();
 }
@@ -144,6 +150,38 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
   }
 
   Future<void> _print() async {
+    if (widget.type == 'Sales Invoice' && widget.company != null) {
+      final useDesign = await showDialog<bool>(
+        context: context,
+        builder: (c) => SimpleDialog(
+          title: const Text('Print invoice'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Invoice templates'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('ERPNext print formats'),
+            ),
+          ],
+        ),
+      );
+      if (useDesign == null || !mounted) return;
+      if (useDesign) {
+        await Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InvoicePreviewScreen(
+              api: widget.api,
+              company: widget.company!,
+              invoice: widget.name,
+            ),
+          ),
+        );
+        return;
+      }
+    }
     final formats = await widget.api.printOptions(widget.type, widget.name);
     if (!mounted) return;
     final chosen = await showDialog<String>(
@@ -201,7 +239,7 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
     },
     child: Scaffold(
       appBar: AppBar(
-        title: const Display('DOCUMENT ACTIVITY', size: 27),
+        title: const Text('Document activity'),
         actions: [
           IconButton(
             tooltip: 'Refresh activity',
@@ -308,7 +346,11 @@ class _DocumentActivityScreenState extends State<DocumentActivityScreen> {
                                         );
                                       }
                                     }, reload: false),
-                              trailing: enabled(permissions['write'])
+                              trailing:
+                                  enabled(permissions['write']) &&
+                                      (file['attached_to_field'] ?? '')
+                                          .toString()
+                                          .isEmpty
                                   ? IconButton(
                                       tooltip: 'Remove ${file['file_name']}',
                                       onPressed: _busy

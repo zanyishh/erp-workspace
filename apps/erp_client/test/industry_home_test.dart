@@ -4,6 +4,10 @@ import 'package:erp_client/erp_models.dart';
 import 'package:erp_client/knitting_models.dart';
 import 'package:erp_client/knitting_screen.dart';
 import 'package:erp_client/main.dart';
+import 'package:erp_client/native_catalog.dart';
+import 'package:erp_client/native_models.dart';
+import 'package:erp_client/payment_reconciliation.dart';
+import 'package:erp_client/bank_statement_matching.dart';
 import 'package:erp_client/overview.dart';
 import 'package:erp_client/sign_in.dart';
 import 'package:erp_client/workspace_context.dart';
@@ -11,8 +15,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _CompanyApi extends ErpApi {
-  _CompanyApi(this.company) : super(Uri.parse('http://localhost:8081'));
+  _CompanyApi(this.company, {this.knittingOnly = false})
+    : super(Uri.parse('http://localhost:8081'));
   String company;
+  bool knittingOnly;
+  bool knittingAvailable = true;
+  bool financialActions = false;
   int generalReads = 0;
   bool configured = false;
   bool activated = false;
@@ -24,14 +32,20 @@ class _CompanyApi extends ErpApi {
       for (final c in ['Mill', 'Books']) {'name': c},
     ],
     'setup_state': (name == 'Mill' || activated) ? 'Active' : 'General ERP',
-    'knitting_enabled': name == 'Mill' || activated,
+    'knitting_enabled': (name == 'Mill' || activated) && knittingAvailable,
+    'knitting_only': knittingOnly && name == 'Mill',
+    'can_read_imported_history': knittingOnly && name == 'Mill',
+    'can_reconcile_payments': financialActions,
+    'can_match_bank_statements': financialActions,
     'can_configure': true,
     'readable_records': ['Sales Order', 'Item'],
     'needs_industry_selection': name == 'New company' && !configured,
     'capabilities': ifMill(name),
   });
   List<String> ifMill(String name) =>
-      (name == 'Mill' || activated) ? ['overview', 'jobs', 'production'] : [];
+      (name == 'Mill' || activated) && knittingAvailable
+      ? ['overview', 'jobs', 'production']
+      : [];
 
   @override
   Future<void> login(String username, String password) async {}
@@ -50,6 +64,18 @@ class _CompanyApi extends ErpApi {
     String company, {
     String? job,
   }) async => KnittingSnapshot(company, {});
+  @override
+  Future<NativeCatalog> nativeCatalog({String? company}) async =>
+      NativeCatalog.fromJson({
+        'version': 1,
+        'types': [
+          {'name': 'Customer', 'module': 'Selling'},
+          {'name': 'Journal Entry', 'module': 'Accounts'},
+        ],
+        'reports': [
+          {'name': 'General Ledger', 'module': 'Accounts'},
+        ],
+      });
   @override
   Future<ErpSnapshot> snapshot(
     ReportingPeriod period, {
@@ -199,6 +225,97 @@ void main() {
   }
 
   testWidgets(
+    'customer mill keeps masters and accounts without general navigation',
+    (tester) async {
+      final api = _CompanyApi('Mill', knittingOnly: true);
+      await enter(tester, api);
+      expect(find.byType(KnittingScreen), findsOneWidget);
+      expect(find.text('General ERP'), findsNothing);
+      expect(find.byTooltip('Open a business area'), findsNothing);
+      expect(find.text('Imported history'), findsOneWidget);
+      await tester.tap(find.text('Masters & accounts'));
+      await tester.pumpAndSettle();
+      expect(find.byType(NativeCatalogScreen), findsOneWidget);
+      expect(find.text('All modules & settings'), findsNothing);
+      expect(find.text('Customer'), findsOneWidget);
+      expect(find.text('Journal Entry'), findsOneWidget);
+      expect(find.byTooltip('Account actions'), findsNothing);
+      await tester.tap(find.text('Reports'));
+      await tester.pumpAndSettle();
+      expect(find.text('General Ledger'), findsOneWidget);
+      expect(api.generalReads, 0);
+    },
+  );
+
+  testWidgets('customer accounting tools remain reachable from mill records', (
+    tester,
+  ) async {
+    final api = _CompanyApi('Mill', knittingOnly: true)
+      ..financialActions = true;
+    await enter(tester, api);
+    await tester.tap(find.text('Masters & accounts'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Account actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Reconcile payments'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PaymentReconciliationScreen), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Account actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Match bank statement'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BankStatementMatchingScreen), findsOneWidget);
+    expect(api.generalReads, 0);
+  });
+
+  testWidgets('customer selection returns a general session to the mill', (
+    tester,
+  ) async {
+    final api = _CompanyApi('Books', knittingOnly: true);
+    await enter(tester, api);
+    await tester.tap(find.text('Books').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(SimpleDialogOption, 'Mill'));
+    await tester.pumpAndSettle();
+    expect(find.byType(KnittingScreen), findsOneWidget);
+    expect(find.byType(OverviewScreen), findsNothing);
+    expect(api.generalReads, 1);
+  });
+
+  testWidgets(
+    'missing knitting capabilities never open a customer general home',
+    (tester) async {
+      final api = _CompanyApi('Mill', knittingOnly: true)
+        ..knittingAvailable = false;
+      await enter(tester, api);
+      expect(find.byType(KnittingScreen), findsOneWidget);
+      expect(find.byType(OverviewScreen), findsNothing);
+      expect(api.generalReads, 0);
+    },
+  );
+
+  testWidgets('old general navigation cannot leave a customer mill', (
+    tester,
+  ) async {
+    final api = _CompanyApi('Mill');
+    await enter(tester, api);
+    final mill = tester.widget<KnittingScreen>(find.byType(KnittingScreen));
+    final openGeneral = mill.onGeneral!;
+    final openSales = mill.onBusinessModule!;
+    api.knittingOnly = true;
+    mill.onContextChanged(api.forCompany('Mill'));
+    await tester.pumpAndSettle();
+    openGeneral();
+    openSales(ErpModule.selling);
+    await tester.pumpAndSettle();
+    expect(find.byType(KnittingScreen), findsOneWidget);
+    expect(find.byType(OverviewScreen), findsNothing);
+    expect(api.generalReads, 0);
+  });
+
+  testWidgets(
     'mill accounting clerk can open permitted business records from the same navigation',
     (tester) async {
       await enter(tester, _CompanyApi('Mill'));
@@ -225,6 +342,9 @@ void main() {
       await tester.tap(find.byTooltip('Back to business overview'));
       await tester.pumpAndSettle();
       expect(find.byType(OverviewScreen), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(KnittingScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -244,7 +364,10 @@ void main() {
       expect(find.byType(OverviewScreen), findsOneWidget);
       expect(api.switches, isEmpty);
       expect(api.generalReads, 1);
-      await tester.tap(find.text('Knitting workspace'));
+      expect(find.text('Knitting workspace'), findsNothing);
+      await tester.tap(find.text('Mill').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open knitting workspace'));
       await tester.pumpAndSettle();
       expect(find.byType(KnittingScreen), findsOneWidget);
       expect(api.switches, isEmpty);
@@ -396,11 +519,11 @@ void main() {
   });
 
   testWidgets(
-    'choosing Knitting ERP opens the mill without loading the general dashboard',
+    'choosing Knitting opens the mill without loading the general dashboard',
     (tester) async {
       final api = _CompanyApi('New company');
       await enter(tester, api);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Knitting ERP'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Knitting'));
       await tester.pumpAndSettle();
       final apply = find.text('Review & apply setup');
       await tester.dragUntilVisible(

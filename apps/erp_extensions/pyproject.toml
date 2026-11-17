@@ -14,3 +14,4 @@ include = ["erp_extensions*"]
 
 [tool.setuptools.package-data]
 erp_extensions = ["modules.txt", "report_definitions.json", "condition_definitions.json"]
+"erp_extensions.tests" = ["golden/gst-review.json", "golden/tally-review.xml"]

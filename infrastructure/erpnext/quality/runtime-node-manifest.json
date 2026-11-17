@@ -1,0 +1,2233 @@
+{
+  "status": "Prepared replacement inputs; isolated image install, Linux checks and browser asset rebuild required before activation",
+  "target_platform": {
+    "os": "linux",
+    "cpu": "arm64",
+    "libc": "glibc"
+  },
+  "lock_sha256": "2e60b31aedc1eb95efb7a727fc1551a66ee591dfa1ce89c7b1989f17f54c3fb6",
+  "replacements": [
+    {
+      "package": "axios",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/axios",
+      "installed_version": "1.18.1",
+      "replacement_version": "1.21.1",
+      "archive": "axios-1.21.1.tgz",
+      "tar_sha256": "f12e7629f24c8baa4da577d9662f4135a35646944dbf3a1157a2fc7fe601d4fe",
+      "registry_integrity": "sha512-6eI5Q/Y4u/Um9dDlsRoq5pY2rxnUTv+L4PpLitnbk/i4jb3MxLZ5CsN5Ih3IysbeRYK4pR+P7qfMsOQl9fwwFQ==",
+      "finding_ids": [
+        "CVE-2026-101898",
+        "CVE-2026-101901",
+        "CVE-2026-101903",
+        "CVE-2026-101905",
+        "CVE-2026-101906",
+        "CVE-2026-101907",
+        "CVE-2026-101909"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "65f1d1513135840ca721900a56995a6fea13dc124c41a0873389ad4ac64c052e"
+    },
+    {
+      "package": "brace-expansion",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/brace-expansion",
+      "installed_version": "1.1.11",
+      "replacement_version": "1.1.22",
+      "archive": "brace-expansion-1.1.22.tgz",
+      "tar_sha256": "e8d80b49cc3f7e93e6445c79e2fa61226d45b7e5c83df0ac3df8852df514c36c",
+      "registry_integrity": "sha512-CKLDTuSsN0+r1ThM0WkzzBI7dnPI6xEGfa/JnVYIK9JNBA1N1NyPwXVHor//NKD/y3sDxp764sZdLhFK7pH8XQ==",
+      "finding_ids": [
+        "CVE-2026-102276",
+        "CVE-2026-102278",
+        "CVE-2026-13149",
+        "CVE-2026-14257",
+        "CVE-2026-69152"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "62de2d264aad4f27c5cf09f3c6bebc2aa2cacb0a2aa23342c3cde3c2b3910b2e"
+    },
+    {
+      "package": "brace-expansion",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion",
+      "installed_version": "5.0.7",
+      "replacement_version": "5.0.13",
+      "archive": "brace-expansion-5.0.13.tgz",
+      "tar_sha256": "c6228e5614d6b39e26bf8b23117b59ef81c027534ec89849135509a013e72bd3",
+      "registry_integrity": "sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==",
+      "finding_ids": [
+        "CVE-2026-102276",
+        "CVE-2026-102278",
+        "CVE-2026-14257",
+        "CVE-2026-69152"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "f792e76015d954c06e8ac42cfa5664820126b2ecce01c987fe59de65bea57ab4"
+    },
+    {
+      "package": "brace-expansion",
+      "target_path": "/home/frappe/.nvm/versions/node/v24.22.2/lib/node_modules/npm/node_modules/brace-expansion",
+      "installed_version": "5.0.9",
+      "replacement_version": "5.0.13",
+      "archive": "brace-expansion-5.0.13.tgz",
+      "tar_sha256": "c6228e5614d6b39e26bf8b23117b59ef81c027534ec89849135509a013e72bd3",
+      "registry_integrity": "sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==",
+      "finding_ids": [
+        "CVE-2026-102276",
+        "CVE-2026-102278"
+      ],
+      "browser_assets_need_rebuild": false,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "f8a0e0d0a6cbb58106ce6832205e0939a00b9583637011bf8ef4167f4a52fbda"
+    },
+    {
+      "package": "brace-expansion",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/brace-expansion",
+      "installed_version": "5.0.9",
+      "replacement_version": "5.0.13",
+      "archive": "brace-expansion-5.0.13.tgz",
+      "tar_sha256": "c6228e5614d6b39e26bf8b23117b59ef81c027534ec89849135509a013e72bd3",
+      "registry_integrity": "sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==",
+      "finding_ids": [
+        "CVE-2026-102276",
+        "CVE-2026-102278"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "f8a0e0d0a6cbb58106ce6832205e0939a00b9583637011bf8ef4167f4a52fbda"
+    },
+    {
+      "package": "browserslist",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/browserslist",
+      "installed_version": "4.22.1",
+      "replacement_version": "4.28.7",
+      "archive": "browserslist-4.28.7.tgz",
+      "tar_sha256": "cb14239fc8cce56cfba2cf24ec0035664eab1c3e02b357e2d0e1bff577ed40d6",
+      "registry_integrity": "sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==",
+      "finding_ids": [
+        "CVE-2026-73088",
+        "CVE-2026-73089"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "c748d3582fe0e5ed344ad49325ac4eb5cddddf43284bb3fdbe609a51fd03c88c"
+    },
+    {
+      "package": "browserslist",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/browserslist",
+      "installed_version": "4.28.4",
+      "replacement_version": "4.28.7",
+      "archive": "browserslist-4.28.7.tgz",
+      "tar_sha256": "cb14239fc8cce56cfba2cf24ec0035664eab1c3e02b357e2d0e1bff577ed40d6",
+      "registry_integrity": "sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==",
+      "finding_ids": [
+        "CVE-2026-73088",
+        "CVE-2026-73089"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "f35cd681cb5d01fcf92a2cb70d7c8c658a99d3bb28cbf67166151060c1f55a9c"
+    },
+    {
+      "package": "follow-redirects",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/follow-redirects",
+      "installed_version": "1.16.0",
+      "replacement_version": "1.16.2",
+      "archive": "follow-redirects-1.16.2.tgz",
+      "tar_sha256": "f6f9cf3164cbb44cd7312dcc0a8af4f6e8e107c787c7b6b3f41893ef9361b914",
+      "registry_integrity": "sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==",
+      "finding_ids": [
+        "CVE-2026-111755",
+        "CVE-2026-111756",
+        "CVE-2026-116689"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "42d8d50f86a6a8ab62f2c9d9d69532fc51de63becfd1a96681812e479443960c"
+    },
+    {
+      "package": "immutable",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/immutable",
+      "installed_version": "4.3.4",
+      "replacement_version": "4.3.9",
+      "archive": "immutable-4.3.9.tgz",
+      "tar_sha256": "3f3b0131a079b9571d88e999b1768f4e1312c04af26b42199f856ac765900f09",
+      "registry_integrity": "sha512-ObHy4YN7ycwZOUCLI1/6svfyAFu7vL8RhAvVu/bh/RZW9EPlOyDaQ9jDQWCtdqzaXUjgXZCW1migtHE7YI7UGQ==",
+      "finding_ids": [
+        "CVE-2026-29063",
+        "CVE-2026-59879",
+        "CVE-2026-59880"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "f23d5402ea9e7387b94a155fd8fd14470802aec3de4a833680e69340ab63e0f5"
+    },
+    {
+      "package": "launch-editor",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/launch-editor",
+      "installed_version": "2.6.1",
+      "replacement_version": "2.14.2",
+      "archive": "launch-editor-2.14.2.tgz",
+      "tar_sha256": "8e9556570cc3d886b3f1bbd3cfc4c7f9e00f142920cf423ccb9de5ca1e738fcf",
+      "registry_integrity": "sha512-NHJEb30MGBCkmZXLZwz25t37QR4aY03ZzPYUJXOJaOa92uWwExI9SBQUuIznBYc1xkD7cJNGX7oc3Nl3sq2kQQ==",
+      "finding_ids": [
+        "CVE-2024-52011",
+        "CVE-2026-112942"
+      ],
+      "browser_assets_need_rebuild": false,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "b43a16c852489a1c8a865e20189b653ff31e2e07954e646b9581d3039fc27d98"
+    },
+    {
+      "package": "lodash",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/lodash",
+      "installed_version": "4.17.21",
+      "replacement_version": "4.18.1",
+      "archive": "lodash-4.18.1.tgz",
+      "tar_sha256": "da187bc179d591f9012e1f57b39434153cb563f2d52b5fbfdb90caf61a183ecf",
+      "registry_integrity": "sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==",
+      "finding_ids": [
+        "CVE-2026-4800"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "8e41b07c744a0de0d2c1c23ed41418ecb0849abb56395d28802e601b4730d7c2"
+    },
+    {
+      "package": "lodash-es",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/lodash-es",
+      "installed_version": "4.17.21",
+      "replacement_version": "4.18.1",
+      "archive": "lodash-es-4.18.1.tgz",
+      "tar_sha256": "fe457e4bb58a48fc4a7b822f7164e422179a442e9ec2d92284f87656898ec76d",
+      "registry_integrity": "sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==",
+      "finding_ids": [
+        "CVE-2026-4800"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "b2114c16af1bb83a4c6b055208711412da65695abb7b7d9540b7a038c4af2feb"
+    },
+    {
+      "package": "minimatch",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/minimatch",
+      "installed_version": "3.1.2",
+      "replacement_version": "3.1.4",
+      "archive": "minimatch-3.1.4.tgz",
+      "tar_sha256": "a14433a502a7b1dba2be6a1e3c68a8785938c5e3e38a6e1caa634213d84e17f2",
+      "registry_integrity": "sha512-twmL+S8+7yIsE9wsqgzU3E8/LumN3M3QELrBZ20OdmQ9jB2JvW5oZtBEmft84k/Gs5CG9mqtWc6Y9vW+JEzGxw==",
+      "finding_ids": [
+        "CVE-2026-26996",
+        "CVE-2026-27903",
+        "CVE-2026-27904"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "ab02f4767adc32c3ced28703bf7f5a57fee72b638b582850a647770d12e5dbe7"
+    },
+    {
+      "package": "nanoid",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/nanoid",
+      "installed_version": "3.3.8",
+      "replacement_version": "3.3.18",
+      "archive": "nanoid-3.3.18.tgz",
+      "tar_sha256": "f9359a92150d579a888248d108195d0cee829530de77363c2d214998e0f86043",
+      "registry_integrity": "sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==",
+      "finding_ids": [
+        "CVE-2026-67213",
+        "CVE-2026-67214",
+        "CVE-2026-73086"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "a246caeeffd5a3b1760f1b0d8941c886b7b0dfc496d2b7902d257283e0ed0134"
+    },
+    {
+      "package": "picomatch",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/picomatch",
+      "installed_version": "2.3.1",
+      "replacement_version": "2.3.2",
+      "archive": "picomatch-2.3.2.tgz",
+      "tar_sha256": "8f0a59f187c2fdd7240a8e337979ce05ad8fcc0a9457ef4b232d371ec47d75ad",
+      "registry_integrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
+      "finding_ids": [
+        "CVE-2026-33671"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "39b4c548570b67f5a07fb596e2e102ad8b373f83a86d761d13df6d911f9a784c"
+    },
+    {
+      "package": "postcss",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss-modules-sync/node_modules/postcss",
+      "installed_version": "5.2.18",
+      "replacement_version": "8.5.33",
+      "archive": "postcss-8.5.33.tgz",
+      "tar_sha256": "a42a26c381befd004497470904640624831788df56801e60946232a819691a0f",
+      "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==",
+      "finding_ids": [
+        "CVE-2026-45623",
+        "CVE-2026-73646"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-postcss-trial.json",
+        "tool-runtime-node-postcss-security-green.json"
+      ],
+      "parent_dependency_manifest_update": true,
+      "installed_package_sha256": "bf43c5301f1f165db81ea0c8f039e977d60e53e84c964623ee348d394e7dfc85"
+    },
+    {
+      "package": "postcss",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss-modules-local-by-default/node_modules/postcss",
+      "installed_version": "6.0.23",
+      "replacement_version": "8.5.33",
+      "archive": "postcss-8.5.33.tgz",
+      "tar_sha256": "a42a26c381befd004497470904640624831788df56801e60946232a819691a0f",
+      "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==",
+      "finding_ids": [
+        "CVE-2026-45623",
+        "CVE-2026-73646"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-postcss-trial.json",
+        "tool-runtime-node-postcss-security-green.json"
+      ],
+      "parent_dependency_manifest_update": true,
+      "installed_package_sha256": "3a28772b399fa52ffed59269ca7ef2ce026e569f2e745d49f7e747c38eb5652a"
+    },
+    {
+      "package": "postcss",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss-modules-scope/node_modules/postcss",
+      "installed_version": "6.0.23",
+      "replacement_version": "8.5.33",
+      "archive": "postcss-8.5.33.tgz",
+      "tar_sha256": "a42a26c381befd004497470904640624831788df56801e60946232a819691a0f",
+      "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==",
+      "finding_ids": [
+        "CVE-2026-45623",
+        "CVE-2026-73646"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-postcss-trial.json",
+        "tool-runtime-node-postcss-security-green.json"
+      ],
+      "parent_dependency_manifest_update": true,
+      "installed_package_sha256": "3a28772b399fa52ffed59269ca7ef2ce026e569f2e745d49f7e747c38eb5652a"
+    },
+    {
+      "package": "postcss",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/component-compiler-utils/node_modules/postcss",
+      "installed_version": "7.0.39",
+      "replacement_version": "8.5.33",
+      "archive": "postcss-8.5.33.tgz",
+      "tar_sha256": "a42a26c381befd004497470904640624831788df56801e60946232a819691a0f",
+      "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==",
+      "finding_ids": [
+        "CVE-2026-45623",
+        "CVE-2026-73646"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-postcss-trial.json",
+        "tool-runtime-node-postcss-security-green.json"
+      ],
+      "parent_dependency_manifest_update": true,
+      "installed_package_sha256": "c3bdbc788038e509cf53d0e52a65c5bd19a95d30a9759a2fe050f05177f15c15"
+    },
+    {
+      "package": "postcss",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss",
+      "installed_version": "8.4.31",
+      "replacement_version": "8.5.33",
+      "archive": "postcss-8.5.33.tgz",
+      "tar_sha256": "a42a26c381befd004497470904640624831788df56801e60946232a819691a0f",
+      "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==",
+      "finding_ids": [
+        "CVE-2026-45623",
+        "CVE-2026-73646"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-postcss-trial.json",
+        "tool-runtime-node-postcss-security-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "6af2d21ac15d4b88dc43111608d08d9de9df7711c21cd0605bc876eec739435a"
+    },
+    {
+      "package": "socket.io-parser",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/socket.io-parser",
+      "installed_version": "4.2.4",
+      "replacement_version": "4.2.7",
+      "archive": "socket.io-parser-4.2.7.tgz",
+      "tar_sha256": "2ef563af5891298f14655dba982e462d9e237dd7f48054ced56b96be278ed338",
+      "registry_integrity": "sha512-IH/iSeO9T6gz1KkFleGDWkG9N3dl4jXVYUtMhIqH10Md0ttMer8nUNWiP1DKuNrybD2xBrixLJdCC9J6ECoYkg==",
+      "finding_ids": [
+        "CVE-2026-33151",
+        "CVE-2026-69185"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "69db9db6c8bd06b10dd69c7a201fc3b04128ee433e7039f138bb9f1598d1cd44"
+    },
+    {
+      "package": "socket.io-parser",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/socket.io-parser",
+      "installed_version": "4.2.5",
+      "replacement_version": "4.2.7",
+      "archive": "socket.io-parser-4.2.7.tgz",
+      "tar_sha256": "2ef563af5891298f14655dba982e462d9e237dd7f48054ced56b96be278ed338",
+      "registry_integrity": "sha512-IH/iSeO9T6gz1KkFleGDWkG9N3dl4jXVYUtMhIqH10Md0ttMer8nUNWiP1DKuNrybD2xBrixLJdCC9J6ECoYkg==",
+      "finding_ids": [
+        "CVE-2026-33151",
+        "CVE-2026-69185"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "5df3e54ec52ce453e9e0c5536fd09a2e24582477b830978f2d75249cf95e9de3"
+    },
+    {
+      "package": "source-map-js",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/source-map-js",
+      "installed_version": "1.0.2",
+      "replacement_version": "1.2.2",
+      "archive": "source-map-js-1.2.2.tgz",
+      "tar_sha256": "6cb0add1a0b0288e109cdc7e00a10f7d7fdf9a40f54d10fb3ae91c7e477bd9a9",
+      "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==",
+      "finding_ids": [
+        "CVE-2026-93749"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "5e85952b2358e501463cb390e26013b899d93aacd870acc1a43ac9af4e7edaa7"
+    },
+    {
+      "package": "source-map-js",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/source-map-js",
+      "installed_version": "1.2.1",
+      "replacement_version": "1.2.2",
+      "archive": "source-map-js-1.2.2.tgz",
+      "tar_sha256": "6cb0add1a0b0288e109cdc7e00a10f7d7fdf9a40f54d10fb3ae91c7e477bd9a9",
+      "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==",
+      "finding_ids": [
+        "CVE-2026-93749"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "58f8e94a461a5e461e0cb2bb2be681cbd89b9181989fd26fceb858e67711469a"
+    },
+    {
+      "package": "svgo",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/svgo",
+      "installed_version": "2.8.0",
+      "replacement_version": "2.8.4",
+      "archive": "svgo-2.8.4.tgz",
+      "tar_sha256": "d4744126d9933b44be621ebdbb2306e54fef463785f11c5071eb967726503fe7",
+      "registry_integrity": "sha512-2GJ4h3rl13qYTdwllaK6QlL8tG+UrM8626V2Ylcd/yBUv2Y/EwLsYisVV6UDCRmlk+C74G8nMpxJCk0RWPdDCw==",
+      "finding_ids": [
+        "CVE-2026-29074",
+        "CVE-2026-73650",
+        "CVE-2026-84370"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "7bfec42fdea27e0ade2ca55c2cf47beacf8af850241b345504c0d68a555aa347"
+    },
+    {
+      "package": "tmp",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/tmp",
+      "installed_version": "0.2.4",
+      "replacement_version": "0.2.7",
+      "archive": "tmp-0.2.7.tgz",
+      "tar_sha256": "1ab8dba3bd5e10b62dc2f38a68f4bcc0d51004b53c9cff1d6c6033552a05b11e",
+      "registry_integrity": "sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw==",
+      "finding_ids": [
+        "CVE-2026-44705"
+      ],
+      "browser_assets_need_rebuild": false,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "2176b3bf6220877215a2e805e3c3418ab24bc62803d6139f852dd28643b3fbbf"
+    },
+    {
+      "package": "undici",
+      "target_path": "/home/frappe/.nvm/versions/node/v24.22.2/lib/node_modules/npm/node_modules/undici",
+      "installed_version": "6.28.0",
+      "replacement_version": "6.29.1",
+      "archive": "undici-6.29.1.tgz",
+      "tar_sha256": "5f08b4a00e839570cb24aad8c7b21436c9038394c20af1d4b96bfafd91176ac6",
+      "registry_integrity": "sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==",
+      "finding_ids": [
+        "CVE-2026-109383",
+        "CVE-2026-109869",
+        "CVE-2026-19534",
+        "CVE-2026-87018"
+      ],
+      "browser_assets_need_rebuild": false,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "f529aa8b145f6e270a72700ceb6c8dd3b87f742313078ea9f774a9d2ce8c865d"
+    },
+    {
+      "package": "vite",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/vite",
+      "installed_version": "8.2.1",
+      "replacement_version": "8.2.4",
+      "archive": "vite-8.2.4.tgz",
+      "tar_sha256": "dfb3551c4572a3d6d36997be6c0a8c5b08f4d91960f47e2ac22049e2a53e58dd",
+      "registry_integrity": "sha512-lfauXnrf2x0p+UoA+wXh0dgFWnUjCyG6Js95KBkgaCwUU9k0DAHI4W6Q0WCx+h+5g+Alce1y4Zi2QjjK0UvGBw==",
+      "finding_ids": [
+        "CVE-2026-112942"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "3baf6fb19ca2a2da0b739d984620e2c9d4aeba83d5ac68da9bacfb37d43afd61"
+    },
+    {
+      "package": "ws",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/socket.io-adapter/node_modules/ws",
+      "installed_version": "8.11.0",
+      "replacement_version": "8.21.0",
+      "archive": "ws-8.21.0.tgz",
+      "tar_sha256": "1f6f812d32afc06747be2d46dda6a9a7ba569369ea2360b6d4002c07ecf01ecb",
+      "registry_integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==",
+      "finding_ids": [
+        "CVE-2024-37890",
+        "CVE-2026-48779"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "aae5836c6d66e719d5ef9d912f0ad26560fa50acfe083d75d4f77f82b33bc9a6"
+    },
+    {
+      "package": "ws",
+      "target_path": "/home/frappe/frappe-bench/apps/erpnext/banking/node_modules/ws",
+      "installed_version": "8.17.1",
+      "replacement_version": "8.21.0",
+      "archive": "ws-8.21.0.tgz",
+      "tar_sha256": "1f6f812d32afc06747be2d46dda6a9a7ba569369ea2360b6d4002c07ecf01ecb",
+      "registry_integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==",
+      "finding_ids": [
+        "CVE-2026-48779"
+      ],
+      "browser_assets_need_rebuild": true,
+      "compatibility_evidence": [
+        "tool-runtime-node-smoke-green.json"
+      ],
+      "parent_dependency_manifest_update": false,
+      "installed_package_sha256": "61c104d44cd4ff02b190f970b8cb0a8d70af0a7274e0eff46580b1e20200decc"
+    },
+    {
+      "package": "vue",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/vue",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-3.5.42.tgz",
+      "tar_sha256": "b2b7f0d1987090ea83833fb2192f7fea13a3414d71770f8991913cb88b034de9",
+      "registry_integrity": "sha512-4RyHQTbQvOPs3MfvUO1Sg0YRrKNnA0mAVtvpd12Tg1fKDN7OHBUl1IqSn8zGJjK9nI3NkNp8cgTpVrSZC5TTcA==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "16f7a41e28402936152e2e53f8714d951424cefab1f24c12236e8b44f721cfbc"
+    },
+    {
+      "package": "@vue/shared",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/shared",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-shared-3.5.42.tgz",
+      "tar_sha256": "fc9fc27ba0f094d8f89619042dc3cdccb5fc449bddaac7f107b8c298de501c97",
+      "registry_integrity": "sha512-2rPxex1jQf4jvl9MOHl6YaXCPcrNqz/FstMOEh3QWY+/OME9nQTvl9WYeCwhW7AFjaR0SnngZGlp/wkR6rkI6g==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "0613e17de3db90fa56a628c0b436957a72f6280f1d5adfe900bd8e797ce63391"
+    },
+    {
+      "package": "@vue/runtime-dom",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/runtime-dom",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-runtime-dom-3.5.42.tgz",
+      "tar_sha256": "bf171f2e7d07652238dcbddb983870f1362597bc3770bb7cf0e640e840758db6",
+      "registry_integrity": "sha512-rsCmhiWLaRxGltLwhlCWyYkFn7WAbKRh0q17eZ1A6Dq6eqc2ACQ61IIryxz0LrsvCzHSilLA9JHovVwM8CNE2g==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "087baa8f1dba8c957c65cb251010a0832ab11aa2cf95f5806a29566b1c2754f6"
+    },
+    {
+      "package": "@vue/runtime-core",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/runtime-core",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-runtime-core-3.5.42.tgz",
+      "tar_sha256": "eb022dc9e85012f4cd2622a1684f6bfcbc8dc85de2881e88de9ac2068ded02b3",
+      "registry_integrity": "sha512-9uACtuHs7vJGkm5Bp3xu4xRDLFTIYy5DgxpToVjqGIAhAEKwQfsaLvKINhM6nFVp6bZPRFGdDqd1g52MqKsotA==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "34b4cc79bf212a62ca7cf7b1566987f8f180ac232f38eadb08b2340f14aeac06"
+    },
+    {
+      "package": "@vue/reactivity",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/reactivity",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-reactivity-3.5.42.tgz",
+      "tar_sha256": "a555720f79c49dc88f7608c9e218a10ea0a2401b5bda3e89830f41c4769ae99e",
+      "registry_integrity": "sha512-TzNNfKpb7hDxbQltwAut8VDQA5YP+BuRlxntHUuRjyKwlMvmAPbs3unhCvieijifY6vFfVBwsS7wG/C7uq+bEQ==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "8aaeda23385f8630655854469595114d8330c61e918fe49b180a8f71efc96bcf"
+    },
+    {
+      "package": "@vue/compiler-core",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/compiler-core",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-compiler-core-3.5.42.tgz",
+      "tar_sha256": "8b8b55fb345c5080d74cf14d473727bacb5e440cb3cacc0c6a9ce2ceb8b566d1",
+      "registry_integrity": "sha512-2Ye1ilMtKXxl8qZUrQ5j0CdgenFp/HFQmta6rfRyfEsTG69L6Wk+tWuNoHYHMx9E8tF2Slvdg1FuwDvAXdy1LQ==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "e218eb9e0a584d032a2bdd6a9f4fb27c2584e2cec875565ba294a51bca2ff89a"
+    },
+    {
+      "package": "@vue/compiler-dom",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/compiler-dom",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-compiler-dom-3.5.42.tgz",
+      "tar_sha256": "acc1337494e8d7165fe87fa25c6f4cff54258d531c8c7129367d39e11e306aca",
+      "registry_integrity": "sha512-qbhQZEFmycr+ni/qyuccS4sucNN7VAbDfbkvNxWOX2VfgFm90MNs3/UhRNKoPMEIVn0F8gdlYjLPvqxHwHeQOA==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "ad98172a219fbd8ad6d5392be45fe2b8edbd99328e6c785c4e6b4e45987e3ce5"
+    },
+    {
+      "package": "@vue/compiler-sfc",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/compiler-sfc",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-compiler-sfc-3.5.42.tgz",
+      "tar_sha256": "64776b989588d77dc9bad9aa09a93d2978dab9512c354f328790a71ac02291b9",
+      "registry_integrity": "sha512-fkCAFB4okcAANGMThboWnScp/gzWjU0ZSkVnjTIiplmMDq2uq0tIB3j+xVu4rhv5rvOgBySCysudmbMd6xRRqw==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "d768f56c6c0e2ee641297f58914282c018c24d0633ae2e014ac1e44ea317d0e3"
+    },
+    {
+      "package": "@vue/compiler-ssr",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/compiler-ssr",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-compiler-ssr-3.5.42.tgz",
+      "tar_sha256": "9875abb4744dafa040ed78d1b446eb8a23f9ef14fbaa9a78c6813fbfa12eda25",
+      "registry_integrity": "sha512-xmLk3wLkbizPAiLyomjgFFosf2ys9b5Ghb+oh/k2tnvipNz8OFrQOiTcWCzyK7MpBp9KkyGtfvgfLUivbmuGYA==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "6921edb8d5cf8278df671f458fdc8c6c7665c4d0932aa2bc957cd9e7c0ef33ee"
+    },
+    {
+      "package": "@vue/server-renderer",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/server-renderer",
+      "installed_version": "3.3.9",
+      "replacement_version": "3.5.42",
+      "archive": "vue-server-renderer-3.5.42.tgz",
+      "tar_sha256": "37cd385652fb1de2a1f5306fd01552f530d38399af3a74abaf7c73f49c9593db",
+      "registry_integrity": "sha512-2++5dUyYS4gvo7xQXSECUDhB7TS0aOl5SeVfC5qSq1Jgfhjvegw1zqhwTIR3imZ+QYPJQw9gfcFvXGAjGZ7ajQ==",
+      "browser_assets_need_rebuild": true,
+      "installed_package_sha256": "074f5513c298cf8a37ccab420f74d99ff2d0f8c0732201da5f89da650b85141a"
+    },
+    {
+      "package": "decode-uri-component",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/decode-uri-component",
+      "installed_version": "0.2.2",
+      "replacement_version": "0.5.1+erp.1",
+      "archive": "decode-uri-component-0.5.1+erp.1.tgz",
+      "tar_sha256": "10c8512a73910beecdbac8f6b86a1a917c1695af9deef31054ea36e18996a7a4",
+      "registry_integrity": "sha512-vWHQkXgg2cE3BB4rR0c+PYw9BCQzLoNIRMI7AunIkZst74tw/vpPp7VLoYtsR/cy1f55g3XDWUslfeCZjiZJyA==",
+      "upstream_version": "0.5.1",
+      "private_dependency_closure": [],
+      "browser_assets_need_rebuild": true,
+      "local_adapter": "tool-runtime-node-decode-patch.py",
+      "compatibility_evidence": [
+        "tool-runtime-node-decode-green.json",
+        "tool-runtime-node-decode-performance-red.json",
+        "tool-runtime-node-decode-trial.json"
+      ],
+      "source_unchanged": "Original ESM implementation and license unchanged; additional CJS adapter and explicit local version metadata",
+      "installed_package_sha256": "8f2e9784337b3b4fa69359f88f75a2847e0aa17776f062cb518d008d8d408bca"
+    }
+  ],
+  "packages": [
+    {
+      "name": "axios",
+      "version": "1.21.1",
+      "staging_alias": "axios",
+      "archive": "axios-1.21.1.tgz",
+      "tar_sha256": "f12e7629f24c8baa4da577d9662f4135a35646944dbf3a1157a2fc7fe601d4fe",
+      "tar_bytes": 845169,
+      "registry_tarball": "https://registry.npmjs.org/axios/-/axios-1.21.1.tgz",
+      "registry_integrity": "sha512-6eI5Q/Y4u/Um9dDlsRoq5pY2rxnUTv+L4PpLitnbk/i4jb3MxLZ5CsN5Ih3IysbeRYK4pR+P7qfMsOQl9fwwFQ==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "axios",
+          "version": "1.21.1",
+          "registry_tarball": "https://registry.npmjs.org/axios/-/axios-1.21.1.tgz",
+          "registry_integrity": "sha512-6eI5Q/Y4u/Um9dDlsRoq5pY2rxnUTv+L4PpLitnbk/i4jb3MxLZ5CsN5Ih3IysbeRYK4pR+P7qfMsOQl9fwwFQ=="
+        },
+        {
+          "path": "node_modules/follow-redirects",
+          "name": "follow-redirects",
+          "version": "1.16.2",
+          "registry_tarball": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.2.tgz",
+          "registry_integrity": "sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow=="
+        },
+        {
+          "path": "node_modules/form-data",
+          "name": "form-data",
+          "version": "4.0.6",
+          "registry_tarball": "https://registry.npmjs.org/form-data/-/form-data-4.0.6.tgz",
+          "registry_integrity": "sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/asynckit",
+          "name": "asynckit",
+          "version": "0.4.0",
+          "registry_tarball": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+          "registry_integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/combined-stream",
+          "name": "combined-stream",
+          "version": "1.0.8",
+          "registry_tarball": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
+          "registry_integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/combined-stream/node_modules/delayed-stream",
+          "name": "delayed-stream",
+          "version": "1.0.0",
+          "registry_tarball": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
+          "registry_integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag",
+          "name": "es-set-tostringtag",
+          "version": "2.1.0",
+          "registry_tarball": "https://registry.npmjs.org/es-set-tostringtag/-/es-set-tostringtag-2.1.0.tgz",
+          "registry_integrity": "sha512-j6vWzfrGVfyXxge+O0x5sh6cvxAog0a/4Rdd2K36zCMV5eJ+/+tOAngRO8cODMNWbVRdVlmGZQL2YS3yR8bIUA=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/es-errors",
+          "name": "es-errors",
+          "version": "1.3.0",
+          "registry_tarball": "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz",
+          "registry_integrity": "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic",
+          "name": "get-intrinsic",
+          "version": "1.3.0",
+          "registry_tarball": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
+          "registry_integrity": "sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/call-bind-apply-helpers",
+          "name": "call-bind-apply-helpers",
+          "version": "1.0.2",
+          "registry_tarball": "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz",
+          "registry_integrity": "sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/es-define-property",
+          "name": "es-define-property",
+          "version": "1.0.1",
+          "registry_tarball": "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz",
+          "registry_integrity": "sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/es-object-atoms",
+          "name": "es-object-atoms",
+          "version": "1.1.2",
+          "registry_tarball": "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz",
+          "registry_integrity": "sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/function-bind",
+          "name": "function-bind",
+          "version": "1.1.2",
+          "registry_tarball": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+          "registry_integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/get-proto",
+          "name": "get-proto",
+          "version": "1.0.1",
+          "registry_tarball": "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz",
+          "registry_integrity": "sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/get-proto/node_modules/dunder-proto",
+          "name": "dunder-proto",
+          "version": "1.0.1",
+          "registry_tarball": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
+          "registry_integrity": "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/gopd",
+          "name": "gopd",
+          "version": "1.2.0",
+          "registry_tarball": "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz",
+          "registry_integrity": "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/has-symbols",
+          "name": "has-symbols",
+          "version": "1.1.0",
+          "registry_tarball": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz",
+          "registry_integrity": "sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/get-intrinsic/node_modules/math-intrinsics",
+          "name": "math-intrinsics",
+          "version": "1.1.0",
+          "registry_tarball": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
+          "registry_integrity": "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/has-tostringtag",
+          "name": "has-tostringtag",
+          "version": "1.0.2",
+          "registry_tarball": "https://registry.npmjs.org/has-tostringtag/-/has-tostringtag-1.0.2.tgz",
+          "registry_integrity": "sha512-NqADB8VjPFLM2V0VvHUewwwsw0ZWBaIdgo+ieHtK3hasLz4qeCRjYcqfB6AQrBggRKppKF8L52/VqdVsO47Dlw=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/es-set-tostringtag/node_modules/has-tostringtag/node_modules/has-symbols",
+          "name": "has-symbols",
+          "version": "1.1.0",
+          "registry_tarball": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz",
+          "registry_integrity": "sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/hasown",
+          "name": "hasown",
+          "version": "2.0.4",
+          "registry_tarball": "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz",
+          "registry_integrity": "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/hasown/node_modules/function-bind",
+          "name": "function-bind",
+          "version": "1.1.2",
+          "registry_tarball": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+          "registry_integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/mime-types",
+          "name": "mime-types",
+          "version": "2.1.35",
+          "registry_tarball": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+          "registry_integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw=="
+        },
+        {
+          "path": "node_modules/form-data/node_modules/mime-types/node_modules/mime-db",
+          "name": "mime-db",
+          "version": "1.52.0",
+          "registry_tarball": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+          "registry_integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg=="
+        },
+        {
+          "path": "node_modules/https-proxy-agent",
+          "name": "https-proxy-agent",
+          "version": "5.0.1",
+          "registry_tarball": "https://registry.npmjs.org/https-proxy-agent/-/https-proxy-agent-5.0.1.tgz",
+          "registry_integrity": "sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA=="
+        },
+        {
+          "path": "node_modules/https-proxy-agent/node_modules/agent-base",
+          "name": "agent-base",
+          "version": "6.0.2",
+          "registry_tarball": "https://registry.npmjs.org/agent-base/-/agent-base-6.0.2.tgz",
+          "registry_integrity": "sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ=="
+        },
+        {
+          "path": "node_modules/https-proxy-agent/node_modules/debug",
+          "name": "debug",
+          "version": "4.4.3",
+          "registry_tarball": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+          "registry_integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA=="
+        },
+        {
+          "path": "node_modules/https-proxy-agent/node_modules/debug/node_modules/ms",
+          "name": "ms",
+          "version": "2.1.3",
+          "registry_tarball": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+          "registry_integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
+        },
+        {
+          "path": "node_modules/proxy-from-env",
+          "name": "proxy-from-env",
+          "version": "2.1.0",
+          "registry_tarball": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-2.1.0.tgz",
+          "registry_integrity": "sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA=="
+        }
+      ]
+    },
+    {
+      "name": "brace-expansion",
+      "version": "1.1.22",
+      "staging_alias": "brace-expansion",
+      "archive": "brace-expansion-1.1.22.tgz",
+      "tar_sha256": "e8d80b49cc3f7e93e6445c79e2fa61226d45b7e5c83df0ac3df8852df514c36c",
+      "tar_bytes": 13794,
+      "registry_tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.22.tgz",
+      "registry_integrity": "sha512-CKLDTuSsN0+r1ThM0WkzzBI7dnPI6xEGfa/JnVYIK9JNBA1N1NyPwXVHor//NKD/y3sDxp764sZdLhFK7pH8XQ==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "brace-expansion",
+          "version": "1.1.22",
+          "registry_tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.22.tgz",
+          "registry_integrity": "sha512-CKLDTuSsN0+r1ThM0WkzzBI7dnPI6xEGfa/JnVYIK9JNBA1N1NyPwXVHor//NKD/y3sDxp764sZdLhFK7pH8XQ=="
+        },
+        {
+          "path": "node_modules/balanced-match",
+          "name": "balanced-match",
+          "version": "1.0.2",
+          "registry_tarball": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+          "registry_integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="
+        },
+        {
+          "path": "node_modules/concat-map",
+          "name": "concat-map",
+          "version": "0.0.1",
+          "registry_tarball": "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz",
+          "registry_integrity": "sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg=="
+        }
+      ]
+    },
+    {
+      "name": "brace-expansion",
+      "version": "5.0.13",
+      "staging_alias": "brace-expansion-v5",
+      "archive": "brace-expansion-5.0.13.tgz",
+      "tar_sha256": "c6228e5614d6b39e26bf8b23117b59ef81c027534ec89849135509a013e72bd3",
+      "tar_bytes": 38054,
+      "registry_tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.13.tgz",
+      "registry_integrity": "sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "brace-expansion",
+          "version": "5.0.13",
+          "registry_tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.13.tgz",
+          "registry_integrity": "sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ=="
+        },
+        {
+          "path": "node_modules/balanced-match",
+          "name": "balanced-match",
+          "version": "4.0.4",
+          "registry_tarball": "https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz",
+          "registry_integrity": "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA=="
+        }
+      ]
+    },
+    {
+      "name": "browserslist",
+      "version": "4.28.7",
+      "staging_alias": "browserslist",
+      "archive": "browserslist-4.28.7.tgz",
+      "tar_sha256": "cb14239fc8cce56cfba2cf24ec0035664eab1c3e02b357e2d0e1bff577ed40d6",
+      "tar_bytes": 455442,
+      "registry_tarball": "https://registry.npmjs.org/browserslist/-/browserslist-4.28.7.tgz",
+      "registry_integrity": "sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "browserslist",
+          "version": "4.28.7",
+          "registry_tarball": "https://registry.npmjs.org/browserslist/-/browserslist-4.28.7.tgz",
+          "registry_integrity": "sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw=="
+        },
+        {
+          "path": "node_modules/baseline-browser-mapping",
+          "name": "baseline-browser-mapping",
+          "version": "2.11.37",
+          "registry_tarball": "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.11.37.tgz",
+          "registry_integrity": "sha512-QYph+vfurmaxhNwi9FprfmtkT5cx2Keg8FzZ0vnjO8ukscIybVyZGMFwdllKGlTI6qyU8ck43OM9UXh+IFJihQ=="
+        },
+        {
+          "path": "node_modules/caniuse-lite",
+          "name": "caniuse-lite",
+          "version": "1.0.30001826",
+          "registry_tarball": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001826.tgz",
+          "registry_integrity": "sha512-wTB+9tIbLro/BCXwLuNV1meHE4L9dS6dArMDwgYfNBPMYScqClHyGunhkCSDtHhe/69Xl0sHlKgBVZ+fNsYtWA=="
+        },
+        {
+          "path": "node_modules/electron-to-chromium",
+          "name": "electron-to-chromium",
+          "version": "1.5.486",
+          "registry_tarball": "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.486.tgz",
+          "registry_integrity": "sha512-rpybw4Ac4ak/An6G1Me2+61xzwobowDGyuJe71QHHOVpkZv4fPVobsLl7WH6zHSKusAMpaHxGKTpOvpy7+r3dQ=="
+        },
+        {
+          "path": "node_modules/node-releases",
+          "name": "node-releases",
+          "version": "2.0.64",
+          "registry_tarball": "https://registry.npmjs.org/node-releases/-/node-releases-2.0.64.tgz",
+          "registry_integrity": "sha512-zAPCKqMcnqs2nGy6nlkm7JduFseiBJy3EXHGLh+8pFR+TxGCBxxiEN21+UROU5CKwX/f4TlUcYjiM+vs/tsyxw=="
+        },
+        {
+          "path": "node_modules/update-browserslist-db",
+          "name": "update-browserslist-db",
+          "version": "1.3.4",
+          "registry_tarball": "https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.3.4.tgz",
+          "registry_integrity": "sha512-t8wonIOdQyOjtPd2VktlBu6QjTVTks6v8bSi7kd0r2Vll8TK1JYDZtRRdbmCHOAMphkZgrzK+L+vXK4pyZ8t4A=="
+        },
+        {
+          "path": "node_modules/update-browserslist-db/node_modules/escalade",
+          "name": "escalade",
+          "version": "3.2.0",
+          "registry_tarball": "https://registry.npmjs.org/escalade/-/escalade-3.2.0.tgz",
+          "registry_integrity": "sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA=="
+        },
+        {
+          "path": "node_modules/update-browserslist-db/node_modules/picocolors",
+          "name": "picocolors",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "registry_integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+        }
+      ]
+    },
+    {
+      "name": "follow-redirects",
+      "version": "1.16.2",
+      "staging_alias": "follow-redirects",
+      "archive": "follow-redirects-1.16.2.tgz",
+      "tar_sha256": "f6f9cf3164cbb44cd7312dcc0a8af4f6e8e107c787c7b6b3f41893ef9361b914",
+      "tar_bytes": 10611,
+      "registry_tarball": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.2.tgz",
+      "registry_integrity": "sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "follow-redirects",
+          "version": "1.16.2",
+          "registry_tarball": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.2.tgz",
+          "registry_integrity": "sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow=="
+        }
+      ]
+    },
+    {
+      "name": "immutable",
+      "version": "4.3.9",
+      "staging_alias": "immutable",
+      "archive": "immutable-4.3.9.tgz",
+      "tar_sha256": "3f3b0131a079b9571d88e999b1768f4e1312c04af26b42199f856ac765900f09",
+      "tar_bytes": 142939,
+      "registry_tarball": "https://registry.npmjs.org/immutable/-/immutable-4.3.9.tgz",
+      "registry_integrity": "sha512-ObHy4YN7ycwZOUCLI1/6svfyAFu7vL8RhAvVu/bh/RZW9EPlOyDaQ9jDQWCtdqzaXUjgXZCW1migtHE7YI7UGQ==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "immutable",
+          "version": "4.3.9",
+          "registry_tarball": "https://registry.npmjs.org/immutable/-/immutable-4.3.9.tgz",
+          "registry_integrity": "sha512-ObHy4YN7ycwZOUCLI1/6svfyAFu7vL8RhAvVu/bh/RZW9EPlOyDaQ9jDQWCtdqzaXUjgXZCW1migtHE7YI7UGQ=="
+        }
+      ]
+    },
+    {
+      "name": "launch-editor",
+      "version": "2.14.2",
+      "staging_alias": "launch-editor",
+      "archive": "launch-editor-2.14.2.tgz",
+      "tar_sha256": "8e9556570cc3d886b3f1bbd3cfc4c7f9e00f142920cf423ccb9de5ca1e738fcf",
+      "tar_bytes": 21870,
+      "registry_tarball": "https://registry.npmjs.org/launch-editor/-/launch-editor-2.14.2.tgz",
+      "registry_integrity": "sha512-NHJEb30MGBCkmZXLZwz25t37QR4aY03ZzPYUJXOJaOa92uWwExI9SBQUuIznBYc1xkD7cJNGX7oc3Nl3sq2kQQ==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "launch-editor",
+          "version": "2.14.2",
+          "registry_tarball": "https://registry.npmjs.org/launch-editor/-/launch-editor-2.14.2.tgz",
+          "registry_integrity": "sha512-NHJEb30MGBCkmZXLZwz25t37QR4aY03ZzPYUJXOJaOa92uWwExI9SBQUuIznBYc1xkD7cJNGX7oc3Nl3sq2kQQ=="
+        },
+        {
+          "path": "node_modules/picocolors",
+          "name": "picocolors",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "registry_integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+        },
+        {
+          "path": "node_modules/shell-quote",
+          "name": "shell-quote",
+          "version": "1.12.0",
+          "registry_tarball": "https://registry.npmjs.org/shell-quote/-/shell-quote-1.12.0.tgz",
+          "registry_integrity": "sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q=="
+        }
+      ]
+    },
+    {
+      "name": "lodash",
+      "version": "4.18.1",
+      "staging_alias": "lodash",
+      "archive": "lodash-4.18.1.tgz",
+      "tar_sha256": "da187bc179d591f9012e1f57b39434153cb563f2d52b5fbfdb90caf61a183ecf",
+      "tar_bytes": 307326,
+      "registry_tarball": "https://registry.npmjs.org/lodash/-/lodash-4.18.1.tgz",
+      "registry_integrity": "sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "lodash",
+          "version": "4.18.1",
+          "registry_tarball": "https://registry.npmjs.org/lodash/-/lodash-4.18.1.tgz",
+          "registry_integrity": "sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q=="
+        }
+      ]
+    },
+    {
+      "name": "lodash-es",
+      "version": "4.18.1",
+      "staging_alias": "lodash-es",
+      "archive": "lodash-es-4.18.1.tgz",
+      "tar_sha256": "fe457e4bb58a48fc4a7b822f7164e422179a442e9ec2d92284f87656898ec76d",
+      "tar_bytes": 149389,
+      "registry_tarball": "https://registry.npmjs.org/lodash-es/-/lodash-es-4.18.1.tgz",
+      "registry_integrity": "sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "lodash-es",
+          "version": "4.18.1",
+          "registry_tarball": "https://registry.npmjs.org/lodash-es/-/lodash-es-4.18.1.tgz",
+          "registry_integrity": "sha512-J8xewKD/Gk22OZbhpOVSwcs60zhd95ESDwezOFuA3/099925PdHJ7OFHNTGtajL3AlZkykD32HykiMo+BIBI8A=="
+        }
+      ]
+    },
+    {
+      "name": "minimatch",
+      "version": "3.1.4",
+      "staging_alias": "minimatch",
+      "archive": "minimatch-3.1.4.tgz",
+      "tar_sha256": "a14433a502a7b1dba2be6a1e3c68a8785938c5e3e38a6e1caa634213d84e17f2",
+      "tar_bytes": 25325,
+      "registry_tarball": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.4.tgz",
+      "registry_integrity": "sha512-twmL+S8+7yIsE9wsqgzU3E8/LumN3M3QELrBZ20OdmQ9jB2JvW5oZtBEmft84k/Gs5CG9mqtWc6Y9vW+JEzGxw==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "minimatch",
+          "version": "3.1.4",
+          "registry_tarball": "https://registry.npmjs.org/minimatch/-/minimatch-3.1.4.tgz",
+          "registry_integrity": "sha512-twmL+S8+7yIsE9wsqgzU3E8/LumN3M3QELrBZ20OdmQ9jB2JvW5oZtBEmft84k/Gs5CG9mqtWc6Y9vW+JEzGxw=="
+        },
+        {
+          "path": "node_modules/brace-expansion",
+          "name": "brace-expansion",
+          "version": "1.1.22",
+          "registry_tarball": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.22.tgz",
+          "registry_integrity": "sha512-CKLDTuSsN0+r1ThM0WkzzBI7dnPI6xEGfa/JnVYIK9JNBA1N1NyPwXVHor//NKD/y3sDxp764sZdLhFK7pH8XQ=="
+        },
+        {
+          "path": "node_modules/brace-expansion/node_modules/balanced-match",
+          "name": "balanced-match",
+          "version": "1.0.2",
+          "registry_tarball": "https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz",
+          "registry_integrity": "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="
+        },
+        {
+          "path": "node_modules/brace-expansion/node_modules/concat-map",
+          "name": "concat-map",
+          "version": "0.0.1",
+          "registry_tarball": "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz",
+          "registry_integrity": "sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg=="
+        }
+      ]
+    },
+    {
+      "name": "nanoid",
+      "version": "3.3.18",
+      "staging_alias": "nanoid",
+      "archive": "nanoid-3.3.18.tgz",
+      "tar_sha256": "f9359a92150d579a888248d108195d0cee829530de77363c2d214998e0f86043",
+      "tar_bytes": 5787,
+      "registry_tarball": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.18.tgz",
+      "registry_integrity": "sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "nanoid",
+          "version": "3.3.18",
+          "registry_tarball": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.18.tgz",
+          "registry_integrity": "sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w=="
+        }
+      ]
+    },
+    {
+      "name": "picomatch",
+      "version": "2.3.2",
+      "staging_alias": "picomatch",
+      "archive": "picomatch-2.3.2.tgz",
+      "tar_sha256": "8f0a59f187c2fdd7240a8e337979ce05ad8fcc0a9457ef4b232d371ec47d75ad",
+      "tar_bytes": 24111,
+      "registry_tarball": "https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz",
+      "registry_integrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "picomatch",
+          "version": "2.3.2",
+          "registry_tarball": "https://registry.npmjs.org/picomatch/-/picomatch-2.3.2.tgz",
+          "registry_integrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="
+        }
+      ]
+    },
+    {
+      "name": "postcss",
+      "version": "8.5.33",
+      "staging_alias": "postcss",
+      "archive": "postcss-8.5.33.tgz",
+      "tar_sha256": "a42a26c381befd004497470904640624831788df56801e60946232a819691a0f",
+      "tar_bytes": 100001,
+      "registry_tarball": "https://registry.npmjs.org/postcss/-/postcss-8.5.33.tgz",
+      "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "postcss",
+          "version": "8.5.33",
+          "registry_tarball": "https://registry.npmjs.org/postcss/-/postcss-8.5.33.tgz",
+          "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ=="
+        },
+        {
+          "path": "node_modules/nanoid",
+          "name": "nanoid",
+          "version": "3.3.20",
+          "registry_tarball": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz",
+          "registry_integrity": "sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ=="
+        },
+        {
+          "path": "node_modules/picocolors",
+          "name": "picocolors",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "registry_integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+        },
+        {
+          "path": "node_modules/source-map-js",
+          "name": "source-map-js",
+          "version": "1.2.2",
+          "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+          "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="
+        }
+      ]
+    },
+    {
+      "name": "socket.io-parser",
+      "version": "4.2.7",
+      "staging_alias": "socket.io-parser",
+      "archive": "socket.io-parser-4.2.7.tgz",
+      "tar_sha256": "2ef563af5891298f14655dba982e462d9e237dd7f48054ced56b96be278ed338",
+      "tar_bytes": 26139,
+      "registry_tarball": "https://registry.npmjs.org/socket.io-parser/-/socket.io-parser-4.2.7.tgz",
+      "registry_integrity": "sha512-IH/iSeO9T6gz1KkFleGDWkG9N3dl4jXVYUtMhIqH10Md0ttMer8nUNWiP1DKuNrybD2xBrixLJdCC9J6ECoYkg==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "socket.io-parser",
+          "version": "4.2.7",
+          "registry_tarball": "https://registry.npmjs.org/socket.io-parser/-/socket.io-parser-4.2.7.tgz",
+          "registry_integrity": "sha512-IH/iSeO9T6gz1KkFleGDWkG9N3dl4jXVYUtMhIqH10Md0ttMer8nUNWiP1DKuNrybD2xBrixLJdCC9J6ECoYkg=="
+        },
+        {
+          "path": "node_modules/@socket.io/component-emitter",
+          "name": "@socket.io/component-emitter",
+          "version": "3.1.2",
+          "registry_tarball": "https://registry.npmjs.org/@socket.io/component-emitter/-/component-emitter-3.1.2.tgz",
+          "registry_integrity": "sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA=="
+        },
+        {
+          "path": "node_modules/debug",
+          "name": "debug",
+          "version": "4.4.3",
+          "registry_tarball": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+          "registry_integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA=="
+        },
+        {
+          "path": "node_modules/debug/node_modules/ms",
+          "name": "ms",
+          "version": "2.1.3",
+          "registry_tarball": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+          "registry_integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="
+        }
+      ]
+    },
+    {
+      "name": "source-map-js",
+      "version": "1.2.2",
+      "staging_alias": "source-map-js",
+      "archive": "source-map-js-1.2.2.tgz",
+      "tar_sha256": "6cb0add1a0b0288e109cdc7e00a10f7d7fdf9a40f54d10fb3ae91c7e477bd9a9",
+      "tar_bytes": 37056,
+      "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+      "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "source-map-js",
+          "version": "1.2.2",
+          "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+          "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="
+        }
+      ]
+    },
+    {
+      "name": "svgo",
+      "version": "2.8.4",
+      "staging_alias": "svgo",
+      "archive": "svgo-2.8.4.tgz",
+      "tar_sha256": "d4744126d9933b44be621ebdbb2306e54fef463785f11c5071eb967726503fe7",
+      "tar_bytes": 1041755,
+      "registry_tarball": "https://registry.npmjs.org/svgo/-/svgo-2.8.4.tgz",
+      "registry_integrity": "sha512-2GJ4h3rl13qYTdwllaK6QlL8tG+UrM8626V2Ylcd/yBUv2Y/EwLsYisVV6UDCRmlk+C74G8nMpxJCk0RWPdDCw==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "svgo",
+          "version": "2.8.4",
+          "registry_tarball": "https://registry.npmjs.org/svgo/-/svgo-2.8.4.tgz",
+          "registry_integrity": "sha512-2GJ4h3rl13qYTdwllaK6QlL8tG+UrM8626V2Ylcd/yBUv2Y/EwLsYisVV6UDCRmlk+C74G8nMpxJCk0RWPdDCw=="
+        },
+        {
+          "path": "node_modules/commander",
+          "name": "commander",
+          "version": "7.2.0",
+          "registry_tarball": "https://registry.npmjs.org/commander/-/commander-7.2.0.tgz",
+          "registry_integrity": "sha512-QrWXB+ZQSVPmIWIhtEO9H+gwHaMGYiF5ChvoJ+K9ZGHG/sVsa6yiesAD1GC/x46sET00Xlwo1u49RVVVzvcSkw=="
+        },
+        {
+          "path": "node_modules/css-select",
+          "name": "css-select",
+          "version": "4.3.0",
+          "registry_tarball": "https://registry.npmjs.org/css-select/-/css-select-4.3.0.tgz",
+          "registry_integrity": "sha512-wPpOYtnsVontu2mODhA19JrqWxNsfdatRKd64kmpRbQgh1KtItko5sTnEpPdpSaJszTOhEMlF/RPz28qj4HqhQ=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/boolbase",
+          "name": "boolbase",
+          "version": "1.0.0",
+          "registry_tarball": "https://registry.npmjs.org/boolbase/-/boolbase-1.0.0.tgz",
+          "registry_integrity": "sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/css-what",
+          "name": "css-what",
+          "version": "6.2.2",
+          "registry_tarball": "https://registry.npmjs.org/css-what/-/css-what-6.2.2.tgz",
+          "registry_integrity": "sha512-u/O3vwbptzhMs3L1fQE82ZSLHQQfto5gyZzwteVIEyeaY5Fc7R4dapF/BvRoSYFeqfBk4m0V1Vafq5Pjv25wvA=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/domhandler",
+          "name": "domhandler",
+          "version": "4.3.1",
+          "registry_tarball": "https://registry.npmjs.org/domhandler/-/domhandler-4.3.1.tgz",
+          "registry_integrity": "sha512-GrwoxYN+uWlzO8uhUXRl0P+kHE4GtVPfYzVLcUxPL7KNdHKj66vvlhiweIHqYYXWlw+T8iLMp42Lm67ghw4WMQ=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/domhandler/node_modules/domelementtype",
+          "name": "domelementtype",
+          "version": "2.3.0",
+          "registry_tarball": "https://registry.npmjs.org/domelementtype/-/domelementtype-2.3.0.tgz",
+          "registry_integrity": "sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/domutils",
+          "name": "domutils",
+          "version": "2.8.0",
+          "registry_tarball": "https://registry.npmjs.org/domutils/-/domutils-2.8.0.tgz",
+          "registry_integrity": "sha512-w96Cjofp72M5IIhpjgobBimYEfoPjx1Vx0BSX9P30WBdZW2WIKU0T1Bd0kz2eNZ9ikjKgHbEyKx8BB6H1L3h3A=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/domutils/node_modules/dom-serializer",
+          "name": "dom-serializer",
+          "version": "1.4.1",
+          "registry_tarball": "https://registry.npmjs.org/dom-serializer/-/dom-serializer-1.4.1.tgz",
+          "registry_integrity": "sha512-VHwB3KfrcOOkelEG2ZOfxqLZdfkil8PtJi4P8N2MMXucZq2yLp75ClViUlOVwyoHEDjYU433Aq+5zWP61+RGag=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/domutils/node_modules/dom-serializer/node_modules/entities",
+          "name": "entities",
+          "version": "2.2.0",
+          "registry_tarball": "https://registry.npmjs.org/entities/-/entities-2.2.0.tgz",
+          "registry_integrity": "sha512-p92if5Nz619I0w+akJrLZH0MX0Pb5DX39XOwQTtXSdQQOaYH03S1uIQp4mhOZtAXrxq4ViO67YTiLBo2638o9A=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/domutils/node_modules/domelementtype",
+          "name": "domelementtype",
+          "version": "2.3.0",
+          "registry_tarball": "https://registry.npmjs.org/domelementtype/-/domelementtype-2.3.0.tgz",
+          "registry_integrity": "sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw=="
+        },
+        {
+          "path": "node_modules/css-select/node_modules/nth-check",
+          "name": "nth-check",
+          "version": "2.1.1",
+          "registry_tarball": "https://registry.npmjs.org/nth-check/-/nth-check-2.1.1.tgz",
+          "registry_integrity": "sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w=="
+        },
+        {
+          "path": "node_modules/css-tree",
+          "name": "css-tree",
+          "version": "1.1.3",
+          "registry_tarball": "https://registry.npmjs.org/css-tree/-/css-tree-1.1.3.tgz",
+          "registry_integrity": "sha512-tRpdppF7TRazZrjJ6v3stzv93qxRcSsFmW6cX0Zm2NVKpxE1WV1HblnghVv9TreireHkqI/VDEsfolRF1p6y7Q=="
+        },
+        {
+          "path": "node_modules/css-tree/node_modules/mdn-data",
+          "name": "mdn-data",
+          "version": "2.0.14",
+          "registry_tarball": "https://registry.npmjs.org/mdn-data/-/mdn-data-2.0.14.tgz",
+          "registry_integrity": "sha512-dn6wd0uw5GsdswPFfsgMp5NSB0/aDe6fK94YJV/AJDYXL6HVLWBsxeq7js7Ad+mU2K9LAlwpk6kN2D5mwCPVow=="
+        },
+        {
+          "path": "node_modules/css-tree/node_modules/source-map",
+          "name": "source-map",
+          "version": "0.6.1",
+          "registry_tarball": "https://registry.npmjs.org/source-map/-/source-map-0.6.1.tgz",
+          "registry_integrity": "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g=="
+        },
+        {
+          "path": "node_modules/csso",
+          "name": "csso",
+          "version": "4.2.0",
+          "registry_tarball": "https://registry.npmjs.org/csso/-/csso-4.2.0.tgz",
+          "registry_integrity": "sha512-wvlcdIbf6pwKEk7vHj8/Bkc0B4ylXZruLvOgs9doS5eOsOpuodOV2zJChSpkp+pRpYQLQMeF04nr3Z68Sta9jA=="
+        },
+        {
+          "path": "node_modules/picocolors",
+          "name": "picocolors",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "registry_integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+        },
+        {
+          "path": "node_modules/sax",
+          "name": "sax",
+          "version": "1.6.1",
+          "registry_tarball": "https://registry.npmjs.org/sax/-/sax-1.6.1.tgz",
+          "registry_integrity": "sha512-42tBVwLWnaQvW5zc4HbZrTuWccECCZfBi92FDuwtqxasH+JbPB3/FOKb1m222K42R4WxuxzzMsTswfzgtSu64Q=="
+        },
+        {
+          "path": "node_modules/stable",
+          "name": "stable",
+          "version": "0.1.8",
+          "registry_tarball": "https://registry.npmjs.org/stable/-/stable-0.1.8.tgz",
+          "registry_integrity": "sha512-ji9qxRnOVfcuLDySj9qzhGSEFVobyt1kIOSkj1qZzYLzq7Tos/oUUWvotUPQLlrsidqsK6tBH89Bc9kL5zHA6w=="
+        }
+      ]
+    },
+    {
+      "name": "tmp",
+      "version": "0.2.7",
+      "staging_alias": "tmp",
+      "archive": "tmp-0.2.7.tgz",
+      "tar_sha256": "1ab8dba3bd5e10b62dc2f38a68f4bcc0d51004b53c9cff1d6c6033552a05b11e",
+      "tar_bytes": 11269,
+      "registry_tarball": "https://registry.npmjs.org/tmp/-/tmp-0.2.7.tgz",
+      "registry_integrity": "sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "tmp",
+          "version": "0.2.7",
+          "registry_tarball": "https://registry.npmjs.org/tmp/-/tmp-0.2.7.tgz",
+          "registry_integrity": "sha512-e0votIpp4Uo2AJYSzVHV6xCcawuiez3DzqDAbrTc3YxBkplN6e+dM13ZeIcZnDg/QpSuU2zfZ3rzwY8ukEnaXw=="
+        }
+      ]
+    },
+    {
+      "name": "undici",
+      "version": "6.29.1",
+      "staging_alias": "undici",
+      "archive": "undici-6.29.1.tgz",
+      "tar_sha256": "5f08b4a00e839570cb24aad8c7b21436c9038394c20af1d4b96bfafd91176ac6",
+      "tar_bytes": 295891,
+      "registry_tarball": "https://registry.npmjs.org/undici/-/undici-6.29.1.tgz",
+      "registry_integrity": "sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "undici",
+          "version": "6.29.1",
+          "registry_tarball": "https://registry.npmjs.org/undici/-/undici-6.29.1.tgz",
+          "registry_integrity": "sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA=="
+        }
+      ]
+    },
+    {
+      "name": "vite",
+      "version": "8.2.4",
+      "staging_alias": "vite",
+      "archive": "vite-8.2.4.tgz",
+      "tar_sha256": "dfb3551c4572a3d6d36997be6c0a8c5b08f4d91960f47e2ac22049e2a53e58dd",
+      "tar_bytes": 24018393,
+      "registry_tarball": "https://registry.npmjs.org/vite/-/vite-8.2.4.tgz",
+      "registry_integrity": "sha512-lfauXnrf2x0p+UoA+wXh0dgFWnUjCyG6Js95KBkgaCwUU9k0DAHI4W6Q0WCx+h+5g+Alce1y4Zi2QjjK0UvGBw==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "vite",
+          "version": "8.2.4",
+          "registry_tarball": "https://registry.npmjs.org/vite/-/vite-8.2.4.tgz",
+          "registry_integrity": "sha512-lfauXnrf2x0p+UoA+wXh0dgFWnUjCyG6Js95KBkgaCwUU9k0DAHI4W6Q0WCx+h+5g+Alce1y4Zi2QjjK0UvGBw=="
+        },
+        {
+          "path": "node_modules/lightningcss",
+          "name": "lightningcss",
+          "version": "1.33.0",
+          "registry_tarball": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz",
+          "registry_integrity": "sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA=="
+        },
+        {
+          "path": "node_modules/lightningcss/node_modules/detect-libc",
+          "name": "detect-libc",
+          "version": "2.1.2",
+          "registry_tarball": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
+          "registry_integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="
+        },
+        {
+          "path": "node_modules/lightningcss/node_modules/lightningcss-linux-arm64-gnu",
+          "name": "lightningcss-linux-arm64-gnu",
+          "version": "1.33.0",
+          "registry_tarball": "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/-/lightningcss-linux-arm64-gnu-1.33.0.tgz",
+          "registry_integrity": "sha512-j2v/itmy4HlNxlc6voKXYgBqNi0Ng2LShg4z7GufpEgs05P+2suBVyi9I6YHq5uoVFx9ETin3eCEhLVyXGQnKg=="
+        },
+        {
+          "path": "node_modules/lightningcss/node_modules/lightningcss-linux-arm64-musl",
+          "name": "lightningcss-linux-arm64-musl",
+          "version": "1.33.0",
+          "registry_tarball": "https://registry.npmjs.org/lightningcss-linux-arm64-musl/-/lightningcss-linux-arm64-musl-1.33.0.tgz",
+          "registry_integrity": "sha512-yiO5ROMuYQgXbC60yjZU5CYSFZGKXL0HFATXt9mHJn1+zW55oCtMI9NfcVhYLMFDL7gV7oBPon/EmMMGg2OvtQ=="
+        },
+        {
+          "path": "node_modules/picomatch",
+          "name": "picomatch",
+          "version": "4.0.7",
+          "registry_tarball": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.7.tgz",
+          "registry_integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="
+        },
+        {
+          "path": "node_modules/postcss",
+          "name": "postcss",
+          "version": "8.5.33",
+          "registry_tarball": "https://registry.npmjs.org/postcss/-/postcss-8.5.33.tgz",
+          "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ=="
+        },
+        {
+          "path": "node_modules/postcss/node_modules/nanoid",
+          "name": "nanoid",
+          "version": "3.3.20",
+          "registry_tarball": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz",
+          "registry_integrity": "sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ=="
+        },
+        {
+          "path": "node_modules/postcss/node_modules/picocolors",
+          "name": "picocolors",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "registry_integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+        },
+        {
+          "path": "node_modules/postcss/node_modules/source-map-js",
+          "name": "source-map-js",
+          "version": "1.2.2",
+          "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+          "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="
+        },
+        {
+          "path": "node_modules/rolldown",
+          "name": "rolldown",
+          "version": "1.2.19",
+          "registry_tarball": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.19.tgz",
+          "registry_integrity": "sha512-QIiV1J9d0pzN4jeeTH4sjPy0AZ6cAy2cG0ExeoE1+U8Rvj+hR3gYkokx0YbeUNGlZqiQJJ2utcETe0oKXwzsuA=="
+        },
+        {
+          "path": "node_modules/rolldown/node_modules/@oxc-project/types",
+          "name": "@oxc-project/types",
+          "version": "0.156.0",
+          "registry_tarball": "https://registry.npmjs.org/@oxc-project/types/-/types-0.156.0.tgz",
+          "registry_integrity": "sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw=="
+        },
+        {
+          "path": "node_modules/rolldown/node_modules/@rolldown/binding-linux-arm64-gnu",
+          "name": "@rolldown/binding-linux-arm64-gnu",
+          "version": "1.2.19",
+          "registry_tarball": "https://registry.npmjs.org/@rolldown/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-1.2.19.tgz",
+          "registry_integrity": "sha512-pm/apFMBnSbFb3O6nG5pHO1iqHhZrjGDFEjSm+ot9J17XXPvH9L90y5h+jgfHCE+Qdlsvy8qKEcU4VKxgjD+vA=="
+        },
+        {
+          "path": "node_modules/rolldown/node_modules/@rolldown/binding-linux-arm64-musl",
+          "name": "@rolldown/binding-linux-arm64-musl",
+          "version": "1.2.19",
+          "registry_tarball": "https://registry.npmjs.org/@rolldown/binding-linux-arm64-musl/-/binding-linux-arm64-musl-1.2.19.tgz",
+          "registry_integrity": "sha512-K1SmQp3FFichn8oqrNIwvFoZ5wcvjC7goBzpaMNvLf9FZc+QB/QvLmnpJZgAAGHiD980tP8FZZnXk2K94rvlxg=="
+        },
+        {
+          "path": "node_modules/rolldown/node_modules/@rolldown/pluginutils",
+          "name": "@rolldown/pluginutils",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/@rolldown/pluginutils/-/pluginutils-1.1.1.tgz",
+          "registry_integrity": "sha512-glFIJDvLNDtJhT9qrMFWLPbvS+skxgt4L0K8Ei2YtnhPysAJnsI7nyxSJxKj4ADeKX0OLjC4ntRkwpLOoS3rwA=="
+        },
+        {
+          "path": "node_modules/tinyglobby",
+          "name": "tinyglobby",
+          "version": "0.2.17",
+          "registry_tarball": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.17.tgz",
+          "registry_integrity": "sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g=="
+        },
+        {
+          "path": "node_modules/tinyglobby/node_modules/fdir",
+          "name": "fdir",
+          "version": "6.5.0",
+          "registry_tarball": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+          "registry_integrity": "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="
+        }
+      ]
+    },
+    {
+      "name": "ws",
+      "version": "8.21.0",
+      "staging_alias": "ws",
+      "archive": "ws-8.21.0.tgz",
+      "tar_sha256": "1f6f812d32afc06747be2d46dda6a9a7ba569369ea2360b6d4002c07ecf01ecb",
+      "tar_bytes": 35090,
+      "registry_tarball": "https://registry.npmjs.org/ws/-/ws-8.21.0.tgz",
+      "registry_integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "ws",
+          "version": "8.21.0",
+          "registry_tarball": "https://registry.npmjs.org/ws/-/ws-8.21.0.tgz",
+          "registry_integrity": "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="
+        }
+      ]
+    },
+    {
+      "name": "vue",
+      "version": "3.5.42",
+      "archive": "vue-3.5.42.tgz",
+      "tar_sha256": "b2b7f0d1987090ea83833fb2192f7fea13a3414d71770f8991913cb88b034de9",
+      "registry_integrity": "sha512-4RyHQTbQvOPs3MfvUO1Sg0YRrKNnA0mAVtvpd12Tg1fKDN7OHBUl1IqSn8zGJjK9nI3NkNp8cgTpVrSZC5TTcA==",
+      "registry_tarball": "https://registry.npmjs.org/vue/-/vue-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "vue",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/vue/-/vue-3.5.42.tgz",
+          "registry_integrity": "sha512-4RyHQTbQvOPs3MfvUO1Sg0YRrKNnA0mAVtvpd12Tg1fKDN7OHBUl1IqSn8zGJjK9nI3NkNp8cgTpVrSZC5TTcA=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "vue",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        },
+        {
+          "from": "vue",
+          "dependency": "@vue/runtime-dom",
+          "version": "3.5.42"
+        },
+        {
+          "from": "vue",
+          "dependency": "@vue/compiler-sfc",
+          "version": "3.5.42"
+        },
+        {
+          "from": "vue",
+          "dependency": "@vue/compiler-dom",
+          "version": "3.5.42"
+        },
+        {
+          "from": "vue",
+          "dependency": "@vue/server-renderer",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/shared",
+      "version": "3.5.42",
+      "archive": "vue-shared-3.5.42.tgz",
+      "tar_sha256": "fc9fc27ba0f094d8f89619042dc3cdccb5fc449bddaac7f107b8c298de501c97",
+      "registry_integrity": "sha512-2rPxex1jQf4jvl9MOHl6YaXCPcrNqz/FstMOEh3QWY+/OME9nQTvl9WYeCwhW7AFjaR0SnngZGlp/wkR6rkI6g==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/shared/-/shared-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/shared",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/shared/-/shared-3.5.42.tgz",
+          "registry_integrity": "sha512-2rPxex1jQf4jvl9MOHl6YaXCPcrNqz/FstMOEh3QWY+/OME9nQTvl9WYeCwhW7AFjaR0SnngZGlp/wkR6rkI6g=="
+        }
+      ],
+      "shared_vue_edges": []
+    },
+    {
+      "name": "@vue/runtime-dom",
+      "version": "3.5.42",
+      "archive": "vue-runtime-dom-3.5.42.tgz",
+      "tar_sha256": "bf171f2e7d07652238dcbddb983870f1362597bc3770bb7cf0e640e840758db6",
+      "registry_integrity": "sha512-rsCmhiWLaRxGltLwhlCWyYkFn7WAbKRh0q17eZ1A6Dq6eqc2ACQ61IIryxz0LrsvCzHSilLA9JHovVwM8CNE2g==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/runtime-dom/-/runtime-dom-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/runtime-dom",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/runtime-dom/-/runtime-dom-3.5.42.tgz",
+          "registry_integrity": "sha512-rsCmhiWLaRxGltLwhlCWyYkFn7WAbKRh0q17eZ1A6Dq6eqc2ACQ61IIryxz0LrsvCzHSilLA9JHovVwM8CNE2g=="
+        },
+        {
+          "path": "node_modules/csstype",
+          "name": "csstype",
+          "version": "3.2.3",
+          "registry_tarball": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
+          "registry_integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/runtime-dom",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/runtime-dom",
+          "dependency": "@vue/runtime-core",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/runtime-dom",
+          "dependency": "@vue/reactivity",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/runtime-core",
+      "version": "3.5.42",
+      "archive": "vue-runtime-core-3.5.42.tgz",
+      "tar_sha256": "eb022dc9e85012f4cd2622a1684f6bfcbc8dc85de2881e88de9ac2068ded02b3",
+      "registry_integrity": "sha512-9uACtuHs7vJGkm5Bp3xu4xRDLFTIYy5DgxpToVjqGIAhAEKwQfsaLvKINhM6nFVp6bZPRFGdDqd1g52MqKsotA==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/runtime-core/-/runtime-core-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/runtime-core",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/runtime-core/-/runtime-core-3.5.42.tgz",
+          "registry_integrity": "sha512-9uACtuHs7vJGkm5Bp3xu4xRDLFTIYy5DgxpToVjqGIAhAEKwQfsaLvKINhM6nFVp6bZPRFGdDqd1g52MqKsotA=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/runtime-core",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/runtime-core",
+          "dependency": "@vue/reactivity",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/reactivity",
+      "version": "3.5.42",
+      "archive": "vue-reactivity-3.5.42.tgz",
+      "tar_sha256": "a555720f79c49dc88f7608c9e218a10ea0a2401b5bda3e89830f41c4769ae99e",
+      "registry_integrity": "sha512-TzNNfKpb7hDxbQltwAut8VDQA5YP+BuRlxntHUuRjyKwlMvmAPbs3unhCvieijifY6vFfVBwsS7wG/C7uq+bEQ==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/reactivity",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/reactivity/-/reactivity-3.5.42.tgz",
+          "registry_integrity": "sha512-TzNNfKpb7hDxbQltwAut8VDQA5YP+BuRlxntHUuRjyKwlMvmAPbs3unhCvieijifY6vFfVBwsS7wG/C7uq+bEQ=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/reactivity",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-core",
+      "version": "3.5.42",
+      "archive": "vue-compiler-core-3.5.42.tgz",
+      "tar_sha256": "8b8b55fb345c5080d74cf14d473727bacb5e440cb3cacc0c6a9ce2ceb8b566d1",
+      "registry_integrity": "sha512-2Ye1ilMtKXxl8qZUrQ5j0CdgenFp/HFQmta6rfRyfEsTG69L6Wk+tWuNoHYHMx9E8tF2Slvdg1FuwDvAXdy1LQ==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/compiler-core/-/compiler-core-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/compiler-core",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/compiler-core/-/compiler-core-3.5.42.tgz",
+          "registry_integrity": "sha512-2Ye1ilMtKXxl8qZUrQ5j0CdgenFp/HFQmta6rfRyfEsTG69L6Wk+tWuNoHYHMx9E8tF2Slvdg1FuwDvAXdy1LQ=="
+        },
+        {
+          "path": "node_modules/@babel/parser",
+          "name": "@babel/parser",
+          "version": "7.29.14",
+          "registry_tarball": "https://registry.npmjs.org/@babel/parser/-/parser-7.29.14.tgz",
+          "registry_integrity": "sha512-VL220vXuyO2z3rNIQwY7ftj9UwpqOt+33sH+sBWkOekbsSR2g7EEMnOx24ZlCH0xOA3DM/33SifVFGbnJD8r/w=="
+        },
+        {
+          "path": "node_modules/@babel/parser/node_modules/@babel/types",
+          "name": "@babel/types",
+          "version": "7.29.14",
+          "registry_tarball": "https://registry.npmjs.org/@babel/types/-/types-7.29.14.tgz",
+          "registry_integrity": "sha512-UjI/dKmwJwT9pOszJitq2G6EObZPnsZUfdCr92z2TlF3EZK9J3EdfOKUrCzHl6wFthbzwhzl1Soc/UIwxRiq6w=="
+        },
+        {
+          "path": "node_modules/@babel/parser/node_modules/@babel/types/node_modules/@babel/helper-string-parser",
+          "name": "@babel/helper-string-parser",
+          "version": "7.29.14",
+          "registry_tarball": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.29.14.tgz",
+          "registry_integrity": "sha512-CXvKMFvM80ihI7Vox9jb+kQjnyjESQNPM+vB7U0Zz6TWuZA+Z/FL0QPMH300h33qJtIx+REeBhXqWOPW48TcAQ=="
+        },
+        {
+          "path": "node_modules/@babel/parser/node_modules/@babel/types/node_modules/@babel/helper-validator-identifier",
+          "name": "@babel/helper-validator-identifier",
+          "version": "7.29.7",
+          "registry_tarball": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz",
+          "registry_integrity": "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="
+        },
+        {
+          "path": "node_modules/entities",
+          "name": "entities",
+          "version": "7.0.1",
+          "registry_tarball": "https://registry.npmjs.org/entities/-/entities-7.0.1.tgz",
+          "registry_integrity": "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="
+        },
+        {
+          "path": "node_modules/estree-walker",
+          "name": "estree-walker",
+          "version": "2.0.2",
+          "registry_tarball": "https://registry.npmjs.org/estree-walker/-/estree-walker-2.0.2.tgz",
+          "registry_integrity": "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="
+        },
+        {
+          "path": "node_modules/source-map-js",
+          "name": "source-map-js",
+          "version": "1.2.2",
+          "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+          "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/compiler-core",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-dom",
+      "version": "3.5.42",
+      "archive": "vue-compiler-dom-3.5.42.tgz",
+      "tar_sha256": "acc1337494e8d7165fe87fa25c6f4cff54258d531c8c7129367d39e11e306aca",
+      "registry_integrity": "sha512-qbhQZEFmycr+ni/qyuccS4sucNN7VAbDfbkvNxWOX2VfgFm90MNs3/UhRNKoPMEIVn0F8gdlYjLPvqxHwHeQOA==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/compiler-dom/-/compiler-dom-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/compiler-dom",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/compiler-dom/-/compiler-dom-3.5.42.tgz",
+          "registry_integrity": "sha512-qbhQZEFmycr+ni/qyuccS4sucNN7VAbDfbkvNxWOX2VfgFm90MNs3/UhRNKoPMEIVn0F8gdlYjLPvqxHwHeQOA=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/compiler-dom",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/compiler-dom",
+          "dependency": "@vue/compiler-core",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-sfc",
+      "version": "3.5.42",
+      "archive": "vue-compiler-sfc-3.5.42.tgz",
+      "tar_sha256": "64776b989588d77dc9bad9aa09a93d2978dab9512c354f328790a71ac02291b9",
+      "registry_integrity": "sha512-fkCAFB4okcAANGMThboWnScp/gzWjU0ZSkVnjTIiplmMDq2uq0tIB3j+xVu4rhv5rvOgBySCysudmbMd6xRRqw==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/compiler-sfc/-/compiler-sfc-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/compiler-sfc",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/compiler-sfc/-/compiler-sfc-3.5.42.tgz",
+          "registry_integrity": "sha512-fkCAFB4okcAANGMThboWnScp/gzWjU0ZSkVnjTIiplmMDq2uq0tIB3j+xVu4rhv5rvOgBySCysudmbMd6xRRqw=="
+        },
+        {
+          "path": "node_modules/@babel/parser",
+          "name": "@babel/parser",
+          "version": "7.29.14",
+          "registry_tarball": "https://registry.npmjs.org/@babel/parser/-/parser-7.29.14.tgz",
+          "registry_integrity": "sha512-VL220vXuyO2z3rNIQwY7ftj9UwpqOt+33sH+sBWkOekbsSR2g7EEMnOx24ZlCH0xOA3DM/33SifVFGbnJD8r/w=="
+        },
+        {
+          "path": "node_modules/@babel/parser/node_modules/@babel/types",
+          "name": "@babel/types",
+          "version": "7.29.14",
+          "registry_tarball": "https://registry.npmjs.org/@babel/types/-/types-7.29.14.tgz",
+          "registry_integrity": "sha512-UjI/dKmwJwT9pOszJitq2G6EObZPnsZUfdCr92z2TlF3EZK9J3EdfOKUrCzHl6wFthbzwhzl1Soc/UIwxRiq6w=="
+        },
+        {
+          "path": "node_modules/@babel/parser/node_modules/@babel/types/node_modules/@babel/helper-string-parser",
+          "name": "@babel/helper-string-parser",
+          "version": "7.29.14",
+          "registry_tarball": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.29.14.tgz",
+          "registry_integrity": "sha512-CXvKMFvM80ihI7Vox9jb+kQjnyjESQNPM+vB7U0Zz6TWuZA+Z/FL0QPMH300h33qJtIx+REeBhXqWOPW48TcAQ=="
+        },
+        {
+          "path": "node_modules/@babel/parser/node_modules/@babel/types/node_modules/@babel/helper-validator-identifier",
+          "name": "@babel/helper-validator-identifier",
+          "version": "7.29.7",
+          "registry_tarball": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz",
+          "registry_integrity": "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="
+        },
+        {
+          "path": "node_modules/estree-walker",
+          "name": "estree-walker",
+          "version": "2.0.2",
+          "registry_tarball": "https://registry.npmjs.org/estree-walker/-/estree-walker-2.0.2.tgz",
+          "registry_integrity": "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="
+        },
+        {
+          "path": "node_modules/magic-string",
+          "name": "magic-string",
+          "version": "0.30.21",
+          "registry_tarball": "https://registry.npmjs.org/magic-string/-/magic-string-0.30.21.tgz",
+          "registry_integrity": "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="
+        },
+        {
+          "path": "node_modules/magic-string/node_modules/@jridgewell/sourcemap-codec",
+          "name": "@jridgewell/sourcemap-codec",
+          "version": "1.6.0",
+          "registry_tarball": "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.6.0.tgz",
+          "registry_integrity": "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="
+        },
+        {
+          "path": "node_modules/postcss",
+          "name": "postcss",
+          "version": "8.5.33",
+          "registry_tarball": "https://registry.npmjs.org/postcss/-/postcss-8.5.33.tgz",
+          "registry_integrity": "sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ=="
+        },
+        {
+          "path": "node_modules/postcss/node_modules/nanoid",
+          "name": "nanoid",
+          "version": "3.3.20",
+          "registry_tarball": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz",
+          "registry_integrity": "sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ=="
+        },
+        {
+          "path": "node_modules/postcss/node_modules/picocolors",
+          "name": "picocolors",
+          "version": "1.1.1",
+          "registry_tarball": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+          "registry_integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+        },
+        {
+          "path": "node_modules/postcss/node_modules/source-map-js",
+          "name": "source-map-js",
+          "version": "1.2.2",
+          "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+          "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="
+        },
+        {
+          "path": "node_modules/source-map-js",
+          "name": "source-map-js",
+          "version": "1.2.2",
+          "registry_tarball": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.2.tgz",
+          "registry_integrity": "sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/compiler-sfc",
+          "dependency": "@vue/compiler-core",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/compiler-sfc",
+          "dependency": "@vue/compiler-dom",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/compiler-sfc",
+          "dependency": "@vue/compiler-ssr",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/compiler-sfc",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-ssr",
+      "version": "3.5.42",
+      "archive": "vue-compiler-ssr-3.5.42.tgz",
+      "tar_sha256": "9875abb4744dafa040ed78d1b446eb8a23f9ef14fbaa9a78c6813fbfa12eda25",
+      "registry_integrity": "sha512-xmLk3wLkbizPAiLyomjgFFosf2ys9b5Ghb+oh/k2tnvipNz8OFrQOiTcWCzyK7MpBp9KkyGtfvgfLUivbmuGYA==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/compiler-ssr/-/compiler-ssr-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/compiler-ssr",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/compiler-ssr/-/compiler-ssr-3.5.42.tgz",
+          "registry_integrity": "sha512-xmLk3wLkbizPAiLyomjgFFosf2ys9b5Ghb+oh/k2tnvipNz8OFrQOiTcWCzyK7MpBp9KkyGtfvgfLUivbmuGYA=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/compiler-ssr",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/compiler-ssr",
+          "dependency": "@vue/compiler-dom",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "@vue/server-renderer",
+      "version": "3.5.42",
+      "archive": "vue-server-renderer-3.5.42.tgz",
+      "tar_sha256": "37cd385652fb1de2a1f5306fd01552f530d38399af3a74abaf7c73f49c9593db",
+      "registry_integrity": "sha512-2++5dUyYS4gvo7xQXSECUDhB7TS0aOl5SeVfC5qSq1Jgfhjvegw1zqhwTIR3imZ+QYPJQw9gfcFvXGAjGZ7ajQ==",
+      "registry_tarball": "https://registry.npmjs.org/@vue/server-renderer/-/server-renderer-3.5.42.tgz",
+      "private_dependency_closure": [
+        {
+          "path": ".",
+          "name": "@vue/server-renderer",
+          "version": "3.5.42",
+          "registry_tarball": "https://registry.npmjs.org/@vue/server-renderer/-/server-renderer-3.5.42.tgz",
+          "registry_integrity": "sha512-2++5dUyYS4gvo7xQXSECUDhB7TS0aOl5SeVfC5qSq1Jgfhjvegw1zqhwTIR3imZ+QYPJQw9gfcFvXGAjGZ7ajQ=="
+        }
+      ],
+      "shared_vue_edges": [
+        {
+          "from": "@vue/server-renderer",
+          "dependency": "@vue/shared",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/server-renderer",
+          "dependency": "@vue/compiler-ssr",
+          "version": "3.5.42"
+        },
+        {
+          "from": "@vue/server-renderer",
+          "dependency": "@vue/runtime-dom",
+          "version": "3.5.42"
+        }
+      ]
+    },
+    {
+      "name": "decode-uri-component",
+      "version": "0.5.1+erp.1",
+      "archive": "decode-uri-component-0.5.1+erp.1.tgz",
+      "tar_sha256": "10c8512a73910beecdbac8f6b86a1a917c1695af9deef31054ea36e18996a7a4",
+      "registry_integrity": "sha512-vWHQkXgg2cE3BB4rR0c+PYw9BCQzLoNIRMI7AunIkZst74tw/vpPp7VLoYtsR/cy1f55g3XDWUslfeCZjiZJyA==",
+      "registry_tarball": "https://registry.npmjs.org/decode-uri-component/-/decode-uri-component-0.5.1.tgz",
+      "upstream_version": "0.5.1",
+      "local_adapter": "scripts/quality/patch_runtime_decoder.py",
+      "private_dependency_closure": []
+    }
+  ],
+  "shared_vue_family": {
+    "vue": "3.5.42",
+    "@vue/shared": "3.5.42",
+    "@vue/runtime-dom": "3.5.42",
+    "@vue/runtime-core": "3.5.42",
+    "@vue/reactivity": "3.5.42",
+    "@vue/compiler-core": "3.5.42",
+    "@vue/compiler-dom": "3.5.42",
+    "@vue/compiler-sfc": "3.5.42",
+    "@vue/compiler-ssr": "3.5.42",
+    "@vue/server-renderer": "3.5.42"
+  },
+  "dependency_manifest_patches": [
+    {
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss-modules-sync/package.json",
+      "source_sha256": "420b659c65b7120df1b6e2f8a5ed0389891aa7561e98060445a2c794e333aa8b",
+      "name": "postcss-modules-sync",
+      "original_version": "1.0.0",
+      "replacement_version": "1.0.0+erp.1",
+      "reason": "Exact legacy consumer outputs matched28baseline checks; four source-map disclosure guards passed; real asset rebuild still required",
+      "dependency": "postcss",
+      "original_dependency": "^5.2.5",
+      "replacement_dependency": "8.5.33"
+    },
+    {
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss-modules-local-by-default/package.json",
+      "source_sha256": "62e5ffcb8448565fd66103d247fe803763e3fd6870f0f24b9e12da7048c46129",
+      "name": "postcss-modules-local-by-default",
+      "original_version": "1.2.0",
+      "replacement_version": "1.2.0+erp.1",
+      "reason": "Exact legacy consumer outputs matched28baseline checks; four source-map disclosure guards passed; real asset rebuild still required",
+      "dependency": "postcss",
+      "original_dependency": "^6.0.1",
+      "replacement_dependency": "8.5.33"
+    },
+    {
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/postcss-modules-scope/package.json",
+      "source_sha256": "4ba0ce2317094ec17460edb6fd7e88c3f842903bf516228c5a67c1cabaad9df7",
+      "name": "postcss-modules-scope",
+      "original_version": "1.1.0",
+      "replacement_version": "1.1.0+erp.1",
+      "reason": "Exact legacy consumer outputs matched28baseline checks; four source-map disclosure guards passed; real asset rebuild still required",
+      "dependency": "postcss",
+      "original_dependency": "^6.0.1",
+      "replacement_dependency": "8.5.33"
+    },
+    {
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/component-compiler-utils/package.json",
+      "source_sha256": "277d56baaa2d9d9bba3366979fae3d94b2590e8f506d787f9a3536441e1bf6e6",
+      "name": "@vue/component-compiler-utils",
+      "original_version": "3.3.0",
+      "replacement_version": "3.3.0+erp.1",
+      "reason": "Exact legacy consumer outputs matched28baseline checks; four source-map disclosure guards passed; real asset rebuild still required",
+      "dependency": "postcss",
+      "original_dependency": "^7.0.36",
+      "replacement_dependency": "8.5.33"
+    },
+    {
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/source-map-resolve/package.json",
+      "source_sha256": "436a794b5e91e7bc0be8c1adb6d5e161bed7508a21c68b4524bc278c036cdac9",
+      "name": "source-map-resolve",
+      "original_version": "0.5.3",
+      "original_dependency": "^0.2.0",
+      "replacement_version": "0.5.3+erp.1",
+      "dependency": "decode-uri-component",
+      "replacement_dependency": "0.5.1+erp.1",
+      "reason": "Maintain callable CommonJS and legacy plus semantics while using unchanged maintained linear decoder; exact source-map consumer outputs passed"
+    }
+  ],
+  "schema_version": 1,
+  "validation": {
+    "base_packages": "18synthetic API checks;20archives/102dependency edges independently isolated;19module loads;LinuxVite check required",
+    "legacy_css": "28exact consumer output matches;4source-map disclosure guards passed",
+    "decoder": "524valid vectors;8malformed;5type guards;actual consumer outputs;224KB case passed",
+    "vue": "Packaged10module singleton family;SSR/compiler checks;advisory audit zero"
+  },
+  "orphan_package_removals": [
+    {
+      "package": "@vue/reactivity-transform",
+      "installed_version": "3.3.9",
+      "target_path": "/home/frappe/frappe-bench/apps/frappe/node_modules/@vue/reactivity-transform",
+      "installed_package_sha256": "8ec598ae0312b69f162719cfa77c13a8b823268f852ea3c094c27195d04e1a5d",
+      "consumer_replacement": {
+        "package": "@vue/compiler-sfc",
+        "version": "3.5.42"
+      },
+      "evidence": "1040 package manifests and40836code files across actual Frappe/ERPNext trees: only external references were original compiler-sfc3.3.9; replacement3.5.42 no longer depends on or imports transform. Static audit had0errors; undocumented dynamic imports are not claimed impossible.",
+      "evidence_sha256": "a17eff60ed1428b429003bbf98bdf1bbfe8d60c2570c10653e13ea3fd2efc7e4"
+    }
+  ]
+}

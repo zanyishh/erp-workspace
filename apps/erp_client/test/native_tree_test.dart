@@ -8,6 +8,20 @@ class HierarchyApi extends ErpApi {
   HierarchyApi() : super(Uri.parse('http://localhost:8081'));
   bool fail = false;
   bool create = true;
+  bool manage = false;
+  final changes = <String>[];
+  @override
+  Future<void> changeTreeRecord(
+    String doctype,
+    String name,
+    String modified,
+    String action, {
+    String? company,
+    String? newName,
+  }) async {
+    changes.add('$action $name $modified $company');
+  }
+
   @override
   Future<List<Map<String, dynamic>>> nativeRecords(
     String doctype, {
@@ -34,13 +48,19 @@ class HierarchyApi extends ErpApi {
             ]
           : start == 0
           ? [
-              {'name': 'STORES', 'title': 'Stores', 'expandable': 0},
+              {
+                'name': 'STORES',
+                'title': 'Stores',
+                'expandable': 0,
+                'modified': 'r1',
+              },
             ]
           : [
               {'name': 'TRANSIT', 'title': 'Transit', 'expandable': 0},
             ],
       'has_more': parent != null && start == 0,
       'can_create': create,
+      'can_delete': manage,
     };
   }
 
@@ -85,7 +105,7 @@ void main() {
   setUp(() => api = HierarchyApi());
   tearDown(() => api.close());
 
-  Future<void> openTree(WidgetTester tester) async {
+  Future<void> openTree(WidgetTester tester, {bool compact = false}) async {
     await tester.pumpWidget(
       MaterialApp(
         home: NativeRecordScreen(
@@ -101,8 +121,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Browse hierarchy'), findsOneWidget);
-    await tester.tap(find.byTooltip('Browse hierarchy'));
+    if (compact) {
+      await tester.tap(find.byTooltip('Record actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Browse hierarchy'));
+    } else {
+      await tester.tap(find.byTooltip('Browse hierarchy'));
+    }
     await tester.pumpAndSettle();
   }
 
@@ -113,7 +138,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await openTree(tester);
+      await openTree(tester, compact: true);
       await tester.tap(find.text('All warehouses'));
       await tester.pumpAndSettle();
       expect(find.text('Stores'), findsOneWidget);
@@ -131,6 +156,31 @@ void main() {
       );
       expect(find.text('Stores'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'destructive tree action requires confirmation for the selected record',
+    (tester) async {
+      api.manage = true;
+      await openTree(tester);
+      await tester.tap(find.text('All warehouses'));
+      await tester.pumpAndSettle();
+      Future<void> chooseDelete() async {
+        await tester.tap(find.byTooltip('Actions for STORES'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle();
+      }
+
+      await chooseDelete();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(api.changes, isEmpty);
+      await chooseDelete();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+      expect(api.changes, ['delete STORES r1 Test Company']);
     },
   );
 

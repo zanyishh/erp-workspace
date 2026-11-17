@@ -1,0 +1,42 @@
+# Passive baseline only. Active fuzzing requires a reviewed API schema and fixture reset plan.
+env:
+  contexts:
+    - name: synthetic-native-test
+      urls:
+        - http://native-test-frontend:8080
+      includePaths:
+        - 'http://native-test-frontend:8080/.*'
+      excludePaths:
+        - 'http://native-test-frontend:8080/api/method/logout.*'
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+jobs:
+  - type: spider
+    parameters:
+      context: synthetic-native-test
+      url: http://native-test-frontend:8080/login
+      maxDuration: 1
+      maxDepth: 2
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 3
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/reports
+      reportFile: zap.json
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/reports
+      reportFile: zap.html
+  - type: exitStatus
+    alwaysRun: true
+    parameters:
+      errorLevel: High
+      warnLevel: Medium
+      okExitValue: 0
+      errorExitValue: 1
+      warnExitValue: 2

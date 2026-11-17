@@ -18,9 +18,8 @@ void main() {
       MaterialApp(
         theme: WorkspaceTheme.theme,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: const TextScaler.linear(1.3)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.3)),
           child: child!,
         ),
         home: SignInScreen(
@@ -81,9 +80,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           builder: (c, child) => MediaQuery(
-            data: MediaQuery.of(
-              c,
-            ).copyWith(textScaler: const TextScaler.linear(1.6)),
+            data: MediaQuery.of(c)
+                .copyWith(textScaler: const TextScaler.linear(1.6)),
             child: child!,
           ),
           home: Scaffold(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/erp_models.dart';
@@ -39,32 +40,72 @@ void main() {
     },
   );
 
-  test(
-    'unpaid invoice drilldown applies the posted balance and company filters on every page',
-    () async {
-      final requests = <Map<String, String>>[];
-      server.listen((r) async {
-        requests.add(r.uri.queryParameters);
-        r.response.headers.contentType = ContentType.json;
-        r.response.write('{"message":[]}');
-        await r.response.close();
+  for (final mode in ['debug', 'profile', 'release']) {
+    for (final android in [true, false]) {
+      test('service origin policy for Android=$android in $mode', () {
+        Uri validate(String value) => validateServiceOrigin(
+          Uri.parse(value),
+          isAndroid: android,
+          isRelease: mode == 'release',
+          isProfile: mode == 'profile',
+        );
+        for (final host in ['localhost', '127.0.0.1', '[::1]', '10.0.2.2']) {
+          final local = 'http://$host:8081';
+          if (android && mode != 'debug') {
+            expect(
+              () => validate(local),
+              throwsA(
+                isA<ErpException>().having(
+                  (error) => error.message,
+                  'configuration instructions',
+                  contains('HTTPS'),
+                ),
+              ),
+            );
+          } else {
+            expect(validate(local), Uri.parse(local));
+          }
+        }
+        expect(
+          validate('https://workspace.example.com/'),
+          Uri.parse('https://workspace.example.com'),
+        );
+        for (final invalid in [
+          'http://workspace.example.com',
+          'https://user@workspace.example.com/',
+          'https://workspace.example.com/private',
+          'https://workspace.example.com/?secret=value',
+          'https://workspace.example.com/#fragment',
+        ]) {
+          expect(() => validate(invalid), throwsA(isA<ErpException>()));
+        }
       });
-      await api.records(
-        ErpModule.accounts,
-        company: 'Pilot mill',
-        unpaidOnly: true,
-        start: 50,
-        query: 'Clerk',
-      );
-      await api.records(ErpModule.accounts, company: 'Pilot mill');
-      final filtered = jsonDecode(requests.first['filters']!);
-      expect(filtered, contains(equals(['company', '=', 'Pilot mill'])));
-      expect(filtered, contains(equals(['docstatus', '=', 1])));
-      expect(filtered, contains(equals(['outstanding_amount', '>', 0])));
-      expect(requests.first['limit_start'], '50');
-      expect(requests.last['filters'], isNot(contains('outstanding_amount')));
-    },
-  );
+    }
+  }
+
+  test('unpaid invoice drilldown applies the posted balance and company filters on every page', () async {
+    final requests = <Map<String, String>>[];
+    server.listen((r) async {
+      requests.add(r.uri.queryParameters);
+      r.response.headers.contentType = ContentType.json;
+      r.response.write('{"message":[]}');
+      await r.response.close();
+    });
+    await api.records(
+      ErpModule.accounts,
+      company: 'Pilot mill',
+      unpaidOnly: true,
+      start: 50,
+      query: 'Clerk',
+    );
+    await api.records(ErpModule.accounts, company: 'Pilot mill');
+    final filtered = jsonDecode(requests.first['filters']!);
+    expect(filtered, contains(equals(['company', '=', 'Pilot mill'])));
+    expect(filtered, contains(equals(['docstatus', '=', 1])));
+    expect(filtered, contains(equals(['outstanding_amount', '>', 0])));
+    expect(requests.first['limit_start'], '50');
+    expect(requests.last['filters'], isNot(contains('outstanding_amount')));
+  });
 
   test('rejected credentials tell a signed-out user how to retry', () async {
     server.listen((r) async {
@@ -110,103 +151,96 @@ void main() {
     });
   }
 
-  test(
-    'verification uses the same temporary ID, preserves a leading zero, and only accepts a real session',
-    () async {
-      final requests = <Map<String, String>>[];
-      server.listen((r) async {
-        final values = Uri.splitQueryString(await utf8.decoder.bind(r).join());
-        requests.add(values);
-        r.response.headers.contentType = ContentType.json;
-        if (values['usr'] != null) {
-          r.response.write(
-            jsonEncode({
-              'verification': {
-                'method': 'Email',
-                'setup': true,
-                'prompt': 'Check your registered email.',
-              },
-              'tmp_id': 'test-challenge',
-            }),
-          );
-        } else if (values['otp'] != '012345') {
-          r.response.statusCode = 401;
-          r.response.write('{"exc_type":"AuthenticationError"}');
-        } else {
-          r.response.cookies.add(Cookie('sid', 'verified-session'));
-          r.response.write('{"message":"Logged In","full_name":"Test Staff"}');
-        }
-        await r.response.close();
-      });
-      late LoginVerification challenge;
-      try {
-        await api.login('staff', 'synthetic');
-        fail('A verification challenge is required');
-      } on LoginVerification catch (e) {
-        challenge = e;
+  test('verification uses the same temporary ID, preserves a leading zero, and only accepts a real session', () async {
+    final requests = <Map<String, String>>[];
+    server.listen((r) async {
+      final values = Uri.splitQueryString(await utf8.decoder.bind(r).join());
+      requests.add(values);
+      r.response.headers.contentType = ContentType.json;
+      if (values['usr'] != null) {
+        r.response.write(
+          jsonEncode({
+            'verification': {
+              'method': 'Email',
+              'setup': true,
+              'prompt': 'Check your registered email.',
+            },
+            'tmp_id': 'test-challenge',
+          }),
+        );
+      } else if (values['otp'] != '012345') {
+        r.response.statusCode = 401;
+        r.response.write('{"exc_type":"AuthenticationError"}');
+      } else {
+        r.response.cookies.add(Cookie('sid', 'verified-session'));
+        r.response.write('{"message":"Logged In","full_name":"Test Staff"}');
       }
-      expect(challenge.prompt, contains('registered email'));
-      await expectLater(
-        api.verifyLogin('staff', challenge, '000000'),
-        throwsA(
-          isA<ErpException>().having(
-            (e) => e.message,
-            'recovery',
-            contains('code'),
-          ),
+      await r.response.close();
+    });
+    late LoginVerification challenge;
+    try {
+      await api.login('staff', 'synthetic');
+      fail('A verification challenge is required');
+    } on LoginVerification catch (e) {
+      challenge = e;
+    }
+    expect(challenge.prompt, contains('registered email'));
+    await expectLater(
+      api.verifyLogin('staff', challenge, '000000'),
+      throwsA(
+        isA<ErpException>().having(
+          (e) => e.message,
+          'recovery',
+          contains('code'),
         ),
-      );
-      await api.verifyLogin('staff', challenge, '012345');
-      expect(api.userName, 'Test Staff');
-      expect(api.account, 'staff');
-      expect(requests, [
-        {'usr': 'staff', 'pwd': 'synthetic'},
-        {'otp': '000000', 'tmp_id': 'test-challenge'},
-        {'otp': '012345', 'tmp_id': 'test-challenge'},
-      ]);
-    },
-  );
+      ),
+    );
+    await api.verifyLogin('staff', challenge, '012345');
+    expect(api.userName, 'Test Staff');
+    expect(api.account, 'staff');
+    expect(requests, [
+      {'usr': 'staff', 'pwd': 'synthetic'},
+      {'otp': '000000', 'tmp_id': 'test-challenge'},
+      {'otp': '012345', 'tmp_id': 'test-challenge'},
+    ]);
+  });
 
-  test(
-    'an authenticated portal user can redeem an invitation before a fresh system login',
-    () async {
-      final visited = <String>[];
-      server.listen((request) async {
-        final action = request.uri.path.split('/').last;
-        visited.add(action);
-        request.response.headers.contentType = ContentType.json;
-        if (action == 'login') {
-          request.response.cookies.add(Cookie('sid', 'portal-session'));
-          request.response.write('{"message":"No App"}');
-        } else if (action.endsWith('accept_invite')) {
-          expect(request.cookies.single.value, 'portal-session');
-          expect(
-            Uri.splitQueryString(await utf8.decoder.bind(request).join()),
-            {'token': 'test-code'},
-          );
-          request.response.write(
-            '{"message":{"email":"person@example.invalid","company":"Example"}}',
-          );
-        } else {
-          request.response.write('{}');
-        }
-        await request.response.close();
-      });
-      await api.redeemExistingInvitation(
-        'test-code',
-        () => api.login('person@example.invalid', 'test-password'),
-      );
-      expect(visited, [
-        'login',
-        'erp_extensions.onboarding.accept_invite',
-        'logout',
-      ]);
-      await expectLater(
-        api.login('person@example.invalid', 'test-password'),
-        throwsA(isA<ErpException>()),
-      );
-    },
-  );
+  test('an authenticated portal user can redeem an invitation before a fresh system login', () async {
+    final visited = <String>[];
+    server.listen((request) async {
+      final action = request.uri.path.split('/').last;
+      visited.add(action);
+      request.response.headers.contentType = ContentType.json;
+      if (action == 'login') {
+        request.response.cookies.add(Cookie('sid', 'portal-session'));
+        request.response.write('{"message":"No App"}');
+      } else if (action.endsWith('accept_invite')) {
+        expect(request.cookies.single.value, 'portal-session');
+        expect(Uri.splitQueryString(await utf8.decoder.bind(request).join()), {
+          'token': 'test-code',
+        });
+        request.response.write(
+          '{"message":{"email":"person@example.invalid","company":"Example"}}',
+        );
+      } else {
+        request.response.write('{}');
+      }
+      await request.response.close();
+    });
+    await api.redeemExistingInvitation(
+      'test-code',
+      () => api.login('person@example.invalid', 'test-password'),
+    );
+    expect(visited, [
+      'login',
+      'erp_extensions.onboarding.accept_invite',
+      'logout',
+    ]);
+    await expectLater(
+      api.login('person@example.invalid', 'test-password'),
+      throwsA(isA<ErpException>()),
+    );
+  });
 
   test('authenticated reads send the login session and scoped query', () async {
     final seen = <HttpRequest>[];
@@ -285,53 +319,48 @@ void main() {
       );
     },
   );
-  test(
-    'dashboard totals use company currency rather than mixing invoice currencies',
-    () async {
-      var unpaidFilterSeen = false;
-      server.listen((r) async {
-        final q = r.uri.queryParameters;
-        final type = q['doctype'];
-        Object response;
-        if (r.uri.path.endsWith('get_count')) {
-          final filters = jsonDecode(q['filters']!);
-          if (type == 'Sales Invoice' &&
-              filters.any((f) => f[0] == 'outstanding_amount')) {
-            unpaidFilterSeen = true;
-          }
-          response = 1;
-        } else if (type == 'Company') {
+  test('dashboard totals use company currency rather than mixing invoice currencies', () async {
+    var unpaidFilterSeen = false;
+    server.listen((r) async {
+      final q = r.uri.queryParameters;
+      final type = q['doctype'];
+      Object response;
+      if (r.uri.path.endsWith('get_count')) {
+        final filters = jsonDecode(q['filters']!);
+        if (type == 'Sales Invoice' &&
+            filters.any((f) => f[0] == 'outstanding_amount')) {
+          unpaidFilterSeen = true;
+        }
+        response = 1;
+      } else if (type == 'Company') {
+        response = [
+          {'name': 'ERP Evaluation', 'default_currency': 'INR'},
+        ];
+      } else {
+        final fields = jsonDecode(q['fields']!);
+        if (fields.any((f) => f is Map && f['as'] == 'billed')) {
           response = [
-            {'name': 'ERP Evaluation', 'default_currency': 'INR'},
+            {
+              'billed':
+                  fields.any((f) => f is Map && f['SUM'] == 'base_grand_total')
+                  ? 8500
+                  : 100,
+              'unpaid': 0,
+            },
           ];
         } else {
-          final fields = jsonDecode(q['fields']!);
-          if (fields.any((f) => f is Map && f['as'] == 'billed')) {
-            response = [
-              {
-                'billed':
-                    fields.any(
-                      (f) => f is Map && f['SUM'] == 'base_grand_total',
-                    )
-                    ? 8500
-                    : 100,
-                'unpaid': 0,
-              },
-            ];
-          } else {
-            response = <Object>[];
-          }
+          response = <Object>[];
         }
-        r.response.headers.contentType = ContentType.json;
-        r.response.write(jsonEncode({'message': response}));
-        await r.response.close();
-      });
-      final data = await api.snapshot(ReportingPeriod.month);
-      expect(data.currency, 'INR');
-      expect(data.billed, 8500);
-      expect(unpaidFilterSeen, isTrue);
-    },
-  );
+      }
+      r.response.headers.contentType = ContentType.json;
+      r.response.write(jsonEncode({'message': response}));
+      await r.response.close();
+    });
+    final data = await api.snapshot(ReportingPeriod.month);
+    expect(data.currency, 'INR');
+    expect(data.billed, 8500);
+    expect(unpaidFilterSeen, isTrue);
+  });
   test(
     'sign-out revokes the server session with POST and drops its cookie',
     () async {

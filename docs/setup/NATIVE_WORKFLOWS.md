@@ -2,11 +2,13 @@
 
 The current increment moves document operations into Flutter while retaining ERPNext's server-side business rules. The complete conversion is **in progress**. Metadata coverage, working native controls and verified business scenarios are separate measures. This page records the original foundation milestone. The subsequent industry-pack increment extends its design and workflows. AI remains deferred.
 
+See the [14 November General ERP workflow verification](../coverage/2026-11-14-general-workflow-parity.md) for subsequent report, payment, inventory, manufacturing, form and project changes; the counts below describe the original foundation.
+
 ## Run
 
-Double-click `scripts/erp-workspace.command`. It starts the isolated native verification site and opens **ERP Workspace.app**. The local launcher configures the service. To explore the synthetic demo, sign in with account `Administrator`, password `admin`, company **ERP Native Verification**. These are local evaluation credentials. The Android emulator address is `http://10.0.2.2:8081`. Customer release builds must supply a deployed HTTPS origin through `--dart-define=ERP_SERVER=https://workspace.example.com`. New owners choose **Create a company** in the app. Owners invite staff through **Team access** in account settings and share a code for **Join with invitation**.
+Double-click `scripts/erp-workspace.command` to start the isolated service and install **ERP Workspace Local** in your Applications folder. The current demo opens **Meridian Trading** for General ERP, with **Kaveri Loomworks** available as the separate Knitting demo. The loopback-only local build reads an owner-only credential installed in the app’s macOS container. If the service is stopped, run the launcher and use **Retry connection** in the app. `--install-only` installs the app without opening it. The separate `scripts/erp-customer.command` installs **ERP Workspace Customer** with normal password sign-in to the local customer copy at `http://127.0.0.1:8082`. Hosted customer builds require a configured HTTPS origin. The user has confirmed an online service for multiple devices; this local install does not meet that delivery requirement. See the private launch review.
 
-The original ERPNext evaluation site remains separate at `http://localhost:8080`, company **ERP Evaluation**. Its database and files are preserved. The native extension is installed only on `native-test.localhost`. An earlier automatic approval review rejected modifying the original site's installed apps; no installation was performed there.
+The original ERPNext evaluation site remains separate at `http://localhost:8080`, company **ERP Evaluation**. Its database and files are preserved. The native extension was initially installed on `native-test.localhost`; the subsequent customer migration also uses a separate local customer site. An earlier automatic approval review rejected modifying the original site's installed apps; no installation was performed there.
 
 ERPNext, MariaDB and Redis run locally as the business server; the Flutter program is a native client. The app uses no Vercel deployment. Its document forms, lists, reports and activity routes run inside Flutter. The original application remains an explicitly labelled administrative fallback.
 
@@ -36,7 +38,7 @@ The real Dart HTTP smoke tool additionally creates/edits/reopens a test document
 
 Detailed logs live in ignored `.local/reports/`. Current counts and build evidence are maintained in `docs/coverage/native-verification.json`; do not substitute metadata counts for scenario coverage.
 
-## Outstanding parity
+## Outstanding parity at the original foundation milestone
 
 The source inventory contains 835 DocTypes, including 364 child tables and 63 single settings, and 198 report definitions. These are not 835 fully verified native workflows. Generated filters exist for 171 reports; 138 still have custom/dynamic behavior requiring adapters. The conditional-expression inventory has 1,112 distinct rules, with 1,105 compiled; the seven unsupported expressions are recorded explicitly. Custom user expressions beyond the compiled source also need handling.
 
@@ -45,3 +47,11 @@ Remaining work includes full report/chart/grouped-builder parity; form-specific 
 Further localisation, accessibility and large-data verification are also outstanding.
 
 Windows execution requires a Windows host. iPhone and Android device execution, distribution signing and store release require their devices/accounts. Simulator/APK builds establish compilation, not device parity or a distributable installer.
+
+## Direct local Mac launch
+
+The named launcher provisions **Kaveri Loomworks** only on `native-test.localhost`. It creates a non-administrator owner restricted to that company, two submitted sales invoices totaling INR 6,680, one draft invoice, and one knitting job. Re-running setup preserves the sample documents and user changes. Customer names, services and amounts are synthetic.
+
+A plain `flutter run -d macos` also opens the provisioned local workspace. To develop the sign-in screens, pass `--dart-define=ERP_LOCAL_WORKSPACE=false`. A configured remote origin or a release built without explicit local mode uses normal authentication. The local release uses `ERP_LOCAL_WORKSPACE=true` and the fixed origin `http://127.0.0.1:8081`. The console-only bootstrap generates the local account’s API key and secret. The launcher writes them atomically to a mode-0600 file in the sandboxed Mac app’s Application Support directory. The standard authenticated Frappe API checks company and field permissions on requests. The executable contains no local token, administrator password or hosted credential. The app asks macOS for its container path and sends the token directly to loopback with redirects and proxies disabled.
+
+The connected rehearsal in `apps/erp_client/tool/pilot_local_launch_test.dart` cold-started the app twice with its provisioned account. Each start loaded the General overview, read INR 6,680 billed and two unpaid invoices, opened the mill overview, and returned to General. The pilot supplies the native container-location response in the Flutter test engine. The separate local workspace widget tests cover a stopped service, retry, credential routing and absence of authentication screens.

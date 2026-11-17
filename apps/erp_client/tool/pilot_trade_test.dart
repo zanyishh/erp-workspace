@@ -26,15 +26,14 @@ void main() {
               'Set PILOT_DIR to the isolated trade fixture directory.',
             )),
       );
-      final cfg =
-          jsonDecode(File('${dir.path}/erp-fixture.json').readAsStringSync())
-              as Map;
+      final cfg = jsonDecode(
+        File('${dir.path}/erp-fixture.json').readAsStringSync(),
+      ) as Map;
       final flow = Platform.environment['PILOT_FLOW'] ?? 'Purchase';
       if (!{'Purchase', 'Sales'}.contains(flow) ||
           !(cfg['company'] == 'ERP Native Verification' ||
-              RegExp(
-                r'^Pilot Trade [0-9a-f]{12}$',
-              ).hasMatch(cfg['company'] as String)) ||
+              RegExp(r'^Pilot Trade [0-9a-f]{12}$')
+                  .hasMatch(cfg['company'] as String)) ||
           !(cfg['username'] as String).endsWith('@example.invalid')) {
         throw StateError(
           'Use the synthetic trade fixture and select Purchase or Sales.',
@@ -219,7 +218,7 @@ void main() {
         await press('Save');
         await ready(find.text('Saved successfully'));
         await press('Submit');
-        await tap(find.widgetWithText(FilledButton, 'Submit'));
+        await tap(find.widgetWithText(FilledButton, 'Submit document'));
         await ready(find.text('Submit completed'));
         final name = form().data['name'] as String;
         expect(form().data['docstatus'], 1);
@@ -266,6 +265,8 @@ void main() {
         num.parse(invoice.data['grand_total'].toString()),
         purchase ? 150 : 100,
       );
+      await t.pumpWidget(const SizedBox.shrink());
+      await t.pump(const Duration(seconds: 30));
       expect(t.takeException(), isNull);
     },
     timeout: const Timeout(Duration(minutes: 10)),

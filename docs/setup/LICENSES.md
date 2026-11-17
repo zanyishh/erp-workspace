@@ -28,6 +28,8 @@ This is a source and notice review of the three downloaded repositories, not an 
 
 The evaluation deployment uses the official MariaDB 11.8 and Redis 6.2 images from the upstream deployment recipe. Colima is MIT licensed; the Docker client and Compose are Apache-2.0 licensed. This setup does not install Docker Desktop. Apple/Xcode and Android SDK tools have separate development terms and are not claims about the license of our application.
 
+The isolated Kerberos test builder includes the Moby seccomp profile from `github.com/moby/profiles/seccomp` v0.2.3 under Apache-2.0. Its original profile, license, source revision and the dated local three-syscall modification notice are preserved as `infrastructure/erpnext/security/tool-os-krb5-seccomp*`.
+
 ## Primary sources
 
 - [ERPNext license](https://github.com/frappe/erpnext/blob/v16.54.0/license.txt)

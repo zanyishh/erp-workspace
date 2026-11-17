@@ -5,8 +5,12 @@ import unittest
 from unittest.mock import patch
 
 import frappe
+from erp_extensions import tests as _test_session
 
-COMPANY = "ERP Knitting Verification"
+# Discovery imports this fixture under both qualified and unqualified module names.
+if not hasattr(_test_session, '_knitting_company'):
+    _test_session._knitting_company = 'ERP Knitting Verification ' + frappe.generate_hash(length=12)
+COMPANY = _test_session._knitting_company
 
 
 def optional_module(name):
@@ -29,7 +33,7 @@ class KnittingTests(unittest.TestCase):
         frappe.set_user("Administrator")
         if not frappe.db.exists("Company", COMPANY):
             from erpnext.setup.setup_wizard.operations.install_fixtures import install_company
-            install_company(frappe._dict(company_name=COMPANY, company_abbr="KTEST", currency="INR", country="India",
+            install_company(frappe._dict(company_name=COMPANY, company_abbr="KT" + COMPANY.rsplit(' ', 1)[1].upper(), currency="INR", country="India",
                 chart_of_accounts="Standard", fy_start_date="2026-04-01", fy_end_date="2027-03-31", fiscal_year="2026-2027"))
         module = optional_module("erp_extensions.knitting.install")
         if module:
@@ -55,6 +59,9 @@ class KnittingTests(unittest.TestCase):
     def tearDown(self):
         frappe.set_user("Administrator")
         frappe.db.rollback()
+        # Redis permission reads outlive SQL rollback; these staff are shared across fixtures.
+        for user in ("knit-operator@example.invalid", "knit-checker@example.invalid", "knit-accountant@example.invalid"):
+            frappe.cache.hdel("user_permissions", user)
 
     @classmethod
     def tearDownClass(cls):
@@ -210,6 +217,8 @@ class KnittingTests(unittest.TestCase):
                            "target_kg": target, "fabric_item": self.items["fabric"]}]})["data"]["job"]
 
     def call(self, action, values, request_id=None, modified=None):
+        if action == "invoice" and "tax_template" not in values and "no_tax" not in values:
+            values = {**values, "no_tax": True}
         if values.get("job") and modified is None:
             modified = str(frappe.db.get_value("Knitting Job", values["job"], "modified"))
         return self.knitting().command(COMPANY, action, values, request_id or frappe.generate_hash(length=20), modified)
@@ -476,7 +485,8 @@ class KnittingTests(unittest.TestCase):
         self.assertEqual(before['jobs'][0].name, self.job)
         warehouse_reads = [call for call in lists.call_args_list
                            if call.args == ('Warehouse',) and
-                           call.kwargs.get('filters') == {'name': self.warehouse}]
+                           call.kwargs.get('filters') == {} and
+                           call.kwargs.get('user') == user]
         self.assertEqual(len(warehouse_reads), 1)
         frappe.set_user('Administrator')
         frappe.get_doc({"doctype": "User Permission", "user": user, "allow": "Warehouse", "for_value": allowed, "apply_to_all_doctypes": 1}).insert()
@@ -610,7 +620,73 @@ class KnittingTests(unittest.TestCase):
         self.assertEqual(workflow()["units"], "0")
         self.assertNotIn("only_lot", workflow())
         frappe.set_user("knit-checker@example.invalid")
-        self.assertNotIn("only_delivery", workflow())
+        snapshot = self.knitting().snapshot(COMPANY, self.job)
+        self.assertIsNone(snapshot["jobs"][0]["balances"])
+        self.assertIs(snapshot["jobs"][0]["reconciliation_available"], False)
+        self.assertNotIn("workflow", snapshot["jobs"][0])
+        self.assertEqual(next(row for row in snapshot["rolls"] if row.name == rolls[1]).state, "Awaiting QC")
+
+    def test_service_invoice_uses_explicit_billing_customer_without_reassigning_material(self):
+        self.fixtures()
+        billing = frappe.copy_doc(frappe.get_doc("Customer", self.customer))
+        billing.customer_name = "Synthetic billing account " + frappe.generate_hash(length=8)
+        billing.insert()
+        payload = frappe.parse_json(frappe.get_doc("Knitting Event", {"job": self.job, "kind": "create_job"}).payload)
+        self.job = self.call("create_job", {**payload, "billing_customer": billing.name})["data"]["job"]
+        book = frappe.get_doc({"doctype": "Finance Book", "finance_book_name": "Synthetic job book " + frappe.generate_hash(length=8)}).insert()
+        job = frappe.get_doc("Knitting Job", self.job)
+        self.assertEqual(job.billing_customer, billing.name)
+        job.finance_book = book.name
+        from erp_extensions.knitting.permissions import service_write
+        with service_write():
+            job.save()
+        lot = self.receive()
+        rolls = self.produce(lot)
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        result = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})
+        invoice = frappe.get_doc("Sales Invoice", result["data"]["invoice"])
+        self.assertEqual(invoice.customer, billing.name)
+        self.assertEqual(invoice.finance_book, book.name)
+        self.assertEqual(invoice.docstatus, 1)
+        self.assertEqual(frappe.db.get_value("Knitting Job", self.job, "customer"), self.customer)
+        self.assertEqual(frappe.db.get_value("Knitting Material Lot", lot, "party"), self.customer)
+        parties = frappe.get_all("GL Entry", filters={"voucher_type": "Sales Invoice", "voucher_no": invoice.name,
+            "party_type": "Customer", "is_cancelled": 0}, pluck="party")
+        self.assertEqual(set(parties), {billing.name})
+
+    def test_new_job_defaults_bill_to_without_changing_material_owner(self):
+        self.fixtures()
+        job = frappe.get_doc('Knitting Job', self.job)
+        self.assertEqual((job.customer, job.billing_customer, job.fabric_owner),
+            (self.customer, self.customer, self.customer))
+
+    def test_new_job_rejects_bill_to_outside_customer_permission(self):
+        self.fixtures()
+        billing = frappe.copy_doc(frappe.get_doc('Customer', self.customer))
+        billing.customer_name = 'Restricted billing ' + frappe.generate_hash(length=8)
+        billing.insert()
+        payload = frappe.parse_json(frappe.get_doc('Knitting Event', {'job': self.job, 'kind': 'create_job'}).payload)
+        user = frappe.get_doc({'doctype':'User', 'email':'job-manager-'+frappe.generate_hash(length=8)+'@example.invalid',
+            'first_name':'Synthetic manager', 'send_welcome_email':0, 'roles':[{'role':'Knitting Manager'}]}).insert()
+        frappe.get_doc({'doctype':'User Permission','user':user.name,'allow':'Customer','for_value':self.customer,
+            'apply_to_all_doctypes':1}).insert()
+        frappe.get_doc({'doctype':'User Permission','user':user.name,'allow':'Company','for_value':COMPANY,
+            'apply_to_all_doctypes':1}).insert()
+        counts = tuple(frappe.db.count(dt, {'company':COMPANY}) for dt in ('Knitting Job','Knitting Event'))
+        frappe.set_user(user.name)
+        self.assertFalse(frappe.has_permission('Customer','read',doc=billing.name))
+        with self.assertRaises(frappe.PermissionError):
+            self.call('create_job', {**payload, 'billing_customer':billing.name})
+        self.assertEqual(tuple(frappe.db.count(dt, {'company':COMPANY}) for dt in ('Knitting Job','Knitting Event')), counts)
+
+    def test_new_job_bill_to_requires_financial_access(self):
+        self.fixtures()
+        payload = frappe.parse_json(frappe.get_doc('Knitting Event', {'job': self.job, 'kind': 'create_job'}).payload)
+        payload.pop('rate', None)
+        with patch('erp_extensions.knitting.permissions.capabilities', return_value={'jobs','new_job'}):
+            with self.assertRaises(frappe.PermissionError):
+                self.call('create_job', {**payload, 'billing_customer':self.customer})
 
     def test_customer_job_to_invoice_exact_balances_and_closure(self):
         self.knitting()
@@ -635,7 +711,7 @@ class KnittingTests(unittest.TestCase):
         job = next(j for j in snapshot["jobs"] if j["name"] == self.job)
         self.assertEqual(job["balances"], {"received_kg": "100.000", "consumed_kg": "90.000", "returned_kg": "5.000",
             "yarn_kg": "5.000", "produced_kg": "88.000", "delivered_kg": "88.000", "billed_kg": "88.000",
-            "fabric_kg": "0.000", "unbilled_kg": "0.000", "loss_kg": "2.000", "subcontract_kg": "0.000",
+            "fabric_kg": "0.000", "batch_rolls": "0.000", "unbilled_kg": "0.000", "loss_kg": "2.000", "subcontract_kg": "0.000",
             "fabric_transfer_in_kg": "0.000", "fabric_transfer_out_kg": "0.000", "yarn_transfer_in_kg": "0.000", "yarn_transfer_out_kg": "0.000"})
         self.assertEqual(frappe.db.count("Stock Ledger Entry", {"item_code": self.items["yarn"]}), 0)
         with self.assertRaises(frappe.ValidationError):
@@ -1027,6 +1103,16 @@ class KnittingTests(unittest.TestCase):
             row = next(r for r in result["rows"] if r["name"] == rolls[0])
             self.assertEqual(row["state"], state)
 
+    def test_deadlock_returns_a_retry_message_without_using_an_invalidated_savepoint(self):
+        from erp_extensions.knitting.api import _operation_savepoint
+        for preview in (False, True):
+            with self.subTest(preview=preview), patch.object(frappe.db, "rollback", wraps=frappe.db.rollback) as rollback:
+                with self.assertRaisesRegex(frappe.ValidationError, "Please try again"):
+                    with _operation_savepoint("deadlock_regression", preview=preview):
+                        frappe.db.rollback()  # Model the server's entire-transaction rollback.
+                        raise frappe.QueryDeadlockError("transaction rolled back")
+                rollback.assert_called_once_with()
+
     def test_bulk_production_is_atomic_and_correction_restores_custody(self):
         self.fixtures(target="88.000")
         lot = self.receive()
@@ -1115,13 +1201,22 @@ class KnittingTests(unittest.TestCase):
         self.assertTrue(frappe.get_doc("Sales Invoice", credit["data"]["invoice"]).is_return)
 
     def test_knitting_invoice_native_payment_settles_receivable_through_original_controller(self):
+        from erp_extensions import invoices
         self.fixtures()
+        company_settings = invoices.get_settings(COMPANY)
+        payment_details = dict(company_settings['settings'], template_id='seam', bank_name='Verification Bank',
+                               account_number='00000123', upi_id='verification@demobank')
+        invoices.save_settings(COMPANY, payment_details, company_settings['revision'])
         rolls = self.produce(self.receive())
         self.release(rolls)
         delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
         invoice = self.call("invoice", {"job": self.job, "deliveries": [delivery["event"]]})["data"]["invoice"]
         from erp_extensions import api as native
         source = frappe.get_doc("Sales Invoice", invoice)
+        bill = invoices.print_data(COMPANY, invoice)
+        self.assertEqual(bill['settings']['account_number'], '00000123')
+        self.assertEqual((bill['template_id'], bill['template_override']), ('seam', ''))
+        self.assertIn('am=8800.00', bill['upi_uri'])
         mapped = native.new_from("Sales Invoice", invoice, "Payment Entry", str(source.modified))
         values = mapped["doc"]
         cash = frappe.db.get_value("Account", {"company": COMPANY, "account_type": "Cash", "is_group": 0}, "name")
@@ -1137,6 +1232,7 @@ class KnittingTests(unittest.TestCase):
         payment = native.save(payload(native.schema("Payment Entry"), values), "Submit")
         self.assertEqual(payment["doc"]["docstatus"], 1)
         self.assertEqual(frappe.db.get_value("Sales Invoice", invoice, "outstanding_amount"), 0)
+        self.assertFalse(invoices.print_data(COMPANY, invoice)['upi_uri'])
         rows = frappe.get_all("GL Entry", filters={"voucher_no": payment["doc"]["name"], "is_cancelled": 0}, fields=["debit", "credit"])
         self.assertEqual(sum(r.debit - r.credit for r in rows), 0)
 
@@ -1185,7 +1281,7 @@ class KnittingTests(unittest.TestCase):
         delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
         api = self.knitting()
         self.assertTrue(callable(getattr(api, "invoice_preview", None)), "A non-writing invoice review is required")
-        payload = {"job": self.job, "deliveries": [delivery["event"]]}
+        payload = {"job": self.job, "deliveries": [delivery["event"]], "no_tax": True}
         before = {kind: frappe.db.count(kind) for kind in ("Sales Invoice", "GL Entry", "Knitting Event", "Item Price")}
         modified = str(frappe.db.get_value("Knitting Job", self.job, "modified"))
         preview = api.invoice_preview(COMPANY, payload, modified)
@@ -1196,6 +1292,52 @@ class KnittingTests(unittest.TestCase):
             self.call("invoice", {**payload, "preview_hash": "wrong-preview"})
         invoice = self.call("invoice", {**payload, "preview_hash": preview["preview_hash"]})
         self.assertEqual(invoice["data"]["amount"], preview["grand_total"])
+
+    def test_invoice_tax_choice_is_explicit_scoped_and_identical_on_confirm(self):
+        self.fixtures()
+        rolls = self.produce(self.receive())
+        self.release(rolls)
+        delivery = self.call("deliver", {"job": self.job, "rolls": rolls})
+        api = self.knitting()
+        payload = {"job": self.job, "deliveries": [delivery["event"]]}
+        modified = str(frappe.db.get_value("Knitting Job", self.job, "modified"))
+        for invalid in ({}, {"no_tax": "true"}, {"no_tax": True, "tax_template": "both"}):
+            with self.assertRaises(frappe.ValidationError):
+                api.invoice_preview(COMPANY, {**payload, **invalid}, modified)
+        account = frappe.get_doc({"doctype": "Account", "account_name": "Synthetic invoice tax " + frappe.generate_hash(length=8),
+            "company": COMPANY, "parent_account": frappe.db.get_value("Account", {"company": COMPANY, "root_type": "Liability", "is_group": 1}, "name"),
+            "account_type": "Tax", "is_group": 0}).insert()
+        template = frappe.get_doc({"doctype": "Sales Taxes and Charges Template", "title": "Synthetic reviewed tax " + frappe.generate_hash(length=8),
+            "company": COMPANY, "is_default": 1, "taxes": [{"charge_type": "On Net Total", "account_head": account.name,
+                "description": "Synthetic tax", "rate": 10}]}).insert()
+        selected = {**payload, "tax_template": template.name}
+        preview = api.invoice_preview(COMPANY, selected, modified)
+        self.assertEqual(preview["tax_template"], template.name)
+        self.assertFalse(preview["no_tax"])
+        self.assertEqual(preview["tax_total"], "880.00")
+        self.assertEqual(preview["grand_total"], "9680.00")
+        no_tax = api.invoice_preview(COMPANY, {**payload, "no_tax": True}, modified)
+        self.assertTrue(no_tax["no_tax"])
+        self.assertIsNone(no_tax["tax_template"])
+        self.assertEqual(no_tax["tax_total"], "0.00")
+        self.assertNotEqual(preview["preview_hash"], no_tax["preview_hash"])
+        with self.assertRaises(frappe.ValidationError):
+            self.call("invoice", {**payload, "no_tax": True, "preview_hash": preview["preview_hash"]})
+        self.assertIn(template.name, {row.name for row in api.lookup(COMPANY, "SalesTaxTemplate")["rows"]})
+        frappe.db.set_value(template.doctype, template.name, "disabled", 1)
+        with self.assertRaises(frappe.ValidationError):
+            api.invoice_preview(COMPANY, selected, modified)
+        self.assertNotIn(template.name, {row.name for row in api.lookup(COMPANY, "SalesTaxTemplate")["rows"]})
+        frappe.db.set_value(template.doctype, template.name, {"disabled": 0, "company": "Another synthetic business"})
+        with self.assertRaises(frappe.PermissionError):
+            api.invoice_preview(COMPANY, selected, modified)
+        self.assertNotIn(template.name, {row.name for row in api.lookup(COMPANY, "SalesTaxTemplate")["rows"]})
+        frappe.db.set_value(template.doctype, template.name, "company", COMPANY)
+        invoice = self.call("invoice", {**selected, "preview_hash": preview["preview_hash"]})
+        doc = frappe.get_doc("Sales Invoice", invoice["data"]["invoice"])
+        self.assertEqual(doc.taxes_and_charges, template.name)
+        self.assertEqual(invoice["data"]["amount"], preview["grand_total"])
+        self.assertEqual(frappe.db.get_value("GL Entry", {"voucher_no": doc.name, "account": account.name, "is_cancelled": 0}, "credit"), 880)
 
     def test_revised_programme_uses_the_same_public_schema_as_a_new_job(self):
         self.fixtures()

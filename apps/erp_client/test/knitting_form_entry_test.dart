@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:erp_client/design.dart';
 import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/knitting_forms.dart';
@@ -8,6 +9,73 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets('$platform yarn receipt stays usable while entering weight', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 20);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewInsets);
+      final api = _SourceApi();
+      addTearDown(api.close);
+      final action = knitActions.firstWhere(
+        (a) => a.id == 'receive_yarn' && !a.needsJob,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme.copyWith(platform: platform),
+          home: KnittingCommandForm(
+            api: api,
+            workspace: WorkspaceContext.fromJson({
+              'company': 'Sample Mill',
+              'knitting_enabled': true,
+              'capabilities': ['materials'],
+            }),
+            action: action,
+            initial: {
+              'warehouse': 'Yarn Store',
+              'item': 'Cotton 30s',
+              'material_owner': 'Customer',
+              'party': 'Sample Textiles',
+              'quantity_kg': '25.000',
+              'units': '2',
+              'source_lot': 'LOT-024',
+              'party_dc_number': '0017/A',
+              'party_dc_date': '2026-11-01',
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final quantity = find.widgetWithText(TextFormField, 'Quantity · kg');
+      await tester.ensureVisible(quantity);
+      await tester.pumpAndSettle();
+      await tester.enterText(quantity, '32.750');
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pumpAndSettle();
+      expect(find.text('Review entry').hitTestable(), findsOneWidget);
+      final scroll = find.byType(SingleChildScrollView).first;
+      await tester.drag(scroll, const Offset(0, 95));
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isFalse);
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(AppBar, action.title), findsOneWidget);
+      await tester.tap(find.text('Review entry'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('32.750 kg'), findsWidgets);
+      expect(find.textContaining('0017/A'), findsWidgets);
+      expect(find.textContaining('2026-11-01'), findsWidgets);
+      expect(find.text('Confirm & post').hitTestable(), findsOneWidget);
+      expect(api.writes, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final permitted in [true, false]) {
     testWidgets('empty customer picker respects create permission $permitted', (
       tester,
@@ -47,12 +115,13 @@ void main() {
           workspace: WorkspaceContext.fromJson({
             'company': 'Sample Mill',
             'knitting_enabled': true,
-            'capabilities': ['jobs', 'billing'],
+            'capabilities': ['jobs', 'billing', 'financial_read'],
           }),
           action: knitActions.firstWhere((a) => a.id == 'invoice'),
           job: {'name': 'JOB-B', 'modified': 'v1'},
           initial: {
             'deliveries': ['DC-1'],
+            'no_tax': true,
           },
         ),
       ),
@@ -158,6 +227,7 @@ void main() {
             'knitting_enabled': true,
             'capabilities': [
               'jobs',
+              'new_job',
               'financial_read',
               'lifecycle',
               'delivery',
@@ -182,6 +252,63 @@ void main() {
     await tester.tap(find.text(customer).first);
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'new job posts the chosen order date and separate bill-to party',
+    (tester) async {
+      final api = _SourceApi()
+        ..customers = [
+          {'name': 'BILL-CUSTOMER', 'title': 'Billing customer'},
+        ];
+      await openEntry(
+        tester,
+        api,
+        'create_job',
+        initial: {
+          'customer': 'MATERIAL-CUSTOMER',
+          'target_kg': '5.000',
+          'programme': [
+            {
+              'id': 'P1',
+              'fabric': 'Jersey',
+              'knit_type': 'Tubular',
+              'target_kg': '5.000',
+            },
+          ],
+        },
+      );
+      final date = find.widgetWithText(
+        TextFormField,
+        'Order date · YYYY-MM-DD',
+      );
+      expect(date, findsOneWidget);
+      expect(
+        tester.widget<TextFormField>(date).initialValue,
+        DateTime.now().toIso8601String().substring(0, 10),
+      );
+      await tester.enterText(date, '2026-04-15');
+      final billTo = find
+          .ancestor(
+            of: find.text('Bill to (optional)'),
+            matching: find.byType(InkWell),
+          )
+          .first;
+      await tester.ensureVisible(billTo);
+      await tester.tap(billTo);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Billing customer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Review entry'));
+      await tester.pumpAndSettle();
+      expect(api.writes, 0);
+      expect(find.textContaining('2026-04-15'), findsOneWidget);
+      await tester.tap(find.text('Confirm & post'));
+      await tester.pumpAndSettle();
+      expect(api.posted?['job_date'], '2026-04-15');
+      expect(api.posted?['customer'], 'MATERIAL-CUSTOMER');
+      expect(api.posted?['billing_customer'], 'BILL-CUSTOMER');
+    },
+  );
 
   testWidgets(
     'programme revision loads the selected job and preserves its agreed rates',
@@ -486,6 +613,7 @@ class _SourceApi extends ErpApi {
   Map<String, dynamic>? posted;
   bool canCreateCustomer = false;
   bool conflict = false;
+  List<Map<String, dynamic>> customers = [];
   int writes = 0;
   final rollSearch = Completer<Map<String, dynamic>>();
   @override
@@ -524,6 +652,7 @@ class _SourceApi extends ErpApi {
       : {
           if (entity == 'Customer') 'can_create': canCreateCustomer,
           'rows': [
+            if (entity == 'Customer') ...customers,
             if (entity == 'Roll') {'name': 'X-300', 'title': 'Earlier roll'},
             if (entity == 'Job')
               {

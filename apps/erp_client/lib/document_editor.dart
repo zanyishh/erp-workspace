@@ -1,14 +1,74 @@
 import 'ui/record_icon.dart';
 import 'ui/workspace_ui.dart';
+
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import 'design.dart';
 import 'document_activity.dart';
+import 'invoice_preview.dart';
 import 'document_fields.dart';
+import 'document_review.dart';
+import 'document_dialogs.dart';
+import 'document_recovery.dart';
+import 'specialized_fields.dart';
+import 'file_actions.dart';
 import 'erp_api.dart';
 import 'native_models.dart';
+import 'operational_handoffs.dart';
 import 'widgets.dart';
 import 'ui/access_gate.dart';
+
+double _qty(Object? value) => double.tryParse(value?.toString() ?? '') ?? 0;
+
+Future<double?> _productionQuantity(
+  BuildContext context,
+  String action,
+  double maximum,
+) {
+  final units = maximum == maximum.truncateToDouble()
+      ? maximum.toStringAsFixed(0)
+      : maximum.toString();
+  var text = units;
+  return showDialog<double>(
+    context: context,
+    builder: (dialog) => StatefulBuilder(
+      builder: (context, update) {
+        final quantity = double.tryParse(text);
+        final valid =
+            quantity != null &&
+            quantity.isFinite &&
+            quantity > 0 &&
+            quantity <= maximum;
+        return AlertDialog(
+          title: Text(action),
+          content: TextFormField(
+            initialValue: units,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Finished product quantity',
+              helperText: 'Available: $units',
+              errorText: valid ? null : 'Enter a quantity up to $units.',
+            ),
+            onChanged: (v) => update(() => text = v),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: valid ? () => Navigator.pop(dialog, quantity) : null,
+              child: const Text('Review stock entry'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
 
 class DocumentEditor extends StatefulWidget {
   const DocumentEditor({
@@ -32,6 +92,41 @@ class DocumentEditor extends StatefulWidget {
 
 class _DocumentEditorState extends State<DocumentEditor> {
   var _form = GlobalKey<_NativeDocumentFormState>();
+  DocumentOperation? _completedOperation;
+  int _requestContext = 0;
+  @override
+  void initState() {
+    super.initState();
+    widget.api.addAccessListener(_accessChanged);
+  }
+
+  void _accessChanged() {
+    _requestContext++;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.api.removeAccessListener(_accessChanged);
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(DocumentEditor old) {
+    super.didUpdateWidget(old);
+    if (old.api != widget.api ||
+        old.company != widget.company ||
+        old.doctype != widget.doctype ||
+        old.name != widget.name) {
+      _requestContext++;
+      old.api.removeAccessListener(_accessChanged);
+      widget.api.addAccessListener(_accessChanged);
+      _form = GlobalKey<_NativeDocumentFormState>();
+      _freshAccess = false;
+      _future = _load();
+    }
+  }
+
   bool _freshAccess = false;
   late Future<(NativeSchema, NativeDocument)> _future = _load();
   Future<NativeDocument> _document() {
@@ -46,6 +141,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
         origin['name'] as String,
         origin['action'] as String,
         origin['modified'] as String,
+        quantity: origin['quantity'] as num?,
       );
     }
     return widget.api.nativeDocument(
@@ -68,6 +164,61 @@ class _DocumentEditorState extends State<DocumentEditor> {
     return (results[0] as NativeSchema, results[1] as NativeDocument);
   }
 
+  Future<NativeDocument> _write(
+    NativeSchema schema,
+    Map<String, dynamic> values,
+    String action, {
+    bool workflow = false,
+  }) async {
+    final api = widget.api;
+    final requestContext = _requestContext;
+    final company = values['company']?.toString() ?? widget.company;
+    Future<NativeDocument> write(String? requestId) => workflow
+        ? api.transitionNative(
+            schema.doctype,
+            values['name'] as String,
+            action,
+            modified: values['modified'] as String,
+            requestId: requestId,
+            company: requestId == null ? null : company,
+          )
+        : api.saveNative(
+            schema,
+            values,
+            action: action,
+            requestId: requestId,
+            company: requestId == null ? null : company,
+          );
+    if (company == null ||
+        !schema.operationRecoverySupported ||
+        !api.supportsOperationRecovery(company)) {
+      try {
+        return await write(null);
+      } catch (error) {
+        if (error is ErpException &&
+            (error.validationRejected ||
+                error.staleDocument ||
+                error.permissionDenied ||
+                error.sessionExpired)) {
+          rethrow;
+        }
+        throw DocumentWriteUnverified(error);
+      }
+    }
+    final operation = DocumentOperation(
+      api,
+      company,
+      workflow ? 'native_transition' : 'native_save',
+      schema.doctype,
+      values['name']?.toString(),
+      action,
+      isCurrent: () => mounted && requestContext == _requestContext,
+    );
+    final result = await operation.perform((requestId) => write(requestId));
+    _completedOperation = operation;
+    return result;
+  }
+
   Future<void> _reloadLatest() async {
     _freshAccess = true;
     final revision = widget.api.accessRevision;
@@ -78,6 +229,26 @@ class _DocumentEditorState extends State<DocumentEditor> {
       _form = GlobalKey<_NativeDocumentFormState>();
       _future = fresh;
     });
+  }
+
+  void _previewInvoice(
+    Map<String, dynamic> saved, {
+    bool submissionReview = false,
+  }) {
+    final api = widget.api;
+    final company = saved['company'] as String, name = saved['name'] as String;
+    final revision = submissionReview ? saved['modified'] as String : null;
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InvoicePreviewScreen(
+          api: api,
+          company: company,
+          invoice: name,
+          draftRevision: revision,
+        ),
+      ),
+    );
   }
 
   @override
@@ -101,25 +272,108 @@ class _DocumentEditorState extends State<DocumentEditor> {
           final (schema, doc) = state.data!;
           return NativeDocumentForm(
             key: _form,
+            identityKey: (
+              widget.api.baseUri,
+              widget.api.account,
+              widget.company,
+            ),
+            scopeKey: (
+              widget.api,
+              widget.api.account,
+              widget.company,
+              widget.api.accessRevision,
+              widget.api.accessReady,
+            ),
             schema: schema,
             initial: doc,
             onReload: _reloadLatest,
+            onResultShown: (result) async =>
+                _completedOperation?.acknowledge(result),
+            openFieldFile: (c, field, table, row) async {
+              final name =
+                  _form.currentState?._doc.data['name'] ?? doc.data['name'];
+              if (name == null) {
+                throw const ErpException(
+                  'Save the document before opening this file.',
+                );
+              }
+              final revision = widget.api.accessRevision;
+              final file = await widget.api.fieldAttachment(
+                widget.doctype,
+                name.toString(),
+                field,
+                table: table,
+                row: row,
+              );
+              if (c.mounted &&
+                  widget.api.accessReady &&
+                  widget.api.accessRevision == revision) {
+                await previewFile(c, file.name, file.bytes, api: widget.api);
+              }
+            },
+            onInvoicePreview: schema.doctype == 'Sales Invoice'
+                ? _previewInvoice
+                : null,
+            onSubmissionPreview: schema.doctype == 'Sales Invoice'
+                ? (saved) => _previewInvoice(saved, submissionReview: true)
+                : null,
             onActivity: (values) => Navigator.push(
               context,
               MaterialPageRoute<void>(
                 builder: (_) => DocumentActivityScreen(
                   api: widget.api,
                   type: widget.doctype,
+                  company: values['company']?.toString() ?? widget.company,
                   name: values['name'] as String,
                 ),
               ),
             ),
             onRelated: (values, action) async {
+              if (operationalActions.contains(action)) {
+                final target = await openOperationalAction(
+                  context,
+                  widget.api,
+                  action,
+                  values['name'] as String,
+                );
+                if (target == null || !context.mounted) return;
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => DocumentEditor(
+                      api: widget.api,
+                      doctype: target.type,
+                      name: target.name,
+                      initial: target.draft,
+                      company: widget.company,
+                    ),
+                  ),
+                );
+                if (mounted) await _reloadLatest();
+                return;
+              }
+              double? quantity;
+              if (schema.doctype == 'Work Order' &&
+                  (action == 'Transfer materials' ||
+                      action == 'Record finished goods')) {
+                final limit = action == 'Transfer materials'
+                    ? _qty(values['qty']) -
+                          _qty(values['material_transferred_for_manufacturing'])
+                    : (enabled(values['skip_transfer'])
+                              ? _qty(values['qty'])
+                              : _qty(
+                                  values['material_transferred_for_manufacturing'],
+                                )) -
+                          _qty(values['produced_qty']);
+                quantity = await _productionQuantity(context, action, limit);
+                if (quantity == null || !context.mounted) return;
+              }
               final created = await widget.api.newFromNative(
                 schema.doctype,
                 values['name'] as String,
                 action,
                 values['modified'] as String,
+                quantity: quantity,
               );
               if (context.mounted) {
                 await Navigator.push(
@@ -138,11 +392,7 @@ class _DocumentEditorState extends State<DocumentEditor> {
               }
             },
             onSave: (values, action) async {
-              final saved = await widget.api.saveNative(
-                schema,
-                values,
-                action: action,
-              );
+              final saved = await _write(schema, values, action);
               if (mounted &&
                   widget.onCreated != null &&
                   !saved.isNew &&
@@ -166,15 +416,17 @@ class _DocumentEditorState extends State<DocumentEditor> {
               query,
               parent: schema.doctype,
               field: field.name,
+              contextValues: {
+                for (final key in ['company', 'production_item'])
+                  if ((_form.currentState?._data ?? doc.data)[key]
+                      case final String value)
+                    key: value,
+              },
             ),
             onNewRow: (values, field) =>
                 widget.api.newRowNative(schema, values, field.name),
-            onTransition: (values, action) => widget.api.transitionNative(
-              schema.doctype,
-              values['name'] as String,
-              action,
-              modified: values['modified'] as String,
-            ),
+            onTransition: (values, action) =>
+                _write(schema, values, action, workflow: true),
           );
         }
         return Scaffold(
@@ -200,6 +452,7 @@ class NativeDocumentForm extends StatefulWidget {
     required this.schema,
     required this.initial,
     required this.onSave,
+    this.openFieldFile,
     this.onPrepare,
     this.onPartyDefaults,
     this.onItemDefaults,
@@ -207,12 +460,23 @@ class NativeDocumentForm extends StatefulWidget {
     this.onNewRow,
     this.onTransition,
     this.onActivity,
+    this.onInvoicePreview,
+    this.onSubmissionPreview,
     this.onRelated,
     this.onReload,
+    this.scopeKey,
+    this.identityKey,
+    this.onResultShown,
   });
+  final OpenFieldFile? openFieldFile;
+  final Object? scopeKey, identityKey;
+  final Future<void> Function(NativeDocument result)? onResultShown;
   final Future<void> Function()? onReload;
   final Future<void> Function(Map<String, dynamic>, String)? onRelated;
-  final ValueChanged<Map<String, dynamic>>? onActivity;
+  final ValueChanged<Map<String, dynamic>>? onActivity,
+      onInvoicePreview,
+      onSubmissionPreview;
+
   final NativeSchema schema;
   final NativeDocument initial;
   final Future<NativeDocument> Function(
@@ -244,6 +508,12 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
   String? _error, _notice;
   bool _stale = false;
   int _revision = 0;
+  final _fieldsKey = GlobalKey<DocumentFieldsState>();
+  DialogRoute<bool>? _reviewRoute;
+  int _contextRevision = 0;
+  DocumentOperation? _uncertain;
+  bool _unverified = false;
+  bool get _locked => _busy || _uncertain != null || _unverified;
 
   @override
   void initState() {
@@ -252,12 +522,44 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
   }
 
   @override
+  void dispose() {
+    dismissDocumentDialog(_reviewRoute);
+    super.dispose();
+  }
+
+  Future<bool?> _ask(WidgetBuilder builder) async {
+    if (_reviewRoute != null) return false;
+    final route = DialogRoute<bool>(context: context, builder: builder);
+    _reviewRoute = route;
+    final result = await Navigator.of(context).push(route);
+    if (identical(_reviewRoute, route)) _reviewRoute = null;
+    return result;
+  }
+
+  @override
   void didUpdateWidget(covariant NativeDocumentForm old) {
     super.didUpdateWidget(old);
+    if (!identical(old.initial, widget.initial) ||
+        old.scopeKey != widget.scopeKey ||
+        !identical(old.schema, widget.schema)) {
+      _contextRevision++;
+      dismissDocumentDialog(_reviewRoute);
+    }
+    if (old.identityKey != widget.identityKey) {
+      _uncertain = null;
+      _unverified = false;
+      _dirty = false;
+      _data = {};
+      _errors = {};
+      _notice = null;
+    }
     if (!identical(old.initial, widget.initial)) {
       _doc = widget.initial;
       final fresh = _doc.editCopy();
       if (_dirty &&
+          old.initial.data['name'] == _doc.data['name'] &&
+          old.initial.data['company'] == _doc.data['company'] &&
+          old.schema.doctype == widget.schema.doctype &&
           _doc.can(_doc.isNew ? 'create' : 'write') &&
           fresh['docstatus'] != 2) {
         _retainDraft(widget.schema, _base, _data, fresh);
@@ -347,10 +649,12 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
     bool workflow = false,
     bool party = false,
   }) async {
-    if (_busy) return;
-    if (workflow && _dirty) {
+    if (_locked || _reviewRoute != null) return;
+    if ((workflow || action != 'Save' && !prepare && !party) && _dirty) {
       setState(
-        () => _error = 'Save your changes before applying a workflow action.',
+        () => _error = workflow
+            ? 'Save your changes before applying a workflow action.'
+            : 'Save your changes before ${action.toLowerCase()} so the review uses current server values.',
       );
       return;
     }
@@ -360,20 +664,39 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
         _errors = errors;
         _error = 'Check the marked fields before saving.';
       });
+      _fieldsKey.currentState?.revealError(errors.keys.first);
       return;
     }
-    if (action != 'Save' && !prepare) {
-      final confirmed = await showDialog<bool>(
+    final contextRevision = _contextRevision;
+    final identity = widget.identityKey;
+    final snapshot = jsonEncode(_data);
+    if (action != 'Save' && !prepare && !party) {
+      final route = DialogRoute<bool>(
         context: context,
         builder: (c) => AlertDialog(
           title: Text('$action ${widget.schema.doctype}?'),
-          content: Text(switch (action) {
-            'Submit' =>
-              'Submit ${_doc.data['name']}? Changes after submission may require a cancellation or amendment.',
-            'Cancel' =>
-              'Cancel ${_doc.data['name']} and reverse its postings? Linked documents can prevent cancellation.',
-            _ => 'Apply "$action" to ${_doc.data['name']}?',
-          }),
+          content: DocumentReview(
+            schema: widget.schema,
+            document: _doc.data,
+            action: action,
+            onPreviewDraft:
+                action == 'Submit' &&
+                    !workflow &&
+                    widget.schema.doctype == 'Sales Invoice' &&
+                    !_doc.isNew &&
+                    _doc.can('print') &&
+                    _doc.data['company'] is String &&
+                    _doc.data['modified'] is String &&
+                    widget.onSubmissionPreview != null
+                ? () {
+                    if (mounted &&
+                        _contextRevision == contextRevision &&
+                        ModalRoute.of(c)?.isCurrent == true) {
+                      widget.onSubmissionPreview!(_doc.data);
+                    }
+                  }
+                : null,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c, false),
@@ -381,12 +704,20 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(c, true),
-              child: Text(action),
+              child: Text('$action document'),
             ),
           ],
         ),
       );
-      if (confirmed != true || !mounted) return;
+      _reviewRoute = route;
+      final confirmed = await Navigator.of(context).push(route);
+      _reviewRoute = null;
+      if (confirmed != true ||
+          !mounted ||
+          _contextRevision != contextRevision ||
+          jsonEncode(_data) != snapshot) {
+        return;
+      }
     }
     setState(() {
       _busy = true;
@@ -402,7 +733,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
           : workflow
           ? await widget.onTransition!(_data, action)
           : await widget.onSave(_data, action);
-      if (!mounted) return;
+      if (!mounted || contextRevision != _contextRevision) return;
       setState(() {
         _doc = result;
         _stale = false;
@@ -418,10 +749,21 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
             ? 'Saved successfully'
             : '$action completed';
       });
+      if (!prepare && !party) _announceResult(result);
     } catch (e) {
-      if (mounted) {
+      if (mounted &&
+          contextRevision != _contextRevision &&
+          identity == widget.identityKey &&
+          e is DocumentWriteUncertain) {
+        setState(() {
+          _uncertain = e.operation;
+          _error = 'Access changed before the result could be confirmed. Check the original request when access is available.';
+        });
+      } else if (mounted && contextRevision == _contextRevision) {
         setState(() {
           _stale = e is ErpException && e.staleDocument;
+          if (e is DocumentWriteUncertain) _uncertain = e.operation;
+          if (e is DocumentWriteUnverified) _unverified = true;
           _error = e.toString();
         });
       }
@@ -430,12 +772,88 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
     }
   }
 
+  void _announceResult(NativeDocument result, {DocumentOperation? operation}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !identical(_doc, result)) return;
+      if (operation != null) {
+        await operation.acknowledge(result);
+      } else {
+        await widget.onResultShown?.call(result);
+      }
+    });
+  }
+
+  Future<void> _checkOutcome({bool close = false}) async {
+    final operation = _uncertain;
+    if (operation == null || _busy) return;
+    final revision = _contextRevision;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final response = await operation.reconcile(close: close);
+      if (!mounted ||
+          revision != _contextRevision ||
+          !identical(_uncertain, operation)) {
+        return;
+      }
+      if (response['state'] == 'completed') {
+        final result = operation.confirmed!;
+        setState(() {
+          _doc = result;
+          _data = result.editCopy();
+          _base = result.data;
+          _revision++;
+          _dirty = false;
+          _uncertain = null;
+          _notice = '${operation.action} confirmed';
+        });
+        _announceResult(result, operation: operation);
+      } else if (response['state'] == 'closed') {
+        setState(() {
+          _uncertain = null;
+          _notice = 'The unposted attempt is closed. Your retained changes can be edited and saved.';
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && revision == _contextRevision) {
+            operation.acknowledge(null);
+          }
+        });
+      } else {
+        setState(
+          () => _error = 'No completed result is available yet. Check again, or close the unposted attempt before editing.',
+        );
+      }
+    } catch (error) {
+      if (mounted && revision == _contextRevision) {
+        setState(() => _error = error.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _inspectUnverified() async {
+    if (_busy || _doc.isNew || widget.onReload == null) return;
+    final revision = _contextRevision;
+    setState(() => _busy = true);
+    try {
+      await widget.onReload!();
+    } catch (error) {
+      if (mounted && revision == _contextRevision) {
+        setState(() => _error = error.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _reloadConflict() async {
-    if (_busy) return;
+    if (_locked) return;
     if (_dirty) {
-      final discard = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
+      final discard = await _ask(
+        (c) => AlertDialog(
           title: const Text('Reload the latest version?'),
           content: const Text(
             'Your unsaved edits will be replaced by the current server values.',
@@ -465,7 +883,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
   }
 
   Future<void> _related(String action) async {
-    if (_busy) return;
+    if (_locked) return;
     if (_dirty) {
       setState(
         () => _error = 'Save your changes before creating a related document.',
@@ -487,14 +905,37 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
 
   Future<void> _leave() async {
     if (_busy || _leaving) return;
+    if (_uncertain != null || _unverified) {
+      final leave = await _ask(
+        (dialog) => AlertDialog(
+          title: const Text('Keep this operation available?'),
+          content: Text(
+            _unverified
+                ? 'The outcome is not confirmed. Locate and inspect the current record in this workspace before creating another entry or making another change.'
+                : 'Its outcome is not confirmed. The original request is saved in Pending operations for this account and company. Leaving does not post it again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Keep checking'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Leave and check later'),
+            ),
+          ],
+        ),
+      );
+      if (leave == true && mounted) Navigator.pop(context);
+      return;
+    }
     if (!_dirty) {
       Navigator.pop(context);
       return;
     }
     _leaving = true;
-    final discard = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
+    final discard = await _ask(
+      (c) => AlertDialog(
         title: const Text('Keep your changes?'),
         content: const Text('This document has unsaved changes.'),
         actions: [
@@ -530,27 +971,18 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Row(
-            children: [
-              RecordHeaderMark(
-                widget.schema.doctype,
-                settings: widget.schema.single,
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  widget.schema.doctype,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          title: WorkspaceRouteTitle(
+            widget.schema.doctype,
+            mark: RecordHeaderMark(
+              widget.schema.doctype,
+              settings: widget.schema.single,
+            ),
           ),
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: FilledButton(
-                onPressed: _busy || !canSave ? null : () => _perform('Save'),
+                onPressed: _locked || !canSave ? null : () => _perform('Save'),
                 child: _busy
                     ? const SizedBox(
                         width: 18,
@@ -620,7 +1052,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                           if (widget.onRelated != null &&
                               _doc.relatedActions.isNotEmpty)
                             PopupMenuButton<String>(
-                              enabled: !_busy,
+                              enabled: !_locked,
                               onSelected: _related,
                               itemBuilder: (_) => [
                                 for (final action in _doc.relatedActions)
@@ -634,9 +1066,22 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                                 child: Text('Create / copy ▾'),
                               ),
                             ),
+                          if (!_doc.isNew &&
+                              _doc.can('print') &&
+                              widget.onInvoicePreview != null)
+                            TextButton.icon(
+                              onPressed: _locked || _dirty
+                                  ? null
+                                  : () => widget.onInvoicePreview!(_doc.data),
+                              icon: const Icon(
+                                Icons.picture_as_pdf_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Invoice preview'),
+                            ),
                           if (!_doc.isNew && widget.onActivity != null)
                             TextButton.icon(
-                              onPressed: _busy
+                              onPressed: _locked
                                   ? null
                                   : () => widget.onActivity!(_data),
                               icon: const Icon(Icons.history, size: 18),
@@ -646,7 +1091,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                               canSave &&
                               status == 0)
                             TextButton.icon(
-                              onPressed: _busy
+                              onPressed: _locked
                                   ? null
                                   : () => _perform('Save', party: true),
                               icon: const Icon(Icons.person_outline, size: 18),
@@ -656,7 +1101,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                               canSave &&
                               status == 0)
                             TextButton.icon(
-                              onPressed: _busy
+                              onPressed: _locked
                                   ? null
                                   : () => _perform('Save', prepare: true),
                               icon: const Icon(
@@ -671,7 +1116,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                               _doc.can('submit') &&
                               _doc.workflow.isEmpty)
                             TextButton(
-                              onPressed: _busy
+                              onPressed: _locked
                                   ? null
                                   : () => _perform('Submit'),
                               child: const Text('Submit'),
@@ -680,7 +1125,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                               _doc.can('cancel') &&
                               _doc.workflow.isEmpty)
                             TextButton(
-                              onPressed: _busy
+                              onPressed: _locked
                                   ? null
                                   : () => _perform('Cancel'),
                               child: const Text('Cancel document'),
@@ -688,7 +1133,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                           if (widget.onTransition != null)
                             for (final transition in _doc.transitions)
                               TextButton(
-                                onPressed: _busy
+                                onPressed: _locked
                                     ? null
                                     : () => _perform(
                                         transition['action'] as String,
@@ -698,14 +1143,86 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                               ),
                         ],
                       ),
+                      if (_unverified)
+                        Panel(
+                          border: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Outcome not confirmed',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                _doc.isNew
+                                    ? 'Locate the record in this workspace before starting another entry.'
+                                    : 'Inspect the current server record before another change. This replaces the attempted values in this editor.',
+                              ),
+                              if (!_doc.isNew && widget.onReload != null)
+                                TextButton.icon(
+                                  onPressed: _busy ? null : _inspectUnverified,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Check current record'),
+                                ),
+                            ],
+                          ),
+                        ),
+                      if (_uncertain != null)
+                        Panel(
+                          border: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Outcome not confirmed',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              const Text(
+                                'Check this original request. Closing an unposted attempt prevents it from being posted later; a completed request shows its result.',
+                              ),
+                              SelectableText(
+                                'Request: ${_uncertain!.requestId}',
+                              ),
+                              Wrap(
+                                spacing: 12,
+                                children: [
+                                  FilledButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _checkOutcome(),
+                                    child: const Text('Check outcome'),
+                                  ),
+                                  TextButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _checkOutcome(close: true),
+                                    child: const Text('Close unposted attempt'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       if (_error != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: WorkspaceTheme.ink,
-                              height: 1.5,
+                          child: Semantics(
+                            liveRegion: true,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.error_outline),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: const TextStyle(
+                                      color: WorkspaceTheme.ink,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -719,8 +1236,7 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                                 TweenAnimationBuilder<double>(
                                   key: ValueKey(_revision),
                                   tween: Tween(
-                                    begin:
-                                        MediaQuery.disableAnimationsOf(context)
+                                    begin: workspaceReduceMotion(context)
                                         ? 1.0
                                         : .55,
                                     end: 1,
@@ -763,17 +1279,24 @@ class _NativeDocumentFormState extends State<NativeDocumentForm> {
                             label: const Text('Reload latest version'),
                           ),
                         ),
+                      if (_errors.isNotEmpty)
+                        DocumentErrorSummary(
+                          errors: _errors,
+                          onSelect: (path) => _fieldsKey.currentState
+                              ?.revealError(path, openRow: true),
+                        ),
                       const SizedBox(height: 18),
                       Panel(
-                        frosted: true,
                         border: true,
                         child: DocumentFields(
-                          key: ValueKey(_revision),
+                          key: _fieldsKey,
+                          scopeKey: (widget.scopeKey, _revision),
                           schema: widget.schema,
                           data: _data,
                           errors: _errors,
-                          editable: !_busy && canSave,
+                          editable: !_locked && canSave,
                           onLink: widget.onLink,
+                          openFieldFile: widget.openFieldFile,
                           onNewRow: widget.onNewRow,
                           onItemDefaults: widget.onItemDefaults,
                           onChanged: () => setState(() {

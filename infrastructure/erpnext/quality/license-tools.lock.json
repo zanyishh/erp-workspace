@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-11-15",
+  "platform": "macos-arm64",
+  "archives": {
+    "ort": {
+      "version": "99.0.0",
+      "url": "https://github.com/oss-review-toolkit/ort/releases/download/99.0.0/ort-99.0.0.tgz",
+      "sha256": "1cb80a2592f7dfafcec1d77d316fd8e318c248850236fbca54d4ca8146f24d40",
+      "size": 250973580,
+      "checksum_source": "https://api.github.com/repos/oss-review-toolkit/ort/releases/tags/99.0.0",
+      "destination": "apps/ort-99.0.0"
+    },
+    "java": {
+      "version": "25.0.5+8",
+      "url": "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.5_8.tar.gz",
+      "sha256": "36dc14d797aaff6d89aab302cd053fdba6207dfdcf772052fa7b023a94b0e857",
+      "size": 136446056,
+      "checksum_source": "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5%2B8/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.5_8.tar.gz.sha256.txt",
+      "destination": "runtimes/temurin-25.0.5+8"
+    },
+    "scancode": {
+      "version": "32.5.0",
+      "url": "https://github.com/aboutcode-org/scancode-toolkit/releases/download/v32.5.0/scancode-toolkit-v32.5.0_py3.13-macos.tar.gz",
+      "sha256": "0c6a49b2f89f33cbcf46320a20490462a6474dcfbabf291afa5eee96ce30897e",
+      "size": 185959735,
+      "checksum_source": "https://api.github.com/repos/aboutcode-org/scancode-toolkit/releases/tags/v32.5.0",
+      "destination": "apps/scancode-toolkit-32.5.0"
+    }
+  },
+  "requirements": {
+    "scancode": "Existing Rosetta and x86_64 Python 3.13. Native ARM pip installation is unsupported.",
+    "ort": "Java 25 minimum. Upstream recommends 8 GiB JVM memory and 4 CPU cores for analysis; full work should use a larger host than this 8 GB Mac running ERP."
+  }
+}

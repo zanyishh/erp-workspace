@@ -57,8 +57,9 @@ def plan(event, data, job):
     require_available(d.settings(event.company).get('shift_windows'), start, end,
         allowed=d.json_value(machine.shifts, []), selected=data.get('shift'))
     quantity = d.decimal(data.get("quantity_kg"), positive=True)
-    if not machine.enabled or any(str(line.get(k, "")).casefold() != str(machine.get(k, "")).casefold()
-                                  for k in ("dia", "gauge", "knit_type") if line.get(k)):
+    physical = d.physical_specification(job, line)
+    if not machine.enabled or any(str(physical.get(k, "")).casefold() != str(machine.get(k, "")).casefold()
+                                  for k in ("dia", "gauge", "knit_type") if physical.get(k)):
         frappe.throw("The selected machine is not compatible with this programme.")
     if quantity > d.decimal(machine.capacity_kg) * Decimal(str((end - start).total_seconds())) / Decimal(8 * 3600):
         frappe.throw("The planned kg exceeds this machine's available capacity.")
@@ -147,7 +148,15 @@ def stoppage(event, data, job):
     start, end = interval(data)
     if not data.get("reason"):
         frappe.throw("Record the stoppage reason.")
-    return {"machine": machine.name, "minutes": str(Decimal(str((end - start).total_seconds())) / 60),
+    shift = data.get("shift")
+    if shift:
+        configured = [window["name"] for window in d.settings(event.company).get("shift_windows", [])]
+        allowed = d.json_value(machine.shifts, [])
+        if shift not in configured or (allowed and shift not in allowed):
+            frappe.throw("Choose a shift configured for this machine.")
+    warehouse = d.warehouse(data["warehouse"], event.company) if data.get("warehouse") else None
+    return {"machine": machine.name, "shift": shift or None, "warehouse": warehouse,
+            "minutes": str(Decimal(str((end - start).total_seconds())) / 60),
             "starts_at": str(start), "ends_at": str(end), "reason": data["reason"]}
 
 
@@ -435,7 +444,8 @@ def save_master(event, data, job):
     from erp_extensions.api import _check_version
     if data.get("category") not in MASTER_CATEGORIES or not str(data.get("title", "")).strip() or len(str(data["title"])) > 140:
         frappe.throw("Choose a supported master category and a clear name.")
-    settings = data.get("settings") or {k: data[k] for k in ("severity", "value", "description", "boundary_kg", "unit") if data.get(k)}
+    settings = data["settings"] if "settings" in data else {
+        k: data[k] for k in ("severity", "value", "description", "boundary_kg", "unit") if data.get(k)}
     if not isinstance(settings, dict) or set(settings) - {"severity", "value", "description", "boundary_kg", "order", "unit"}:
         frappe.throw("Use the supported master settings.")
     if settings.get("boundary_kg"):

@@ -8,6 +8,9 @@ root = Path(__file__).resolve().parent.parent
 mode = sys.argv[1] if len(sys.argv) == 2 else ""
 if mode == "client":
     paths = [root / "apps/erp_client" / name for name in ("lib", "assets", "macos/Runner", "macos/Runner.xcodeproj/project.pbxproj", "macos/Podfile", "pubspec.yaml", "pubspec.lock")]
+    paths.append(root / "scripts/erp-workspace.command")
+    paths.extend([root / "scripts/flutter_toolchain.py",
+                  root / "infrastructure/erpnext/quality/flutter-toolchain.json"])
 elif mode == "server":
     paths = [root / "apps/erp_extensions/erp_extensions"]
 else:

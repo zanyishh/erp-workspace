@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+
 import 'erp_api.dart';
 import 'ui/access_gate.dart';
 
@@ -12,11 +14,13 @@ Future<void> saveOrShareFile(
   String name,
   Uint8List bytes, {
   String? mime,
+  bool Function()? canContinue,
 }) async {
+  if (canContinue?.call() == false) return;
   final safe = name.replaceAll(RegExp(r'[/\\\x00-\x1f]'), '_');
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
     final location = await getSaveLocation(suggestedName: safe);
-    if (location != null) {
+    if (location != null && canContinue?.call() != false) {
       await XFile.fromData(
         bytes,
         name: safe,
@@ -24,6 +28,7 @@ Future<void> saveOrShareFile(
       ).saveTo(location.path);
     }
   } else {
+    if (canContinue?.call() == false) return;
     final box = context.findRenderObject() as RenderBox?;
     await SharePlus.instance.share(
       ShareParams(

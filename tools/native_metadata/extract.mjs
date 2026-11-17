@@ -23,6 +23,26 @@ function value(node) {
     }
     return result;
   }
+  if(node.type==='MemberExpression' && node.computed && node.property.type==='NumericLiteral' &&
+     node.object.type==='CallExpression' && name(node.object.callee)==='erpnext.utils.get_fiscal_year'){
+    const [date,withDates]=node.object.arguments.map(value);
+    const kind=['fiscal_year','fiscal_start','fiscal_end'][node.property.value];
+    if(kind && date?.native_default==='today' && withDates===true && node.object.arguments.length===2)
+      return {native_default:kind};
+  }
+  if(node.type==='LogicalExpression' && node.operator==='||'){
+    const first=value(node.left), second=value(node.right);
+    if(first?.native_default==='user' && ['fiscal_start','fiscal_end'].includes(second?.native_default))
+      return {native_default:'fallback',first,second};
+  }
+  if(node.type==='ConditionalExpression' && node.alternate.type==='StringLiteral' && node.alternate.value===''){
+    const companyDefault=n=>n?.type==='CallExpression' && name(n.callee)==='frappe.defaults.get_user_default' &&
+      n.arguments.length===1 && n.arguments[0].value==='Company';
+    const bank=node.consequent;
+    if(companyDefault(node.test) && bank.type==='MemberExpression' && name(bank.property)==='default_bank_account' &&
+       bank.object.type==='MemberExpression' && companyDefault(bank.object.property) &&
+       name(bank.object.object)==='locals.:Company') return {native_default:'bank_account'};
+  }
   if(node.type==='TemplateLiteral'&&node.expressions.length===0)return node.quasis[0].value.cooked;
   if(node.type==='UnaryExpression'&&['-','+','!'].includes(node.operator)){
     const operand=value(node.argument);
@@ -40,10 +60,22 @@ function value(node) {
     const callee=name(node.callee),args=node.arguments.map(value);
     if(['__','frappe._'].includes(callee))return args[0];
     if(['frappe.defaults.get_user_default','frappe.defaults.get_default'].includes(callee)&&typeof args[0]==='string')return {native_default:'user',key:args[0]};
-    if(['frappe.datetime.get_today','frappe.datetime.now_date'].includes(callee))return {native_default:'today'};
-    if(callee==='erpnext.utils.get_fiscal_year')return {native_default:'fiscal_year'};
+    if(callee==='frappe.defaults.get_global_default' && ['year_start_date','year_end_date'].includes(args[0]))
+      return {native_default:'global_date',key:args[0]};
+    if(callee==='frappe.datetime.now_datetime' && !args.length) return {native_default:'user_datetime'};
+    if(callee==='frappe.datetime.convert_to_system_tz' && node.arguments.length===1){
+      const offset=node.arguments[0];
+      if(offset.type==='CallExpression' && name(offset.callee)==='frappe.datetime.add_months' &&
+          offset.arguments.length===2 && value(offset.arguments[0])?.native_default==='user_datetime' &&
+          Number.isInteger(value(offset.arguments[1]))) return {native_default:'system_month_offset',value:value(offset.arguments[1])};
+    }
+    if(['frappe.datetime.get_today','frappe.datetime.nowdate','frappe.datetime.now_date'].includes(callee)&&!args.length)
+      return {native_default:'today'};
+    if(callee==='erpnext.utils.get_fiscal_year' && (!args.length || args[0]?.native_default==='today') && !args[1])return {native_default:'fiscal_year'};
     if(['frappe.datetime.month_start','frappe.datetime.month_end','frappe.datetime.year_start','frappe.datetime.year_end'].includes(callee))return {native_default:callee.split('.').at(-1)};
-    if(['frappe.datetime.add_months','frappe.datetime.add_days'].includes(callee)&&args[0]?.native_default==='today'&&typeof args[1]==='number')return {native_default:'date_offset',unit:callee.endsWith('months')?'months':'days',value:args[1]};
+    if(['frappe.datetime.add_months','frappe.datetime.add_days'].includes(callee)&&['today','month_start'].includes(args[0]?.native_default)&&Number.isInteger(args[1]))
+      return {native_default:'date_offset',unit:callee.endsWith('months')?'months':'days',value:args[1],
+        ...(args[0].native_default==='month_start'?{base:'month_start'}:{})};
     if(node.callee.type==='MemberExpression'&&name(node.callee.property)==='join'){
       const array=value(node.callee.object);if(Array.isArray(array))return array.join(args[0]??',');
     }
@@ -61,7 +93,7 @@ function walk(node, visit) {
   }
 }
 
-export function extractReportFilters(source) {
+export function extractReportFilters(source, reportName) {
   const ast=parse(source,{sourceType:'unambiguous',attachComment:false});
   const fields=new Map();const diagnostics=[];let requires_adapter=false;
   const functions=new Map();
@@ -90,6 +122,22 @@ export function extractReportFilters(source) {
     const field={fieldname};
     for(const key of ['label','fieldtype','options','reqd','hidden','read_only','default','depends_on','mandatory_depends_on','read_only_depends_on']){
       const property=props.get(key);if(!property)continue;
+      if(key==='options' && property.value?.type==='CallExpression' && !property.value.arguments.length){
+        const fn=name(property.value.callee);
+        const optionSource={
+          ...(reportName==='Dimension-wise Accounts Balance Report'?{'get_accounting_dimension_options':'accounting_dimensions'}:{}),
+          ...(new Set(['Accounts Receivable','Accounts Receivable Summary','Accounts Payable','Accounts Payable Summary']).has(reportName)
+            ?{'get_party_type_options':'party_types'}:{}),
+          'erpnext.get_presentation_currency_list':'enabled_currencies',
+          'erpnext.financial_statements.get_accounting_dimension_options':'enabled_accounting_dimensions',
+        }[fn];
+        if(optionSource){field.native_options=optionSource;continue;}
+      }
+      if(key==='options' && reportName==='General Ledger' && fieldname==='party_type' &&
+          property.value?.type==='CallExpression' && name(property.value.callee)==='Object.keys' &&
+          property.value.arguments.length===1 && name(property.value.arguments[0])==='frappe.boot.party_account_types'){
+        field.native_options='party_types';continue;
+      }
       const parsed=value(property.value);
       if(parsed===unresolved){requires_adapter=true;diagnostics.push(`${fieldname}.${key}`);if(key==='options')field.dynamic_options=true;continue;}
       field[key]=key==='options'&&Array.isArray(parsed)?parsed.map(v=>typeof v==='object'?v.value:v).join('\n'):parsed;
@@ -99,17 +147,63 @@ export function extractReportFilters(source) {
     if(['on_change','get_data','get_query'].some(key=>props.has(key)))requires_adapter=true;
     fields.set(fieldname,field);
   };
-  walk(ast,node=>{
-    if(node.type==='ObjectProperty'&&name(node.key)==='filters'){
-      const array=resolveArray(node.value);
-      if(array)for(const field of array.elements)readField(field);
-      if(node.value.type!=='ArrayExpression'){requires_adapter=true;diagnostics.push('dynamic_filters');}
+  const libraries=new Map();
+  const knownLibraries=new Set(['erpnext.financial_statements','erpnext.sales_trends_filters','erpnext.purchase_trends_filters']);
+  const reportRoot=node=>node?.type==='MemberExpression' && name(node.object)==='frappe.query_reports';
+  let registration;
+  const unresolvedFilters=()=>{requires_adapter=true;diagnostics.push('dynamic_filters');};
+  function readArray(node){
+    const array=resolveArray(node);
+    if(!array){unresolvedFilters();return;}
+    // A local function may modify defaults/options or conditionally append fields after its declaration.
+    if(node.type!=='ArrayExpression') unresolvedFilters();
+    for(const item of array.elements){
+      if(item?.type==='SpreadElement' && item.argument.type==='MemberExpression' && name(item.argument.property)==='filters'){
+        const inherited=libraries.get(name(item.argument.object));
+        if(inherited){readArray(inherited);continue;}
+      }
+      readField(item);
     }
-    if(node.type==='CallExpression'&&node.callee.type==='MemberExpression'&&name(node.callee.property)==='push'&&name(node.callee.object).split('.').at(-1)==='filters'){
-      for(const field of node.arguments)readField(field);
-      requires_adapter=true;
+  }
+  function readConfiguration(node){
+    if(node?.type==='ObjectExpression'){
+      for(const property of node.properties){
+        const key=name(property.key);
+        if(key==='filters') readArray(property.value);
+        if(['onload','after_datatable_render','formatter','get_datatable_options'].includes(key)) requires_adapter=true;
+      }
+    } else if(node?.type==='CallExpression' && name(node.callee)==='$.extend'){
+      for(const arg of node.arguments){
+        if(arg.type==='ObjectExpression') readConfiguration(arg);
+        else if(libraries.has(name(arg))) readArray(libraries.get(name(arg)));
+        else unresolvedFilters();
+      }
+    } else unresolvedFilters();
+  }
+  for(const statement of ast.program.body){
+    const expr=statement.expression;
+    if(!expr) continue;
+    if(expr.type==='AssignmentExpression' && expr.operator==='='){
+      if(knownLibraries.has(name(expr.left)) && expr.right.type==='ObjectExpression'){
+        const own=expr.right.properties.find(p=>name(p.key)==='filters');
+        if(own) libraries.set(name(expr.left),own.value);
+      }
+      if(reportRoot(expr.left)){
+        registration=name(expr.left);
+        readConfiguration(expr.right);
+      }
     }
-    if(node.type==='ObjectProperty'&&['onload','after_datatable_render'].includes(name(node.key)))requires_adapter=true;
-  });
+    if(expr.type!=='CallExpression' || expr.callee.type!=='MemberExpression') continue;
+    if(name(expr.callee)==='erpnext.utils.add_dimensions') requires_adapter=true;
+    const target=expr.callee.object;
+    if(!reportRoot(target.object) || name(target.object)!==registration || name(target.property)!=='filters') continue;
+    const method=name(expr.callee.property);
+    if(method==='push') for(const item of expr.arguments) readField(item);
+    else if(method==='splice' && expr.arguments.length===2 && expr.arguments.every(a=>a.type==='NumericLiteral'&&Number.isInteger(a.value)&&a.value>=0)){
+      const [start,count]=expr.arguments.map(a=>a.value);
+      for(const key of [...fields.keys()].slice(start,start+count)) fields.delete(key);
+    } else unresolvedFilters();
+  }
+  if(!registration) unresolvedFilters();
   return {fields:[...fields.values()],requires_adapter,diagnostics:[...new Set(diagnostics)]};
 }

@@ -17,9 +17,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           builder: (c, child) => MediaQuery(
-            data: MediaQuery.of(
-              c,
-            ).copyWith(textScaler: const TextScaler.linear(1.6)),
+            data: MediaQuery.of(c)
+                .copyWith(textScaler: const TextScaler.linear(1.6)),
             child: child!,
           ),
           home: Builder(
@@ -85,6 +84,46 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(selected, ErpModule.stock);
       expect(find.text('Modules'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'review regression: route rebuild retains the entered picker filter',
+    (t) async {
+      late StateSetter rebuild;
+      var dark = false;
+      await t.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return MaterialApp(
+              theme: ThemeData(
+                brightness: dark ? Brightness.dark : Brightness.light,
+              ),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: TextButton(
+                    onPressed: () => showWorkspacePicker(context, (_) {}),
+                    child: const Text('Open picker'),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      await t.tap(find.text('Open picker'));
+      await t.pumpAndSettle();
+      await t.enterText(find.byType(TextField), 'not-a-record');
+      await t.pumpAndSettle();
+      expect(find.text('No matching workspaces'), findsOneWidget);
+      rebuild(() => dark = true);
+      await t.pumpAndSettle();
+      expect(
+        t.widget<TextField>(find.byType(TextField)).controller?.text ??
+            t.widget<EditableText>(find.byType(EditableText)).controller.text,
+        'not-a-record',
+      );
+      expect(find.text('No matching workspaces'), findsOneWidget);
     },
   );
 }

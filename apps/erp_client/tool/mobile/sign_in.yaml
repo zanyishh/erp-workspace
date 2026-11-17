@@ -1,0 +1,28 @@
+appId: ${APP_ID}
+---
+- launchApp
+- scrollUntilVisible:
+    element: "Join with invitation"
+- tapOn: "Join with invitation"
+- scrollUntilVisible:
+    element: "Back to sign-in"
+- scrollUntilVisible:
+    element: "Use an existing account"
+    direction: UP
+- tapOn: "Use an existing account"
+- assertVisible: "Create a new account"
+- takeScreenshot: invitation-account-mode
+- scrollUntilVisible:
+    element: "Back to sign-in"
+- tapOn: "Back to sign-in"
+- scrollUntilVisible:
+    element: "Join with invitation"
+- scrollUntilVisible:
+    element: "Enter workspace"
+    direction: UP
+- tapOn: "Enter workspace"
+- scrollUntilVisible:
+    element: ".*Enter your username.*"
+    direction: UP
+- assertVisible: ".*Enter your username.*"
+- takeScreenshot: sign-in-validation

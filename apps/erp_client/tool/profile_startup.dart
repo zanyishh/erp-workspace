@@ -198,7 +198,18 @@ Future<void> _run() async {
         find.text(firstJob).evaluate().isNotEmpty,
   );
   await report('jobs_click_to_register', jobsUs, jobsStart + 1, register);
-  await enterAt(0, lastJob);
+  // Timings stop at the drawn register. Follow the same field-change path as
+  // keyboard navigation without aiming at a row while it is still moving.
+  final search = controller.state<EditableTextState>(fields.first);
+  await controller.ensureVisible(fields.first);
+  search.widget.focusNode.requestFocus();
+  await drawn(() => search.widget.focusNode.hasFocus);
+  search.updateEditingValue(
+    TextEditingValue(
+      text: lastJob,
+      selection: TextSelection.collapsed(offset: lastJob.length),
+    ),
+  );
   final filtered = await drawn(
     () =>
         find.text(lastJob).evaluate().isNotEmpty &&

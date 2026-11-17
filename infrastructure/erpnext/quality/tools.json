@@ -1,0 +1,40 @@
+{
+  "python": {
+    "core": {
+      "requirements": "requirements-core.txt",
+      "minimum_free_gib": 2
+    },
+    "semgrep": {
+      "packages": [
+        "semgrep==1.185.0"
+      ],
+      "minimum_free_gib": 3
+    },
+    "checkov": {
+      "packages": [
+        "checkov==3.4.5+erp.1"
+      ],
+      "minimum_free_gib": 3
+    }
+  },
+  "brew": [
+    "gitleaks",
+    "trivy",
+    "syft",
+    "grype",
+    "k6",
+    "ffuf",
+    "scorecard"
+  ],
+  "containers": {
+    "zap": "zaproxy/zap-stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af",
+    "mobsf": "opensecurity/mobile-security-framework-mobsf@sha256:6764702ac28caa67880a3bd81f3f98f4677b0d212eefda53722fd1fbb80f8965"
+  },
+  "patrol_cli": "4.9.0",
+  "patrol_package": "4.11.0",
+  "manual": {
+    "scancode": "32.5.0: x86_64 environment required; native Apple Silicon pip unsupported",
+    "ort": "99.0.0: separate Java 25 host recommended; official recommendation 8 GiB JVM and 4 CPUs",
+    "monitoring": "Prometheus, Grafana, OpenTelemetry and GlitchTip: postrelease deployment design, not test runners"
+  }
+}

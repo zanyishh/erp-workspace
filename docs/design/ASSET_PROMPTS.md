@@ -22,3 +22,7 @@ The purchasing render above was the visual reference for six original transparen
 The client bundles the six renders alongside optimized copies of the original warehouse, point-of-sale terminal and purchasing trolley. Each image has 144, 448 and 960 pixel WebP versions under `assets/studio/`. Table headers use compact symbols and screen-reader labels, while quantities, dates and customer names stay in text.
 
 The general manufacturing illustration is a chalk-white assembly robot holding a small metal component over a fixture. The original purchasing trolley supplied the lighting and camera reference. A muted peach band and graphite joint rings distinguish the tool at small sizes. Work Orders use this object. The circular knitting machine belongs to the mill. The same three WebP sizes are bundled for both.
+
+## Invoice stationery
+
+The November 2026 invoice redesign uses original studio imagery. The generative briefs specified a cobalt and copper folded ribbon on black, violet silk, terracotta architectural stairs, sage leaf folds, a burgundy selvedge, cyanotype ocean water and pearlescent shell. The bundled crops are in `apps/erp_client/assets/invoice_art/`. All text, amounts, brand marks uploaded by users, grids and payment codes are placed separately by the PDF renderer. The printed display face is an 800-weight instance of the bundled OFL Manrope font. Reference images were used for composition and art direction.

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/native_models.dart';
@@ -57,46 +58,43 @@ void main() {
     },
   );
 
-  test(
-    'hierarchy requests preserve company, branch and page; child drafts preserve parent',
-    () async {
-      final forms = <Map<String, String>>[];
-      server.listen((r) async {
-        forms.add(Uri.splitQueryString(await utf8.decoder.bind(r).join()));
-        r.response.headers.contentType = ContentType.json;
-        r.response.write(
-          r.uri.path.endsWith('tree_children')
-              ? '{"message":{"nodes":[{"name":"STORE","title":"Stores","expandable":false}],"has_more":false,"can_create":true}}'
-              : '{"message":{"doc":{"doctype":"Warehouse","__islocal":1,"parent_warehouse":"ROOT"}}}',
-        );
-        await r.response.close();
-      });
-      final result = await api.nativeTree(
-        'Warehouse',
-        parent: 'ROOT',
-        company: 'Company A',
-        start: 50,
+  test('hierarchy requests preserve company, branch and page; child drafts preserve parent', () async {
+    final forms = <Map<String, String>>[];
+    server.listen((r) async {
+      forms.add(Uri.splitQueryString(await utf8.decoder.bind(r).join()));
+      r.response.headers.contentType = ContentType.json;
+      r.response.write(
+        r.uri.path.endsWith('tree_children')
+            ? '{"message":{"nodes":[{"name":"STORE","title":"Stores","expandable":false}],"has_more":false,"can_create":true}}'
+            : '{"message":{"doc":{"doctype":"Warehouse","__islocal":1,"parent_warehouse":"ROOT"}}}',
       );
-      expect((result['nodes'] as List).single['name'], 'STORE');
-      final draft = await api.nativeDocument(
-        'Warehouse',
-        company: 'Company A',
-        treeParent: 'ROOT',
-      );
-      expect(draft.data['parent_warehouse'], 'ROOT');
-      expect(forms[0], {
-        'doctype': 'Warehouse',
-        'parent': 'ROOT',
-        'company': 'Company A',
-        'start': '50',
-      });
-      expect(forms[1], {
-        'doctype': 'Warehouse',
-        'company': 'Company A',
-        'tree_parent': 'ROOT',
-      });
-    },
-  );
+      await r.response.close();
+    });
+    final result = await api.nativeTree(
+      'Warehouse',
+      parent: 'ROOT',
+      company: 'Company A',
+      start: 50,
+    );
+    expect((result['nodes'] as List).single['name'], 'STORE');
+    final draft = await api.nativeDocument(
+      'Warehouse',
+      company: 'Company A',
+      treeParent: 'ROOT',
+    );
+    expect(draft.data['parent_warehouse'], 'ROOT');
+    expect(forms[0], {
+      'doctype': 'Warehouse',
+      'parent': 'ROOT',
+      'company': 'Company A',
+      'start': '50',
+    });
+    expect(forms[1], {
+      'doctype': 'Warehouse',
+      'company': 'Company A',
+      'tree_parent': 'ROOT',
+    });
+  });
 
   test(
     'workflow approval carries the reviewed modification timestamp',

@@ -2,49 +2,119 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
+import 'core/models/erp_exception.dart';
+import 'core/models/access_source.dart';
 import 'erp_models.dart';
 import 'native_models.dart';
 import 'native_reports.dart';
 import 'workspace_context.dart';
 import 'knitting_models.dart';
+export 'core/models/erp_exception.dart';
 
-class ErpException implements Exception {
-  const ErpException(
-    this.message, {
-    this.sessionExpired = false,
-    this.permissionDenied = false,
-    this.staleDocument = false,
-    this.validationRejected = false,
-  });
-  final String message;
-  final bool sessionExpired;
-  final bool permissionDenied;
-  final bool staleDocument;
-  final bool validationRejected;
-  @override
-  String toString() => message;
+part 'invoice_api.dart';
+part 'imported_history_api.dart';
+
+Uri validateServiceOrigin(
+  Uri uri, {
+  required bool isAndroid,
+  required bool isRelease,
+  required bool isProfile,
+}) {
+  final loopback = [
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '10.0.2.2',
+  ].contains(uri.host);
+  if (uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment ||
+      (uri.path.isNotEmpty && uri.path != '/') ||
+      !(uri.scheme == 'https' || (uri.scheme == 'http' && loopback))) {
+    throw const ErpException(
+      'This app could not connect to its configured service. Contact your workspace manager.',
+    );
+  }
+  // Dart-owned sockets do not enforce Android's network security XML.
+  if (isAndroid && (isRelease || isProfile) && uri.scheme != 'https') {
+    throw const ErpException(
+      'This app needs a secure HTTPS workspace service. Contact your workspace manager.',
+    );
+  }
+  return uri.replace(path: '', query: null, fragment: null);
 }
 
-class LoginVerification implements Exception {
-  const LoginVerification(this.temporaryId, this.prompt);
-  final String temporaryId, prompt;
-  @override
-  String toString() => prompt;
-}
-
-class ErpApi {
+class ErpApi with _InvoiceApi, _ImportedHistoryApi implements AccessSource {
   ErpApi(Uri uri) : baseUri = validateServer(uri);
   final Uri baseUri;
   final HttpClient _client = HttpClient();
   Cookie? _session;
+  String? _localAuthorization;
+
+  void useLocalWorkspace(
+    String key,
+    String secret, {
+    String localAccount = 'local-owner@workspace.example.invalid',
+  }) {
+    final credential = RegExp(r'^[a-zA-Z0-9_-]{12,128}$');
+    if (baseUri.toString() != 'http://127.0.0.1:8081' ||
+        !credential.hasMatch(key) ||
+        !credential.hasMatch(secret) ||
+        !const {
+          'local-owner@workspace.example.invalid',
+          'local-general-owner@workspace.example.invalid',
+        }.contains(localAccount)) {
+      throw const ErpException(
+        'Local workspace access is unavailable. Run the launcher again.',
+      );
+    }
+    _localAuthorization = 'token $key:$secret';
+    // Avoid proxying a local credential to a configured system proxy.
+    _client.findProxy = (_) => 'DIRECT';
+    userName = 'Local Workspace Owner';
+    account = localAccount;
+    _session = null;
+  }
+
+  /// Only launcher-installed profiles may use this path. Companies are still
+  /// authorized by workspaceContext, never by the private launch preferences.
+  void useConfiguredLocalWorkspace(
+    String key,
+    String secret, {
+    required String localAccount,
+  }) {
+    final credential = RegExp(r'^[a-zA-Z0-9_-]{12,128}$');
+    if (baseUri.scheme != 'http' ||
+        !const {'127.0.0.1', '::1'}.contains(baseUri.host) ||
+        !credential.hasMatch(key) ||
+        !credential.hasMatch(secret) ||
+        localAccount.trim().isEmpty ||
+        localAccount.length > 140 ||
+        RegExp(r'[\r\n\x00]').hasMatch(localAccount)) {
+      throw const ErpException(
+        'The configured local workspace is unavailable.',
+      );
+    }
+    _localAuthorization = 'token $key:$secret';
+    _client.findProxy = (_) => 'DIRECT';
+    userName = 'Workspace account';
+    account = localAccount;
+    _session = null;
+  }
+
   bool _authenticatingInvite = false;
   String userName = 'Administrator';
+  @override
   String account = 'Administrator';
   Future<bool> Function()? onSessionExpired;
   Future<bool>? _sessionRecovery;
   final _accessListeners = <void Function()>{};
   final _contexts = <String, WorkspaceContext>{};
+  @override
   int accessRevision = 0;
+  @override
   bool accessReady = true;
   bool _refreshingAccess = false;
   void addAccessListener(void Function() listener) =>
@@ -52,6 +122,8 @@ class ErpApi {
   void removeAccessListener(void Function() listener) =>
       _accessListeners.remove(listener);
   WorkspaceContext? contextFor(String company) => _contexts[company];
+  bool supportsOperationRecovery(String company) =>
+      accessReady && (_contexts[company]?.operationRecoveryVersion ?? 0) >= 1;
   void _accessChanged() {
     for (final listener in List.of(_accessListeners)) {
       listener();
@@ -65,6 +137,10 @@ class ErpApi {
         (previous.accessFingerprint != value.accessFingerprint ||
             previous.revision != value.revision ||
             previous.canManageTeam != value.canManageTeam ||
+            previous.canReadImportedHistory != value.canReadImportedHistory ||
+            previous.knittingOnly != value.knittingOnly ||
+            previous.operationRecoveryVersion !=
+                value.operationRecoveryVersion ||
             previous.capabilities.toString() != value.capabilities.toString());
     final notify =
         changed || !accessReady || previous == null && accessRevision > 0;
@@ -93,30 +169,19 @@ class ErpApi {
         'This app needs a configured workspace service. Contact your workspace manager.',
       );
     }
-    return Uri.parse(
-      Platform.isAndroid ? 'http://10.0.2.2:8081' : 'http://localhost:8081',
+    return validateServer(
+      Uri.parse(
+        Platform.isAndroid ? 'http://10.0.2.2:8081' : 'http://localhost:8081',
+      ),
     );
   }
 
-  static Uri validateServer(Uri uri) {
-    final loopback = [
-      'localhost',
-      '127.0.0.1',
-      '::1',
-      '10.0.2.2',
-    ].contains(uri.host);
-    if (uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty ||
-        uri.hasQuery ||
-        uri.hasFragment ||
-        (uri.path.isNotEmpty && uri.path != '/') ||
-        !(uri.scheme == 'https' || (uri.scheme == 'http' && loopback))) {
-      throw const ErpException(
-        'This app could not connect to its configured service. Contact your workspace manager.',
-      );
-    }
-    return uri.replace(path: '', query: null, fragment: null);
-  }
+  static Uri validateServer(Uri uri) => validateServiceOrigin(
+    uri,
+    isAndroid: Platform.isAndroid,
+    isRelease: const bool.fromEnvironment('dart.vm.product'),
+    isProfile: const bool.fromEnvironment('dart.vm.profile'),
+  );
 
   Future<void> login(String username, String password) async {
     _session = null;
@@ -206,7 +271,14 @@ class ErpApi {
           .timeout(const Duration(seconds: 20));
       request.followRedirects = false;
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      if (_session != null) request.cookies.add(_session!);
+      if (_localAuthorization != null) {
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          _localAuthorization!,
+        );
+      } else if (_session != null) {
+        request.cookies.add(_session!);
+      }
       if (form != null) {
         request.headers.contentType = ContentType(
           'application',
@@ -254,6 +326,12 @@ class ErpApi {
         } on ErpException catch (e) {
           expired = e.sessionExpired;
         }
+      }
+      if (expired && _localAuthorization != null) {
+        throw const ErpException(
+          'Local workspace access needs to be restored. Run the ERP Workspace launcher.',
+          sessionExpired: true,
+        );
       }
       if (expired && path.endsWith('/login')) {
         if (form?.containsKey('otp') == true) {
@@ -331,7 +409,8 @@ class ErpApi {
         throw const ErpException('ERPNext returned an unreadable response.');
       }
       for (final cookie in response.cookies) {
-        if (cookie.name == 'sid' &&
+        if (_localAuthorization == null &&
+            cookie.name == 'sid' &&
             (path.endsWith('/login') || _session?.value == sessionAtStart)) {
           _session = cookie;
         }
@@ -445,6 +524,7 @@ class ErpApi {
     }
   }
 
+  @override
   Future<Map<String, dynamic>> _industry(
     String module,
     String operation,
@@ -476,6 +556,165 @@ class ErpApi {
       'industry': industry,
     });
   }
+
+  Future<Map<String, dynamic>> receiptInspectionItems(String receipt) =>
+      _industry('operational_handoffs', 'receipt_items', {'receipt': receipt});
+  Future<Map<String, dynamic>> inspectReceipt(
+    String receipt,
+    String row,
+    String sample,
+    String modified,
+  ) => _industry('operational_handoffs', 'inspect_receipt', {
+    'receipt': receipt,
+    'row': row,
+    'sample': sample,
+    'modified': modified,
+  });
+  Future<Map<String, dynamic>> maintenanceLogs(String plan) =>
+      _industry('operational_handoffs', 'maintenance_logs', {'plan': plan});
+  Future<Map<String, dynamic>> assetMaintenancePlan(String asset) =>
+      _industry('operational_handoffs', 'asset_plan', {'asset': asset});
+
+  Future<Map<String, dynamic>> importBankCsv(
+    String company,
+    String account,
+    String stage,
+    String content,
+    Map<String, String> mapping,
+    String format,
+  ) => _industry('bank_csv', 'statement_csv', {
+    'company': company,
+    'bank_account': account,
+    'stage': stage,
+    'content': content,
+    'mapping': mapping,
+    'date_format': format,
+  });
+
+  Future<Map<String, dynamic>> bankStatements(
+    String company,
+    String account,
+    String query,
+  ) => _industry('bank_matching', 'entries', {
+    'company': company,
+    'bank_account': account,
+    'query': query,
+  });
+  Future<Map<String, dynamic>> bankMatches(
+    String company,
+    String account,
+    String statement, {
+    String from = '',
+    String to = '',
+  }) => _industry('bank_matching', 'matches', {
+    'company': company,
+    'bank_account': account,
+    'statement': statement,
+    'from_date': from,
+    'to_date': to,
+  });
+  Future<Map<String, dynamic>> matchBankPayment(
+    String company,
+    String account,
+    String statement,
+    String payment,
+    String expectedStatement,
+    String expectedPayment, {
+    String from = '',
+    String to = '',
+  }) => _industry('bank_matching', 'match', {
+    'company': company,
+    'bank_account': account,
+    'statement': statement,
+    'payment': payment,
+    'expected_statement': expectedStatement,
+    'expected_payment': expectedPayment,
+    'from_date': from,
+    'to_date': to,
+  });
+
+  Future<Map<String, dynamic>> reconciliationEntries(
+    String company,
+    String partyType,
+    String party, {
+    String paymentQuery = '',
+    String invoiceQuery = '',
+  }) => _industry('reconciliation', 'candidates', {
+    'company': company,
+    'party_type': partyType,
+    'party': party,
+    'payment_query': paymentQuery,
+    'invoice_query': invoiceQuery,
+  });
+
+  Future<Map<String, dynamic>> beginOperation(
+    String company,
+    String kind,
+    String requestId, {
+    String? doctype,
+    String? name,
+    String? action,
+  }) => _industry('operations', 'begin_operation', {
+    'company': company,
+    'kind': kind,
+    'request_id': requestId,
+    'doctype': doctype,
+    'name': name,
+    'action': action,
+  });
+
+  Future<Map<String, dynamic>> pendingOperations(
+    String company, {
+    int start = 0,
+  }) => _industry('operations', 'pending_operations', {
+    'company': company,
+    'start': start,
+  });
+
+  Future<Map<String, dynamic>> operationStatus(
+    String company,
+    String requestId,
+  ) => _industry('operations', 'operation_status', {
+    'company': company,
+    'request_id': requestId,
+  });
+
+  Future<Map<String, dynamic>> closeOperation(
+    String company,
+    String requestId,
+  ) => _industry('operations', 'close_operation', {
+    'company': company,
+    'request_id': requestId,
+  });
+
+  Future<void> acknowledgeOperation(String company, String requestId) async {
+    await _industry('operations', 'acknowledge_operation', {
+      'company': company,
+      'request_id': requestId,
+    });
+  }
+
+  Future<Map<String, dynamic>> allocatePayment(
+    String company,
+    String partyType,
+    String party, {
+    required String payment,
+    required String invoice,
+    required String amount,
+    required String expectedPayment,
+    required String expectedInvoice,
+    String? requestId,
+  }) => _industry('reconciliation', 'allocate', {
+    'company': company,
+    'party_type': partyType,
+    'party': party,
+    'payment': payment,
+    'invoice': invoice,
+    'amount': amount,
+    'expected_payment': expectedPayment,
+    'expected_invoice': expectedInvoice,
+    'request_id': requestId,
+  });
 
   Future<void> redeemExistingInvitation(
     String token,
@@ -532,6 +771,92 @@ class ErpApi {
     });
   }
 
+  Future<Map<String, dynamic>> posConfigure(String company) =>
+      _industry('pos_checkout', 'configure', {'company': company});
+
+  Future<Map<String, dynamic>> posRegister(String company) =>
+      _industry('pos_checkout', 'register', {'company': company});
+
+  Future<Map<String, dynamic>> posOpenShift(
+    String company,
+    String profile,
+    String amount,
+  ) => _industry('pos_checkout', 'open_shift', {
+    'company': company,
+    'profile': profile,
+    'amount': amount,
+  });
+
+  Future<Map<String, dynamic>> posQuote(
+    String company,
+    String opening,
+    String customer,
+    List<Map<String, dynamic>> items,
+  ) => _industry('pos_checkout', 'quote', {
+    'company': company,
+    'opening': opening,
+    'customer': customer,
+    'items': items,
+  });
+
+  Future<Map<String, dynamic>> posCheckout(
+    String company,
+    String opening,
+    String customer,
+    List<Map<String, dynamic>> items,
+    String expected,
+    String token,
+  ) => _industry('pos_checkout', 'checkout', {
+    'company': company,
+    'opening': opening,
+    'customer': customer,
+    'items': items,
+    'expected': expected,
+    'token': token,
+  });
+
+  Future<Map<String, dynamic>> posRefundReview(
+    String company,
+    String opening,
+    String invoice,
+  ) => _industry('pos_checkout', 'refund_review', {
+    'company': company,
+    'opening': opening,
+    'invoice': invoice,
+  });
+
+  Future<Map<String, dynamic>> posRefund(
+    String company,
+    String opening,
+    String invoice,
+    String expected,
+    String token,
+  ) => _industry('pos_checkout', 'refund', {
+    'company': company,
+    'opening': opening,
+    'invoice': invoice,
+    'expected': expected,
+    'token': token,
+  });
+
+  Future<Map<String, dynamic>> posClosing(String company, String opening) =>
+      _industry('pos_checkout', 'closing', {
+        'company': company,
+        'opening': opening,
+      });
+
+  Future<Map<String, dynamic>> posCloseShift(
+    String company,
+    String opening,
+    Map<String, String> amounts,
+    String revision,
+  ) => _industry('pos_checkout', 'close_shift', {
+    'company': company,
+    'opening': opening,
+    'amounts': amounts,
+    'revision': revision,
+  });
+
   Future<WorkspaceContext> workspaceContext({String? company}) async {
     final value = WorkspaceContext.fromJson(
       await _industry('workspace', 'context', {'company': company}),
@@ -573,6 +898,42 @@ class ErpApi {
       'job': job,
     }),
   );
+  Future<Map<String, dynamic>> knittingRegister(
+    String company,
+    String collection, {
+    String? job,
+    int start = 0,
+    String query = '',
+    String? state,
+    String? productionDate,
+    String? fromDate,
+    String? toDate,
+    String? customer,
+    String? category,
+  }) => _industry('knitting.api', 'register', {
+    'company': company,
+    'collection': collection,
+    'job': ?job,
+    'start': start,
+    'query': query,
+    'state': ?state,
+    'production_date': ?productionDate,
+    'from_date': ?fromDate,
+    'to_date': ?toDate,
+    'customer': ?customer,
+    'category': ?category,
+  });
+  Future<Map<String, dynamic>> knittingOverview(String company) =>
+      _industry('knitting.api', 'overview', {'company': company});
+  Future<Map<String, dynamic>> knittingRoll(
+    String company,
+    String job,
+    String roll,
+  ) => _industry('knitting.api', 'roll', {
+    'company': company,
+    'job': job,
+    'roll': roll,
+  });
   Future<Map<String, dynamic>> knittingCommand(
     String company,
     String action,
@@ -666,6 +1027,26 @@ class ErpApi {
     });
   }
 
+  Future<({String name, Uint8List bytes})> fieldAttachment(
+    String type,
+    String name,
+    String field, {
+    String? table,
+    String? row,
+  }) async {
+    final result = await _native('field_attachment', {
+      'doctype': type,
+      'name': name,
+      'field': field,
+      'table': table,
+      'row': row,
+    });
+    return (
+      name: result['name'] as String,
+      bytes: base64Decode(result['content'] as String),
+    );
+  }
+
   Future<void> removeAttachment(String type, String name, String file) async {
     await _native('remove_attachment', {
       'doctype': type,
@@ -731,6 +1112,51 @@ class ErpApi {
     await _native('queue_report', {'name': name, 'filters': filters});
   }
 
+  Future<int> reclassifyMasters(
+    String doctype,
+    String company,
+    List<Map<String, String>> records,
+    String group,
+  ) async {
+    final result = await _native('reclassify_masters', {
+      'doctype': doctype,
+      'company': company,
+      'records': records,
+      'group': group,
+    });
+    return result['count'] as int;
+  }
+
+  Future<Map<String, dynamic>> importMasters(
+    String doctype,
+    String company,
+    String stage, {
+    String? content,
+  }) => _native('import_masters', {
+    'doctype': doctype,
+    'company': company,
+    'stage': stage,
+    'content': content,
+  });
+
+  Future<void> changeTreeRecord(
+    String doctype,
+    String name,
+    String modified,
+    String action, {
+    String? company,
+    String? newName,
+  }) async {
+    await _native('change_tree_record', {
+      'doctype': doctype,
+      'name': name,
+      'modified': modified,
+      'action': action,
+      'company': company,
+      'new_name': ?newName,
+    });
+  }
+
   Future<NativeSchema> nativeSchema(String doctype) async =>
       NativeSchema.fromJson(await _native('schema', {'doctype': doctype}));
   Future<Map<String, dynamic>> nativeTree(
@@ -781,10 +1207,14 @@ class ErpApi {
     NativeSchema schema,
     Map<String, dynamic> document, {
     String action = 'Save',
+    String? requestId,
+    String? company,
   }) async => NativeDocument.fromJson(
     await _native('save', {
       'document': schema.payload(document),
       'action': action,
+      'request_id': requestId,
+      'company': company,
     }),
   );
   Future<NativeDocument> partyDefaultsNative(
@@ -809,13 +1239,15 @@ class ErpApi {
     String type,
     String name,
     String action,
-    String modified,
-  ) async => NativeDocument.fromJson(
+    String modified, {
+    num? quantity,
+  }) async => NativeDocument.fromJson(
     await _native('new_from', {
       'doctype': type,
       'name': name,
       'action': action,
       'modified': modified,
+      'quantity': quantity,
     }),
   );
   Future<NativeDocument> prepareNative(
@@ -829,14 +1261,30 @@ class ErpApi {
     String name,
     String action, {
     required String modified,
+    String? requestId,
+    String? company,
   }) async => NativeDocument.fromJson(
     await _native('transition', {
       'doctype': doctype,
       'name': name,
       'action': action,
       'modified': modified,
+      'request_id': requestId,
+      'company': company,
     }),
   );
+
+  Future<Map<String, dynamic>> taskView(
+    String company, {
+    String? month,
+    String? status,
+    int start = 0,
+  }) => _native('task_view', {
+    'company': company,
+    'month': ?month,
+    'status': ?status,
+    'start': start,
+  });
 
   Future<List<Map<String, dynamic>>> nativeRecords(
     String doctype, {
@@ -865,6 +1313,7 @@ class ErpApi {
     String query, {
     String? parent,
     String? field,
+    Map<String, String>? contextValues,
   }) async {
     final result = await _request(
       '/api/method/erp_extensions.api.search_link',
@@ -873,6 +1322,7 @@ class ErpApi {
         'query': query,
         'parent': ?parent,
         'field': ?field,
+        if (contextValues != null) 'context': jsonEncode(contextValues),
       },
     );
     final rows = result['message'];
@@ -1030,9 +1480,8 @@ class ErpApi {
       final masters = <String, int?>{};
       await Future.wait([
         for (final module in ErpModule.values)
-          _permitted(
-            () => _count(module.doctype, module.filters(name, range)),
-          ).then((n) => counts[module] = n),
+          _permitted(() => _count(module.doctype, module.filters(name, range)))
+              .then((n) => counts[module] = n),
         for (final type in ['Customer', 'Supplier', 'Warehouse'])
           _permitted(
             () => _count(

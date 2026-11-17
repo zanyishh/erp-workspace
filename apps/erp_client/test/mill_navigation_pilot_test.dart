@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/design.dart';
@@ -65,61 +66,56 @@ final _workspace = WorkspaceContext.fromJson({
 });
 
 void main() {
-  test(
-    'actions that operators choose between have different, task-specific symbols',
-    () {
-      for (final ids in [
-        [
-          'receive_yarn',
-          'allocate_yarn',
-          'move_yarn',
-          'transfer_yarn',
-          'repack_yarn',
-          'adjust_yarn',
-          'return_yarn',
-          'subcontract_issue',
-          'subcontract_return',
-        ],
-        [
-          'create_machine',
-          'create_component',
-          'replace_component',
-          'component_breakage',
-          'issue_consumable',
-          'return_consumable',
-          'stoppage',
-        ],
-        [
-          'invoice',
-          'bill_yarn',
-          'credit_invoice',
-          'create_estimate',
-          'accept_estimate',
-          'create_rate',
-          'subcontract_bill',
-          'create_subcontract',
-          'job_from_estimate',
-        ],
-        [
-          'produce',
-          'produce_bulk',
-          'split_roll',
-          'quality',
-          'deliver',
-          'return_fabric',
-          'transfer_fabric',
-        ],
-      ]) {
-        expect(
-          ids
-              .map((id) => knitActions.firstWhere((a) => a.id == id).icon)
-              .toSet(),
-          hasLength(ids.length),
-          reason: ids.join(', '),
-        );
-      }
-    },
-  );
+  test('actions that operators choose between have different, task-specific symbols', () {
+    for (final ids in [
+      [
+        'receive_yarn',
+        'allocate_yarn',
+        'move_yarn',
+        'transfer_yarn',
+        'repack_yarn',
+        'adjust_yarn',
+        'return_yarn',
+        'subcontract_issue',
+        'subcontract_return',
+      ],
+      [
+        'create_machine',
+        'create_component',
+        'replace_component',
+        'component_breakage',
+        'issue_consumable',
+        'return_consumable',
+        'stoppage',
+      ],
+      [
+        'invoice',
+        'bill_yarn',
+        'credit_invoice',
+        'create_estimate',
+        'accept_estimate',
+        'create_rate',
+        'subcontract_bill',
+        'create_subcontract',
+        'job_from_estimate',
+      ],
+      [
+        'produce',
+        'produce_bulk',
+        'split_roll',
+        'quality',
+        'deliver',
+        'return_fabric',
+        'transfer_fabric',
+      ],
+    ]) {
+      expect(
+        ids.map((id) => knitActions.firstWhere((a) => a.id == id).icon).toSet(),
+        hasLength(ids.length),
+        reason: ids.join(', '),
+      );
+    }
+  });
   testWidgets(
     'General ERP switch is reachable on a short desktop without scrolling the mill rail',
     (tester) async {
@@ -312,7 +308,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Yarn'), findsOneWidget);
       final transition = find.byKey(
-        const ValueKey('mill-destination-transition'),
+        const ValueKey('workspace-destination-transition'),
       );
       double opacity() =>
           tester.widget<FadeTransition>(transition).opacity.value;

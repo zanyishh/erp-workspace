@@ -2,6 +2,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/knitting_models.dart';
 
 void main() {
+  test(
+    'unconfirmed and malformed status cannot become a confirmed save',
+    () async {
+      for (final status in [
+        {'state': 'prepared'},
+        {'state': 'not_found'},
+        <String, dynamic>{},
+      ]) {
+        final draft = KnittingDraft('produce', {'job': 'J1'});
+        await draft.submit(
+          () async => throw Exception('Connection interrupted'),
+        );
+        await draft.check(() async => status);
+        expect(draft.state, CommandState.uncertain);
+        expect(draft.result, isNull);
+      }
+    },
+  );
   test('kg remain exact and reject rounding, exponent and nonfinite input', () {
     expect((Kg.parse('0.1') + Kg.parse('0.2')).toString(), '0.300');
     expect(Kg.parse('999999999.999').toString(), '999999999.999');

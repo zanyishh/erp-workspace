@@ -6,7 +6,7 @@
 
 ## Fashion Suite evidence
 
-The 13 November [functional specification](../research/fashionsuite/2026-11-13/knitpack-functional-specification-and-erp-gap-analysis.docx) and [screen catalogue](../research/fashionsuite/2026-11-13/knitpack-screen-catalogue.json) cover 234 menu entries across 36 groups. The Word specification contains all 232 distinct screen IDs. Their ID/route pairs match the [scope matrix](knitting-scope.json). The files matched the SHA-256 values in the earlier layout review, which recorded 36 pages. The 14 November [workflow and delivery review](../research/fashionsuite/2026-11-14/knitpack-workflow-and-delivery-review.docx) updates the local product assessment.
+The private 13 November functional specification and screen catalogue cover 234 menu entries across 36 groups. The Word specification contains all 232 distinct screen IDs. Their ID/route pairs match the [scope matrix](knitting-scope.json). The files matched the SHA-256 values in the earlier layout review, which recorded 36 pages. The private 14 November workflow and delivery review updates the local product assessment.
 
 The automatic browser approval review blocked a new visit to the live customer origin before sign-in. Current testing used synthetic data. The 227 previously opened screens establish visible screen structure. Three menu-only entries concern job deletion, automation testing and roll editing/deletion. The two unresolved links concern master configuration and holidays. Hidden transaction-editor rules, vendor formulas and customer-specific equivalence require separate, authorised test material.
 

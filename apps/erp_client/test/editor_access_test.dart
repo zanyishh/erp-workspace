@@ -67,8 +67,9 @@ class AccessEditorApi extends ErpApi {
     String type,
     String name,
     String action,
-    String modified,
-  ) async {
+    String modified, {
+    num? quantity,
+  }) async {
     expect(
       [type, name, action, modified],
       ['Sales Order', 'SO-1', 'Sales Invoice', 'v1'],
@@ -82,6 +83,8 @@ class AccessEditorApi extends ErpApi {
     NativeSchema schema,
     Map<String, dynamic> values, {
     String action = 'Save',
+    String? requestId,
+    String? company,
   }) async {
     if (conflict) {
       throw const ErpException(

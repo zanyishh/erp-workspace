@@ -1,17 +1,55 @@
 import 'dart:async';
+
 import 'ui/workspace_art.dart';
+
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import 'design.dart';
 import 'erp_api.dart';
 import 'knitting_models.dart';
+import 'native_models.dart' show objectMap;
 import 'workspace_context.dart';
 import 'widgets.dart';
 import 'ui/workspace_ui.dart';
 import 'ui/access_gate.dart';
+import 'ui/date_entry.dart';
 import 'document_editor.dart';
 
 part 'knitting_entry_layout.dart';
+part 'knitting_batch_rows.dart';
+
+String knittingProductionOperatorTitle(Map row) => [
+  row['title']?.toString() ?? 'Original employee',
+  if (row['employee_number']?.toString().trim().isNotEmpty == true)
+    'Employee ${row['employee_number']}',
+].join(' · ');
+
+String knittingProductionMachineTitle(Map row) => [
+  row['title']?.toString() ?? 'Original machine',
+  if (row['machine_code']?.toString().trim().isNotEmpty == true)
+    'Machine ${row['machine_code']}',
+].join(' · ');
+
+const originalProductionOperatorField = KnitField(
+  'production_operator',
+  'Production operator · original employee (optional)',
+  kind: 'ProductionOperator',
+  optional: true,
+);
+const originalProductionMachineField = KnitField(
+  'production_machine',
+  'Original machine (optional)',
+  kind: 'ProductionMachine',
+  optional: true,
+);
+const configuredProductionMachineField = KnitField(
+  'machine',
+  'Configured machine (optional)',
+  kind: 'Machine',
+  optional: true,
+);
 
 class KnitField {
   const KnitField(
@@ -41,10 +79,12 @@ class KnitAction {
   final String id, title, group, capability;
   final List<KnitField> fields;
   final bool needsJob;
+  String get command => id == 'revise_rate' ? 'revise_job' : id;
 
   IconData get icon => switch (id) {
     'create_job' => Icons.post_add_outlined,
     'revise_job' => Icons.edit_note_outlined,
+    'revise_rate' => Icons.price_change_outlined,
     'close_job' => Icons.task_alt_outlined,
     'close_jobs' => Icons.playlist_add_check_circle_outlined,
     'reopen_job' => Icons.restore_outlined,
@@ -57,12 +97,17 @@ class KnitAction {
     'repack_yarn' => Icons.inventory_2_outlined,
     'adjust_yarn' => Icons.exposure_outlined,
     'produce' => Icons.precision_manufacturing_outlined,
+    'produce_batch' => Icons.inventory_2_outlined,
+    'produce_batches' => Icons.playlist_add_outlined,
     'produce_bulk' => Icons.layers_outlined,
     'split_roll' => Icons.call_split_rounded,
     'quality' => Icons.fact_check_outlined,
+    'review_batch' => Icons.fact_check_outlined,
     'plan' => Icons.edit_calendar_outlined,
     'holiday' => Icons.event_busy_outlined,
     'deliver' => Icons.local_shipping_outlined,
+    'deliver_batch' => Icons.local_shipping_outlined,
+    'return_batch' => Icons.assignment_returned_outlined,
     'return_fabric' => Icons.assignment_returned_outlined,
     'transfer_fabric' => Icons.compare_arrows_rounded,
     'invoice' => Icons.receipt_long_outlined,
@@ -95,9 +140,12 @@ class KnitAction {
 
   bool availableIn(WorkspaceContext workspace) =>
       workspace.allows(capability) &&
-      !workspace.unavailableKnittingActions.contains(id);
+      (id != 'revise_rate' || workspace.allows('financial_read')) &&
+      !workspace.unavailableKnittingActions.contains(id) &&
+      !workspace.unavailableKnittingActions.contains(command);
   bool appearsIn(String destination) =>
       group == destination ||
+      (id == 'revise_rate' && destination == 'Jobs') ||
       (id == 'cancel_event' && !needsJob && destination == 'Yarn');
 }
 
@@ -148,6 +196,16 @@ const lossField = KnitField(
   kind: 'kg',
   value: '0',
 );
+const yarnReceiptReferences = [
+  KnitField('source_lot', 'Supplier / customer lot', optional: true),
+  KnitField('party_dc_number', 'Party challan number', optional: true),
+  KnitField(
+    'party_dc_date',
+    'Party challan date',
+    kind: 'date',
+    optional: true,
+  ),
+];
 const datesFields = [
   KnitField('starts_at', 'Start · YYYY-MM-DD HH:MM', kind: 'datetime'),
   KnitField('ends_at', 'Finish · YYYY-MM-DD HH:MM', kind: 'datetime'),
@@ -266,7 +324,7 @@ const knitActions = <KnitAction>[
     reasonField,
   ]),
   KnitAction('return_fabric', 'Receive fabric return', 'Delivery', 'delivery', [
-    KnitField('delivery', 'Source delivery', kind: 'Delivery'),
+    KnitField('delivery', 'Source delivery', kind: 'RollDelivery'),
     KnitField('rolls', 'Delivered rolls to return', kind: 'DeliveredRolls'),
     reasonField,
   ]),
@@ -296,7 +354,7 @@ const knitActions = <KnitAction>[
     quantityField,
     unitsField,
     warehouseField,
-    KnitField('source_lot', 'Supplier / customer lot', optional: true),
+    ...yarnReceiptReferences,
     KnitField(
       'valuation_rate',
       'Owned cost per kg',
@@ -422,6 +480,14 @@ const knitActions = <KnitAction>[
 
   KnitAction('create_job', 'New job', 'Jobs', 'new_job', [
     KnitField('customer', 'Customer', kind: 'Customer'),
+    KnitField(
+      'billing_customer',
+      'Bill to (optional)',
+      kind: 'Customer',
+      optional: true,
+      finance: true,
+    ),
+    KnitField('job_date', 'Order date · YYYY-MM-DD', kind: 'date'),
     KnitField('kind', 'Job kind', kind: 'select', options: ['Order', 'Sample']),
     KnitField(
       'material_mode',
@@ -446,6 +512,10 @@ const knitActions = <KnitAction>[
       optional: true,
     ),
   ]),
+  KnitAction('revise_rate', 'Revise rate', 'Billing', 'lifecycle', [
+    KnitField('rate', 'Rate per kg', kind: 'money', finance: true),
+    reasonField,
+  ]),
   KnitAction('close_job', 'Complete job', 'Jobs', 'lifecycle', []),
   KnitAction('reopen_job', 'Reopen job', 'Jobs', 'lifecycle', [reasonField]),
   KnitAction('receive_yarn', 'Receive yarn', 'Yarn', 'materials', [
@@ -466,6 +536,7 @@ const knitActions = <KnitAction>[
     quantityField,
     KnitField('units', 'Bags / units', kind: 'integer', value: '0'),
     warehouseField,
+    ...yarnReceiptReferences,
     KnitField(
       'charge_item',
       'Extra material charge item (optional)',
@@ -552,13 +623,42 @@ const knitActions = <KnitAction>[
   ], needsJob: false),
   KnitAction('produce', 'Record production', 'Production', 'production', [
     lineField,
-    KnitField('machine', 'Machine', kind: 'Machine', optional: true),
+    originalProductionOperatorField,
+    configuredProductionMachineField,
+    originalProductionMachineField,
     KnitField('shift', 'Shift'),
     weightsField,
     inputField,
     lossField,
     warehouseField,
   ]),
+  KnitAction(
+    'produce_batch',
+    'Record batch production',
+    'Production',
+    'production',
+    [
+      lineField,
+      originalProductionOperatorField,
+      quantityField,
+      KnitField('rolls', 'Recorded rolls / pieces', kind: 'integer'),
+      inputField,
+      lossField,
+      configuredProductionMachineField,
+      originalProductionMachineField,
+      KnitField('shift', 'Shift'),
+      warehouseField,
+      KnitField('remarks', 'Remarks', optional: true),
+    ],
+  ),
+  KnitAction(
+    'produce_batches',
+    'Record production rows',
+    'Production',
+    'production',
+    [KnitField('entries', 'Production rows', kind: 'batch_rows')],
+    needsJob: false,
+  ),
   KnitAction('quality', 'Inspect roll', 'Quality', 'quality', [
     KnitField('roll', 'Roll', kind: 'Roll'),
     KnitField(
@@ -575,6 +675,31 @@ const knitActions = <KnitAction>[
     weightsField,
     reasonField,
   ]),
+  KnitAction('review_batch', 'Review fabric batch', 'Quality', 'quality', [
+    KnitField('batch', 'Fabric batch', kind: 'Batch'),
+    KnitField(
+      'decision',
+      'Decision',
+      kind: 'select',
+      options: ['Released', 'On Hold'],
+    ),
+    KnitField('remarks', 'Inspection notes'),
+  ]),
+  KnitAction('deliver_batch', 'Deliver fabric batch', 'Delivery', 'delivery', [
+    KnitField('batch', 'Released fabric batch', kind: 'ReleasedBatch'),
+    quantityField,
+    KnitField('rolls', 'Roll count', kind: 'integer'),
+    KnitField('destination', 'Delivery destination', optional: true),
+    KnitField('transport', 'Transport / vehicle', optional: true),
+    KnitField('transport_reference', 'Transport reference', optional: true),
+  ]),
+  KnitAction('return_batch', 'Receive batch return', 'Delivery', 'delivery', [
+    KnitField('delivery', 'Source batch delivery', kind: 'BatchDelivery'),
+    KnitField('batch', 'Fabric batch', kind: 'Batch'),
+    quantityField,
+    KnitField('rolls', 'Roll count', kind: 'integer'),
+    reasonField,
+  ]),
   KnitAction('deliver', 'Create delivery', 'Delivery', 'delivery', [
     KnitField('rolls', 'Released rolls', kind: 'Rolls'),
     KnitField('destination', 'Delivery destination', optional: true),
@@ -583,6 +708,20 @@ const knitActions = <KnitAction>[
   ]),
   KnitAction('invoice', 'Create invoice', 'Billing', 'billing', [
     KnitField('deliveries', 'Confirmed deliveries', kind: 'Deliveries'),
+    KnitField(
+      'tax_template',
+      'Sales tax template',
+      kind: 'SalesTaxTemplate',
+      optional: true,
+      finance: true,
+    ),
+    KnitField(
+      'no_tax',
+      'No tax',
+      kind: 'toggle',
+      optional: true,
+      finance: true,
+    ),
     KnitField(
       'quantity_kg',
       'Partial quantity · kg (empty = all unbilled)',
@@ -628,6 +767,8 @@ const knitActions = <KnitAction>[
   ], needsJob: false),
   KnitAction('stoppage', 'Record stoppage', 'Factory', 'factory', [
     machineField,
+    warehouseField,
+    KnitField('shift', 'Machine shift', optional: true),
     ...datesFields,
     reasonField,
   ], needsJob: false),
@@ -776,13 +917,77 @@ class _RecordPickerState extends State<_RecordPicker> {
   Timer? debounce;
   bool pendingSearch = false;
   late Future<Map<String, dynamic>> future = _load();
-  Future<Map<String, dynamic>> _load() => widget.api.knittingLookup(
-    widget.company,
-    widget.entity,
-    query,
-    start: start,
-    job: widget.job,
-  );
+  bool get registerPicker => const {
+    'Batch',
+    'ReleasedBatch',
+    'BatchDelivery',
+    'RollDelivery',
+  }.contains(widget.entity);
+  int get pageSize => registerPicker ? 100 : 50;
+  Future<Map<String, dynamic>> _load() async {
+    if (!registerPicker) {
+      return widget.api.knittingLookup(
+        widget.company,
+        widget.entity,
+        query,
+        start: start,
+        job: widget.job,
+      );
+    }
+    if (widget.job == null) {
+      throw const ErpException('Choose the job before selecting its fabric.');
+    }
+    final batches =
+        widget.entity == 'Batch' || widget.entity == 'ReleasedBatch';
+    final collection = batches ? 'batches' : 'events';
+    final response = await widget.api.knittingRegister(
+      widget.company,
+      collection,
+      job: widget.job,
+      start: start,
+      query: query,
+      state: widget.entity == 'ReleasedBatch' ? 'Released' : null,
+    );
+    final page = response['page'];
+    final rows = response['rows'];
+    if (response['version'] != 1 ||
+        response['company'] != widget.company ||
+        response['collection'] != collection ||
+        response['scope_job'] != widget.job ||
+        page is! Map ||
+        page['start'] != start ||
+        page['limit'] != 100 ||
+        page['has_more'] is! bool ||
+        rows is! List ||
+        rows.length > 100 ||
+        rows.any(
+          (row) =>
+              row is! Map || row['name'] is! String || row['job'] != widget.job,
+        )) {
+      throw const ErpException(
+        'The fabric register returned an unexpected scope. Refresh and try again.',
+      );
+    }
+    return {
+      'rows': batches
+          ? rows
+          : rows
+                .where(
+                  (row) =>
+                      row['kind'] ==
+                          (widget.entity == 'BatchDelivery'
+                              ? 'deliver_batch'
+                              : 'deliver') &&
+                      row['cancelled'] == 0 &&
+                      (widget.entity != 'BatchDelivery' ||
+                          row['result'] is Map &&
+                              row['result']['batch'] is String),
+                )
+                .toList(),
+      'has_more': page['has_more'],
+    };
+  }
+
   Future<void> _createCustomer() async {
     final revision = widget.api.accessRevision;
     final row = await Navigator.push<Map<String, dynamic>>(
@@ -831,6 +1036,14 @@ class _RecordPickerState extends State<_RecordPicker> {
 
   @override
   Widget build(BuildContext context) => Dialog(
+    insetPadding:
+        const {
+              'ProductionOperator',
+              'ProductionMachine',
+            }.contains(widget.entity) &&
+            MediaQuery.sizeOf(context).width < 500
+        ? const EdgeInsets.all(12)
+        : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
     child: AccessGate(
       api: widget.api,
       fullPage: false,
@@ -845,7 +1058,15 @@ class _RecordPickerState extends State<_RecordPicker> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 700, maxHeight: 650),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(
+            const {
+                      'ProductionOperator',
+                      'ProductionMachine',
+                    }.contains(widget.entity) &&
+                    MediaQuery.sizeOf(context).width < 500
+                ? 16
+                : 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -854,7 +1075,14 @@ class _RecordPickerState extends State<_RecordPicker> {
                   Expanded(
                     child: Display(
                       'SELECT ${_entityLabel(widget.entity).toUpperCase()}',
-                      size: 28,
+                      size:
+                          const {
+                                'ProductionOperator',
+                                'ProductionMachine',
+                              }.contains(widget.entity) &&
+                              MediaQuery.sizeOf(context).width < 500
+                          ? 22
+                          : 28,
                     ),
                   ),
                   IconButton(
@@ -946,14 +1174,53 @@ class _RecordPickerState extends State<_RecordPicker> {
                                       ),
                                       subtitle: Text(
                                         [
-                                          name,
-                                          row['customer'],
+                                          if (!const {
+                                            'JobCustomer',
+                                            'ProductionOperator',
+                                            'ProductionMachine',
+                                          }.contains(widget.entity))
+                                            name,
+                                          if (widget.entity ==
+                                                  'ProductionOperator' &&
+                                              row['employee_number']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true)
+                                            'Employee ${row['employee_number']}',
+                                          if (widget.entity ==
+                                                  'ProductionMachine' &&
+                                              row['machine_code']
+                                                      ?.toString()
+                                                      .trim()
+                                                      .isNotEmpty ==
+                                                  true)
+                                            'Machine ${row['machine_code']}',
+                                          if (row['customer'] != null ||
+                                              row['customer_name'] != null)
+                                            knittingCustomerTitle(row),
                                           row['supplier'],
                                           row['item'],
                                           row['party'],
                                           row['category'],
                                           row['status'],
                                           row['state'],
+                                          row['source_reference'],
+                                          row['quantity_kg'] != null
+                                              ? '${row['quantity_kg']} kg'
+                                              : null,
+                                          row['rolls'] != null
+                                              ? '${row['rolls']} rolls'
+                                              : null,
+                                          if (row['result'] is Map) ...[
+                                            row['result']['quantity_kg'] != null
+                                                ? '${row['result']['quantity_kg']} kg'
+                                                : null,
+                                            row['result']['roll_count'] != null
+                                                ? '${row['result']['roll_count']} rolls'
+                                                : null,
+                                            row['occurred_at'],
+                                          ],
                                           row['weight_kg'] != null
                                               ? '${row['weight_kg']} kg'
                                               : null,
@@ -994,14 +1261,16 @@ class _RecordPickerState extends State<_RecordPicker> {
                                 ),
                         ),
                         if (start > 0 || s.data!['has_more'] == true)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 8,
+                            runSpacing: 4,
                             children: [
                               TextButton(
                                 onPressed: start == 0
                                     ? null
                                     : () => setState(() {
-                                        start -= 50;
+                                        start -= pageSize;
                                         future = _load();
                                       }),
                                 child: const Text('Previous'),
@@ -1014,7 +1283,7 @@ class _RecordPickerState extends State<_RecordPicker> {
                               TextButton(
                                 onPressed: s.data!['has_more'] == true
                                     ? () => setState(() {
-                                        start += 50;
+                                        start += pageSize;
                                         future = _load();
                                       })
                                     : null,
@@ -1053,23 +1322,30 @@ class KnittingCommandForm extends StatefulWidget {
     required this.action,
     this.job,
     this.initial = const {},
+    this.initialReferences = const {},
+    this.prepareOnly = false,
   });
   final ErpApi api;
   final WorkspaceContext workspace;
   final KnitAction action;
+  final bool prepareOnly;
   final Map<String, dynamic>? job;
   final Map<String, dynamic> initial;
+  final Map<String, Map<String, dynamic>> initialReferences;
   @override
   State<KnittingCommandForm> createState() => _KnittingCommandFormState();
 }
 
 class _KnittingCommandFormState extends State<KnittingCommandForm> {
-  final formKey = GlobalKey<FormState>();
+  var formKey = GlobalKey<FormState>();
   final values = <String, dynamic>{};
   final references = <String, Map<String, dynamic>>{};
   final recordLabels = <(String, String), String>{};
+  final productionRowSources = <Map<String, dynamic>, Map<String, dynamic>>{};
   final scroll = ScrollController();
   KnittingDraft? draft;
+  final preparedRequests = <String>{};
+  late String account;
   bool review = false, changed = false, checkingTotals = false, leaving = false;
   bool refreshingSources = false;
   Map<String, dynamic>? invoiceReview;
@@ -1079,6 +1355,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   WorkspaceContext get workspace =>
       widget.api.contextFor(widget.workspace.company!) ?? widget.workspace;
   Map<String, dynamic>? get job => freshJob ?? widget.job ?? references['job'];
+  bool get importedProgrammeBlocked {
+    if (widget.action.id != 'revise_job' || job == null) return false;
+    if (job!.containsKey('is_imported')) return job!['is_imported'] == true;
+    return job!['source_record']?.toString().isNotEmpty == true ||
+        (job!['programme'] as List? ?? []).any(
+          (line) =>
+              line is Map &&
+              line.keys.any((key) => key.toString().startsWith('source_')),
+        );
+  }
+
   Map<String, dynamic>? get sourceEvent => switch (widget.action.id) {
     'bill_yarn' => references['receipt'],
     'return_consumable' => references['event'],
@@ -1092,12 +1379,15 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       if (value is Map) {
         value.removeWhere(
           (k, _) => const {
+            'billing_customer',
             'rate',
             'charge_item',
             'charge_rate',
             'valuation_rate',
             'income_account',
             'expense_account',
+            'tax_template',
+            'no_tax',
           }.contains(k),
         );
         value.values.forEach(remove);
@@ -1110,12 +1400,72 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   @override
+  void didUpdateWidget(covariant KnittingCommandForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api) {
+      oldWidget.api.removeAccessListener(_accountChanged);
+      widget.api.addAccessListener(_accountChanged);
+    }
+    if (oldWidget.workspace.company != widget.workspace.company ||
+        oldWidget.api != widget.api ||
+        oldWidget.action.id != widget.action.id ||
+        oldWidget.job?['name'] != widget.job?['name']) {
+      final previous = draft;
+      formKey = GlobalKey<FormState>();
+      values.clear();
+      references.clear();
+      recordLabels.clear();
+      productionRowSources.clear();
+      if (widget.action.needsJob && widget.job != null) {
+        values['job'] = widget.job!['name'];
+      }
+      freshJob = null;
+      refreshingSources = false;
+      draft = null;
+      review = false;
+      accessInvalidatedDraft = false;
+      final scope = oldWidget.workspace.company != widget.workspace.company
+          ? 'Company'
+          : 'Entry context';
+      validation =
+          previous?.state == CommandState.uncertain ||
+              previous?.state == CommandState.posting
+          ? '$scope changed. Check request ${previous!.requestId} in ${oldWidget.workspace.company} before posting it again.'
+          : '$scope changed. Select current sources before reviewing.';
+      account = widget.api.account;
+    }
+  }
+
+  void _accountChanged() {
+    if (!mounted || account == widget.api.account) return;
+    account = widget.api.account;
+    setState(() {
+      formKey = GlobalKey<FormState>();
+      values.clear();
+      references.clear();
+      recordLabels.clear();
+      productionRowSources.clear();
+      if (widget.action.needsJob && widget.job != null) {
+        values['job'] = widget.job!['name'];
+      }
+      freshJob = null;
+      draft = null;
+      review = false;
+      invoiceReview = null;
+      checkingTotals = refreshingSources = changed = false;
+      validation = 'Account changed. Select current sources before entering data. Previous interrupted requests remain under the original account.';
+    });
+  }
+
+  @override
   void dispose() {
+    widget.api.removeAccessListener(_accountChanged);
     scroll.dispose();
     super.dispose();
   }
 
   void _markDirty() => changed = true;
+  void _updateProductionRows(VoidCallback update) => setState(update);
 
   void _scrollToStart() {
     if (scroll.hasClients) scroll.jumpTo(0);
@@ -1124,12 +1474,16 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   List<KnitField> get fields => [
     if (widget.action.needsJob && widget.job == null) jobField,
     ...widget.action.fields.where(
-      (f) => !f.finance || workspace.allows('financial_read'),
+      (f) =>
+          !importedProgrammeBlocked &&
+          (!f.finance || workspace.allows('financial_read')),
     ),
   ];
   @override
   void initState() {
     super.initState();
+    account = widget.api.account;
+    widget.api.addAccessListener(_accountChanged);
     for (final f in fields) {
       if (f.value != null) {
         values[f.key] = f.value;
@@ -1137,9 +1491,29 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         values[f.key] = f.options.first;
       }
     }
+    if (widget.action.id == 'create_job') {
+      values['job_date'] = DateTime.now().toIso8601String().substring(0, 10);
+    }
     values.addAll(
       jsonDecode(jsonEncode(widget.initial)) as Map<String, dynamic>,
     );
+    for (final entry in widget.initialReferences.entries) {
+      references[entry.key] = Map<String, dynamic>.from(
+        jsonDecode(jsonEncode(entry.value)) as Map,
+      );
+    }
+    final initialJob = references['job'];
+    if (initialJob != null && initialJob['name'] is String) {
+      recordLabels[('Job', initialJob['name'] as String)] = _recordTitle(
+        initialJob,
+        'Job',
+      );
+    }
+    if (widget.action.id == 'revise_rate') {
+      values.removeWhere(
+        (key, _) => !const {'job', 'rate', 'reason'}.contains(key),
+      );
+    }
     if (widget.job != null) {
       values['job'] = widget.job!['name'];
       if (widget.action.id == 'revise_job') {
@@ -1168,7 +1542,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         values.remove(f.key);
         references.remove(f.key);
       }
-      if (widget.action.id == 'revise_job') values.remove('rate');
+      if (const {'revise_job', 'revise_rate'}.contains(widget.action.id)) {
+        values.remove('rate');
+      }
     }
     if (widget.action.id == 'revise_job' && next != null) _loadProgramme(next);
   }
@@ -1196,7 +1572,9 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         title: const Text('Leave this entry?'),
         content: Text(
           draft?.state == CommandState.uncertain
-              ? 'The save result is uncertain. Keep the request reference to check its status before posting again.'
+              ? preparedRequests.contains(draft?.requestId)
+                    ? 'This request is saved in Pending operations for ${workspace.company}. Check it there before posting another entry.'
+                    : 'The result is not confirmed. Check or retry this same entry before leaving.'
               : 'Your unsaved entry will be discarded.',
         ),
         actions: [
@@ -1204,10 +1582,16 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             onPressed: () => Navigator.pop(c, false),
             child: const Text('Keep editing'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Leave'),
-          ),
+          if (draft?.state != CommandState.uncertain ||
+              preparedRequests.contains(draft?.requestId))
+            TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(
+                draft?.state == CommandState.uncertain
+                    ? 'Leave and check later'
+                    : 'Leave',
+              ),
+            ),
         ],
       ),
     );
@@ -1216,7 +1600,8 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   Future<void> _review() async {
-    if (!widget.action.availableIn(workspace) ||
+    if (importedProgrammeBlocked ||
+        !widget.action.availableIn(workspace) ||
         !widget.api.accessReady ||
         draft?.state == CommandState.uncertain) {
       return;
@@ -1224,14 +1609,40 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     FocusManager.instance.primaryFocus?.unfocus();
     final invalid = formKey.currentState!.validateGranularly();
     if (invalid.isNotEmpty) {
+      final errorContext = invalid.first.context;
       await Scrollable.ensureVisible(
-        invalid.first.context,
+        errorContext,
         duration: workspaceMotion(context),
         alignment: .2,
       );
+      if (!mounted || !errorContext.mounted) return;
+      FocusNode? firstFocus;
+      void visit(Element element) {
+        if (firstFocus != null) return;
+        if (element.widget case EditableText(:final focusNode)) {
+          firstFocus = focusNode;
+        } else {
+          element.visitChildren(visit);
+        }
+      }
+
+      errorContext.visitChildElements(visit);
+      firstFocus?.requestFocus();
       return;
     }
     try {
+      if (widget.action.id == 'invoice') {
+        final template =
+            values['tax_template']?.toString().trim().isNotEmpty ?? false;
+        final noTax = values['no_tax'] == true;
+        if (template == noTax) {
+          setState(
+            () => validation =
+                'Choose a sales tax template or explicitly select No tax.',
+          );
+          return;
+        }
+      }
       final discrepancy = _quantityDiscrepancy();
       if (discrepancy != null) {
         setState(() => validation = discrepancy);
@@ -1243,18 +1654,59 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       if (values['plan'] != null) {
         values['plan_modified'] = references['plan']?['modified'];
       }
+      if (widget.action.id == 'save_master') values.remove('settings');
       if (values['master'] != null) {
-        values['master_modified'] = references['master']?['modified'];
+        final source = references['master'];
+        if (widget.action.id == 'save_master') {
+          if (source == null ||
+              source['name'] != values['master'] ||
+              source['modified'] is! String ||
+              (source['modified'] as String).isEmpty) {
+            throw const ErpException(
+              'Select the current definition again before reviewing.',
+            );
+          }
+          final raw = source['specification'];
+          final parsed = raw is String
+              ? (raw.trim().isEmpty ? <String, dynamic>{} : jsonDecode(raw))
+              : raw;
+          if (parsed != null && parsed is! Map) {
+            throw const ErpException(
+              'The saved definition settings are unavailable.',
+            );
+          }
+          final settings = Map<String, dynamic>.from(parsed as Map? ?? {});
+          for (final key in [
+            'description',
+            'value',
+            'severity',
+            'boundary_kg',
+          ]) {
+            if (!values.containsKey(key) || values[key] == settings[key]) {
+              continue;
+            }
+            if (values[key] == null || values[key] == '') {
+              settings.remove(key);
+            } else {
+              settings[key] = values[key];
+            }
+          }
+          values['settings'] = settings;
+        }
+        values['master_modified'] = source?['modified'];
       }
       if (values['quotation'] != null) {
         values['quotation_modified'] = references['quotation']?['modified'];
       }
-      values.removeWhere((k, v) => v == null || v == '');
-      values.remove('preview_hash');
-      final frozen = Map<String, dynamic>.from(
-        jsonDecode(jsonEncode(values)) as Map,
-      );
-      draft = KnittingDraft(widget.action.id, frozen);
+      final frozen =
+          Map<String, dynamic>.from(jsonDecode(jsonEncode(values)) as Map)
+            ..removeWhere((k, v) => v == null || v == '')
+            ..remove('preview_hash');
+      if (widget.action.id == 'save_master') {
+        frozen.remove('unit');
+        frozen.remove('order');
+      }
+      draft = KnittingDraft(widget.action.command, frozen);
       final reviewed = draft;
       final accessRevision = widget.api.accessRevision;
       accessInvalidatedDraft = false;
@@ -1308,6 +1760,30 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       (sum, value) => sum + Kg.parse(value.toString()),
     );
     final id = widget.action.id;
+    if (id == 'produce_batches') return _productionRowsDiscrepancy();
+    if (id == 'review_batch' && values['decision'] == 'Released') {
+      final batch = references['batch'];
+      if (batch != null &&
+          (batch['quantity_kg'].toString().startsWith('-') ||
+              batch['rolls'].toString().startsWith('-'))) {
+        return 'Resolve the original negative stock balance before releasing this batch.';
+      }
+    }
+    if (id == 'deliver_batch' ||
+        id == 'return_batch' ||
+        id == 'produce_batch') {
+      if (Kg.parse(values['quantity_kg'].toString()).milli == BigInt.zero) {
+        return 'Enter a positive fabric weight.';
+      }
+      if (id == 'return_batch' &&
+          references['delivery']?['result']?['batch'] != null &&
+          references['delivery']!['result']['batch'] != values['batch']) {
+        return 'Choose the fabric batch from the selected delivery.';
+      }
+    }
+    if (id == 'produce_batch' && job?['material_mode'] != 'Customer') {
+      return 'Batch production supports customer-owned material only. Use individual rolls for owned or mixed stock.';
+    }
     if (id == 'create_job' || id == 'create_estimate') {
       final target = Kg.parse(values['target_kg'].toString());
       final programme = total(
@@ -1317,15 +1793,25 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         return 'The fabric programme totals $programme kg. Match it to the $target kg target before review.';
       }
     }
-    if (const {'produce', 'produce_bulk', 'subcontract_receive'}.contains(id)) {
+    if (const {
+      'produce',
+      'produce_bulk',
+      'produce_batch',
+      'subcontract_receive',
+    }.contains(id)) {
       final entries = id == 'produce_bulk'
           ? values['entries'] as List
           : [values];
       for (final (i, row) in entries.indexed) {
+        if (_hasValue(row['machine']) && _hasValue(row['production_machine'])) {
+          return 'Choose either a configured machine or an original machine for each production row.';
+        }
         final yarn = total(
           (row['inputs'] as List).map((input) => input['quantity_kg']),
         );
-        final fabric = total(row['weights_kg'] as List);
+        final fabric = id == 'produce_batch'
+            ? Kg.parse(row['quantity_kg'].toString())
+            : total(row['weights_kg'] as List);
         final loss = Kg.parse((row['loss_kg'] ?? '0').toString());
         if (yarn.compareTo(fabric + loss) != 0) {
           final line = id == 'produce_bulk'
@@ -1345,18 +1831,134 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       return;
     }
     final d = draft!;
-    final future = d.submit(
-      () => widget.api.knittingCommand(
-        widget.workspace.company!,
+    final submitted =
+        d.action == 'revise_job' && d.values.containsKey('programme')
+        ? {
+            ...d.values,
+            'programme': [
+              for (final row in d.values['programme'] as List)
+                Map<String, dynamic>.from(row as Map)
+                  ..remove('dia_display')
+                  ..remove('dia_basis'),
+            ],
+          }
+        : d.values;
+    if (widget.prepareOnly) {
+      if (sourceVersion == null || sourceVersion!.isEmpty || job == null) {
+        setState(() {
+          review = false;
+          validation = 'Choose the current job before preparing this row.';
+        });
+        return;
+      }
+      Navigator.pop(context, <String, dynamic>{
+        'values': jsonDecode(jsonEncode(submitted)),
+        'modified': sourceVersion,
+        'job': jsonDecode(jsonEncode(job)),
+        'references': jsonDecode(jsonEncode(references)),
+        'labels': Map<(String, String), String>.from(recordLabels),
+      });
+      return;
+    }
+    final api = widget.api, company = widget.workspace.company!;
+    final epoch = api.accessRevision, account = api.account;
+    final reviewedVersion = sourceVersion;
+    final recoverable = api.supportsOperationRecovery(company);
+    bool sent = false;
+    final future = d.submit(() async {
+      if (recoverable) {
+        final operation = await api.beginOperation(
+          company,
+          'knitting',
+          d.requestId,
+          action: d.action,
+        );
+        preparedRequests.add(d.requestId);
+        if (!mounted ||
+            d != draft ||
+            api != widget.api ||
+            company != widget.workspace.company ||
+            epoch != api.accessRevision ||
+            account != api.account ||
+            !api.accessReady) {
+          throw const ErpException(
+            'Access changed. Check this request after signing in.',
+          );
+        }
+        if (operation['state'] == 'completed') {
+          return objectMap(operation['result']);
+        }
+        if (operation['state'] != 'prepared') {
+          throw const ErpException(
+            'This request is closed. Check its status before editing.',
+          );
+        }
+      }
+      sent = true;
+      final result = await api.knittingCommand(
+        company,
         d.action,
-        d.values,
+        submitted,
         d.requestId,
-        modified: sourceVersion,
-      ),
-    );
+        modified: reviewedVersion,
+      );
+      if (!mounted ||
+          d != draft ||
+          api != widget.api ||
+          company != workspace.company ||
+          epoch != api.accessRevision ||
+          account != api.account ||
+          !api.accessReady) {
+        throw const ErpException(
+          'Access changed while saving. Check the original request before posting again.',
+        );
+      }
+      return result;
+    });
     setState(() {});
     await future;
     if (!mounted || !identical(d, draft)) return;
+    if (preparedRequests.contains(d.requestId) &&
+        (d.state == CommandState.rejected || d.state == CommandState.stale)) {
+      final rejectedState = d.state;
+      setState(() => d.state = CommandState.checking);
+      try {
+        final closed = await api.closeOperation(company, d.requestId);
+        if (!mounted ||
+            d != draft ||
+            api != widget.api ||
+            company != workspace.company ||
+            epoch != api.accessRevision ||
+            account != api.account) {
+          d.state = CommandState.uncertain;
+          if (mounted && d == draft) setState(() {});
+          return;
+        }
+        if (closed['state'] == 'completed') {
+          d.result = objectMap(closed['result']);
+          d.state = CommandState.confirmed;
+          d.error = null;
+        } else if (closed['state'] == 'closed') {
+          d.state = rejectedState;
+          try {
+            await api.acknowledgeOperation(company, d.requestId);
+          } catch (_) {}
+        } else {
+          d.state = CommandState.uncertain;
+        }
+      } catch (e) {
+        d.state = CommandState.uncertain;
+        d.error = '$e Check this request before posting again.';
+      }
+      if (!mounted || d != draft) return;
+    }
+    if (!sent &&
+        !preparedRequests.contains(d.requestId) &&
+        d.state == CommandState.uncertain) {
+      // Preparation failed before the business request was sent. Keeping this
+      // exact reference makes the next explicit attempt safe even if prepared.
+      d.state = CommandState.editing;
+    }
     setState(() {
       if (d.state == CommandState.rejected) {
         validation = d.error;
@@ -1365,30 +1967,131 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         invoiceReview = null;
       }
     });
+    if (d.state == CommandState.confirmed) _acknowledgeShown(d);
   }
 
   Future<void> _check() async {
-    final future = draft!.check(
-      () => widget.api.knittingCommandStatus(
-        widget.workspace.company!,
-        draft!.requestId,
-      ),
-    );
+    final d = draft;
+    if (d == null) return;
+    final api = widget.api, company = widget.workspace.company!;
+    final epoch = api.accessRevision, account = api.account;
+    final future = d.check(() async {
+      final result = api.supportsOperationRecovery(company)
+          ? await api.operationStatus(company, d.requestId)
+          : await api.knittingCommandStatus(company, d.requestId);
+      if (!mounted ||
+          d != draft ||
+          api != widget.api ||
+          company != widget.workspace.company ||
+          epoch != api.accessRevision ||
+          account != api.account ||
+          !api.accessReady) {
+        throw const ErpException('Access changed. Check this request again.');
+      }
+      return result['state'] == 'completed'
+          ? objectMap(result['result'])
+          : result;
+    });
     setState(() {});
     await future;
-    if (mounted) setState(() {});
+    if (mounted && identical(d, draft)) {
+      setState(() {});
+      if (d.state == CommandState.confirmed) _acknowledgeShown(d);
+    }
+  }
+
+  void _acknowledgeShown(KnittingDraft d) {
+    if (!preparedRequests.contains(d.requestId)) return;
+    final api = widget.api, company = widget.workspace.company!;
+    final owner = api.account, revision = api.accessRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted ||
+          d != draft ||
+          d.state != CommandState.confirmed ||
+          !api.accessReady ||
+          api.account != owner ||
+          api.accessRevision != revision) {
+        return;
+      }
+      try {
+        await api.acknowledgeOperation(company, d.requestId);
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _closeRequest() async {
+    final d = draft;
+    if (d == null || busy) return;
+    final api = widget.api, company = widget.workspace.company!;
+    final epoch = api.accessRevision, account = api.account;
+    setState(() => d.state = CommandState.checking);
+    try {
+      final result = await api.closeOperation(company, d.requestId);
+      if (!mounted ||
+          d != draft ||
+          api != widget.api ||
+          company != widget.workspace.company ||
+          epoch != api.accessRevision ||
+          account != api.account ||
+          !api.accessReady) {
+        return;
+      }
+      if (result['state'] == 'completed') {
+        setState(() {
+          d.result = objectMap(result['result']);
+          d.state = CommandState.confirmed;
+          d.error = null;
+        });
+        _acknowledgeShown(d);
+      } else if (result['state'] == 'closed') {
+        try {
+          await api.acknowledgeOperation(company, d.requestId);
+        } catch (_) {}
+        if (!mounted || d != draft) return;
+        setState(() {
+          review = false;
+          draft = null;
+          invoiceReview = null;
+          accessInvalidatedDraft = false;
+          validation = 'The request was closed without posting. Review your retained entry again.';
+        });
+      } else {
+        setState(() => d.state = CommandState.uncertain);
+      }
+    } catch (e) {
+      if (mounted && d == draft) {
+        setState(() {
+          d.error = e.toString();
+          d.state = CommandState.uncertain;
+        });
+      }
+    } finally {
+      if (mounted && d == draft && d.state == CommandState.checking) {
+        setState(() => d.state = CommandState.uncertain);
+      }
+    }
   }
 
   Future<void> _reloadStaleSources() async {
     if (busy || !widget.api.accessReady) return;
+    final api = widget.api;
+    final company = workspace.company!;
+    final name = values['job'] as String?;
+    final fixedJob = widget.job?['name'];
+    final revision = api.accessRevision;
+    bool sameSource() =>
+        mounted &&
+        identical(api, widget.api) &&
+        company == workspace.company &&
+        name == values['job'] &&
+        fixedJob == widget.job?['name'];
+    bool canApply() =>
+        sameSource() && revision == api.accessRevision && api.accessReady;
     setState(() => refreshingSources = true);
     try {
-      final company = workspace.company!;
-      final name = values['job'] as String?;
-      final revision = widget.api.accessRevision;
       Map<String, dynamic>? latest;
       if (name != null) {
-        final snapshot = await widget.api.knittingSnapshot(company, job: name);
+        final snapshot = await api.knittingSnapshot(company, job: name);
         latest = snapshot
             .rows('jobs')
             .where((j) => j['name'] == name)
@@ -1397,11 +2100,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           throw const ErpException('The source job is no longer available.');
         }
       }
-      if (!mounted ||
-          revision != widget.api.accessRevision ||
-          !widget.api.accessReady) {
-        return;
-      }
+      if (!canApply()) return;
       setState(() {
         freshJob = latest;
         for (final f in fields.where(
@@ -1409,26 +2108,33 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
               f.key != 'job' &&
               (_isPicker(f) ||
                   f.kind == 'line' ||
-                  const {'entries', 'inputs'}.contains(f.kind)),
+                  const {'entries', 'inputs', 'batch_rows'}.contains(f.kind)),
         )) {
-          values.remove(f.key);
-          references.remove(f.key);
+          if (widget.action.id == 'save_master' && f.key == 'master') {
+            references.remove(f.key);
+          } else {
+            values.remove(f.key);
+            references.remove(f.key);
+          }
         }
         if (widget.action.id == 'revise_job' && latest != null) {
           _loadProgramme(latest);
+        }
+        if (const {'revise_job', 'revise_rate'}.contains(widget.action.id)) {
           values.remove('rate');
         }
         invoiceReview = null;
         draft = null;
         review = false;
-        validation =
-            'Current sources loaded. Check your programme and selections before reviewing again.';
+        validation = widget.action.id == 'revise_rate'
+            ? 'Current job loaded. Enter the agreed rate again before reviewing.'
+            : 'Current sources loaded. Check your programme and selections before reviewing again.';
       });
       _scrollToStart();
     } catch (e) {
-      if (mounted) setState(() => draft?.error = e.toString());
+      if (canApply()) setState(() => draft?.error = e.toString());
     } finally {
-      if (mounted) setState(() => refreshingSources = false);
+      if (sameSource()) setState(() => refreshingSources = false);
     }
   }
 
@@ -1439,9 +2145,27 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       if (!didPop) _leave();
     },
     child: AccessGate(
+      key: ValueKey((
+        widget.api,
+        widget.workspace.company,
+        widget.job?['name'],
+      )),
       api: widget.api,
       revalidate: () async {
-        final effective = widget.api.contextFor(widget.workspace.company!);
+        final api = widget.api;
+        final company = widget.workspace.company!;
+        final selectedJob = values['job'];
+        final fixedJob = widget.job?['name'];
+        final revision = api.accessRevision;
+        bool current() =>
+            mounted &&
+            identical(api, widget.api) &&
+            company == widget.workspace.company &&
+            selectedJob == values['job'] &&
+            fixedJob == widget.job?['name'] &&
+            revision == api.accessRevision &&
+            api.accessReady;
+        final effective = api.contextFor(company);
         invoiceReview = null;
         checkingTotals = false;
         accessInvalidatedDraft = true;
@@ -1453,25 +2177,34 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         _maskFinancialFields();
         recordLabels.clear();
         references.clear();
-        if (values['job'] != null) {
-          final source = await widget.api.knittingSnapshot(
+        values.remove('production_operator');
+        values.remove('production_machine');
+        if (widget.action.id == 'produce_batches') {
+          values.remove('entries');
+          productionRowSources.clear();
+        }
+        if (selectedJob != null) {
+          final source = await api.knittingSnapshot(
             effective.company!,
-            job: values['job'] as String,
+            job: selectedJob as String,
           );
-          freshJob = source
+          if (!current()) return;
+          final latest = source
               .rows('jobs')
-              .where((r) => r['name'] == values['job'])
+              .where((r) => r['name'] == selectedJob)
               .firstOrNull;
-          if (freshJob == null) {
+          if (latest == null) {
             throw const ErpException('This source job is no longer available.');
           }
+          freshJob = latest;
         }
+        if (!current()) return;
         setState(() {
           review =
               draft?.state == CommandState.uncertain ||
-              draft?.state == CommandState.posting;
-          validation =
-              'Access refreshed. Review the current sources and your retained entry again.';
+              draft?.state == CommandState.posting ||
+              draft?.state == CommandState.checking;
+          validation = 'Access refreshed. Review the current sources and your retained entry again.';
           if (!review) draft = null;
         });
       },
@@ -1496,15 +2229,84 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (importedProgrammeBlocked)
+                      const _EntrySection(
+                        title: 'Original programme protected',
+                        child: Text(
+                          'Full programme revision is unavailable for imported jobs until original programme compatibility is supported. Use Revise rate to change the agreed rate while preserving the original programme.',
+                        ),
+                      ),
+                    if (MediaQuery.sizeOf(context).width < 600) ...[
+                      if (const {
+                        'produce',
+                        'produce_bulk',
+                        'produce_batch',
+                        'produce_batches',
+                      }.contains(widget.action.id))
+                        ExpansionTile(
+                          title: const Text('Production details'),
+                          childrenPadding: const EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            16,
+                            12,
+                          ),
+                          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (widget.action.id == 'produce_batches')
+                              const Text(
+                                'Each row records a job, fabric and actual yarn consumption. All rows post together at the current date and time.',
+                              )
+                            else if (widget.action.id == 'produce_batch')
+                              const Text(
+                                'Enter measured fabric weight, roll count and actual customer-owned yarn used. The batch posts at the current date and time without assigning individual roll weights.',
+                              ),
+                            if (widget.action.id != 'produce_batches')
+                              const Text(
+                                'Choose a configured machine or an original machine reference. Original references identify the machine without reserving capacity.',
+                              ),
+                            const Text(
+                              'The signed-in account records the entry. The optional original employee identifies the production operator.',
+                            ),
+                          ],
+                        ),
+                    ] else ...[
+                      if (const {
+                        'produce',
+                        'produce_batch',
+                        'produce_bulk',
+                      }.contains(widget.action.id))
+                        const _EntrySection(
+                          title: 'Machine attribution',
+                          child: Text(
+                            'Choose a configured machine or an original machine reference. An original reference records attribution; it does not allocate planning capacity. The optional original employee identifies the production operator separately from the signed-in account recording this entry.',
+                          ),
+                        ),
+                      if (widget.action.id == 'produce_batches')
+                        const _EntrySection(
+                          title: 'Measured production rows',
+                          child: Text(
+                            'Review all rows and post them together. Each row has its own job, fabric and actual yarn consumption. Posts at the current date and time. Recorded by the signed-in account; original employee attribution is separate.',
+                          ),
+                        ),
+                      if (widget.action.id == 'produce_batch')
+                        const _EntrySection(
+                          title: 'Measured batch',
+                          child: Text(
+                            'Record the total weight, recorded count and actual customer-owned yarn used. Posts at the current date and time. Individual roll weights are not inferred. Recorded by the signed-in account; the optional production operator is a preserved original employee reference.',
+                          ),
+                        ),
+                    ],
                     for (final section in _entrySections(
                       widget.action,
                       fields,
+                      phone: MediaQuery.sizeOf(context).width < 600,
                     ).entries)
                       _EntrySection(
                         title: section.key,
                         child: _grid(section.value, values),
                       ),
-                    if (fields.isEmpty)
+                    if (fields.isEmpty && !importedProgrammeBlocked)
                       const _EntrySection(
                         title: 'Job completion',
                         child: Text(
@@ -1520,7 +2322,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   Widget? _footer() {
     if (!review) {
       return FilledButton.icon(
-        onPressed: _review,
+        onPressed: importedProgrammeBlocked ? null : _review,
         icon: const Icon(Icons.arrow_forward, size: 17),
         label: const Text('Review entry'),
       );
@@ -1540,10 +2342,29 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       );
     }
     if (state == CommandState.uncertain) {
-      return FilledButton.icon(
-        onPressed: _check,
-        icon: const Icon(Icons.sync),
-        label: const Text('Check save status'),
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.icon(
+            onPressed: _check,
+            icon: const Icon(Icons.sync),
+            label: const Text('Check save status'),
+          ),
+          if (preparedRequests.contains(draft!.requestId))
+            TextButton(
+              onPressed: _closeRequest,
+              child: const Text('Close unposted request'),
+            )
+          else
+            TextButton(
+              onPressed: () {
+                draft!.state = CommandState.editing;
+                _post();
+              },
+              child: const Text('Retry same entry'),
+            ),
+        ],
       );
     }
     return Wrap(
@@ -1563,7 +2384,13 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           ),
         FilledButton(
           onPressed: busy ? null : _post,
-          child: Text(busy ? 'Waiting for ERP…' : 'Confirm & post'),
+          child: Text(
+            busy
+                ? 'Waiting for ERP…'
+                : widget.prepareOnly
+                ? 'Use production row'
+                : 'Confirm & post',
+          ),
         ),
       ],
     );
@@ -1648,7 +2475,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
               const SizedBox(width: 12),
               Expanded(
                 child: Display(
-                  confirmed ? 'SAVED IN ERP' : 'REVIEW BEFORE POSTING',
+                  confirmed
+                      ? 'SAVED IN ERP'
+                      : widget.prepareOnly
+                      ? 'REVIEW PRODUCTION ROW'
+                      : 'REVIEW BEFORE POSTING',
                   size: 30,
                 ),
               ),
@@ -1669,6 +2500,14 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Display('INVOICE · ${invoiceReview!['currency']}', size: 26),
+                  if ((job?['balances'] as Map?)?['captured_delivered_kg'] !=
+                      null)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 12),
+                      child: Text(
+                        'Current agreed rate: original delivery references use the current programme price. Check every rate below before posting this new invoice.',
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   for (final row in invoiceReview!['items'] as List)
                     Padding(
@@ -1686,6 +2525,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                       ),
                     ),
                   const Divider(height: 24),
+                  for (final tax
+                      in invoiceReview!['taxes'] as List? ?? const [])
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(tax['description'].toString())),
+                          Text(tax['amount'].toString()),
+                        ],
+                      ),
+                    ),
                   for (final (key, label) in [
                     ('net_total', 'Net total'),
                     ('tax_total', 'Tax total'),
@@ -1716,6 +2566,16 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             const SizedBox(height: 20),
           ],
           if (!confirmed) ...[
+            if (const {
+              'produce',
+              'produce_bulk',
+              'produce_batch',
+              'produce_batches',
+            }.contains(widget.action.id))
+              Text('Recorded by · ${widget.api.userName}'),
+            if (const {'produce', 'produce_batch'}.contains(widget.action.id) &&
+                !_hasValue(d.values['production_operator']))
+              const Text('Production operator · Unrecorded'),
             for (final f in fields.where((f) => _hasValue(d.values[f.key])))
               _reviewField(f, d.values[f.key]),
           ],
@@ -1729,11 +2589,14 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           if (d.error != null && !confirmed)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                d.state == CommandState.stale
-                    ? '${d.error}\nReload the current sources and review your entry again.'
-                    : '${d.error}\nCheck status before changing or posting this entry again.',
-                style: const TextStyle(color: Color(0xFFA23F38)),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  d.state == CommandState.stale
+                      ? '${d.error}\nReload the current sources and review your entry again.'
+                      : '${d.error}\nCheck status before changing or posting this entry again.',
+                  style: const TextStyle(color: Color(0xFFA23F38)),
+                ),
               ),
             ),
           if (confirmed) ...[const SizedBox(height: 12), _savedOutcome(d)],
@@ -1768,6 +2631,8 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             if (data['quantity_kg'] != null)
               _outcomeMetric('Quantity', '${data['quantity_kg']} kg'),
             if (rolls != null) _outcomeMetric('Rolls', '${rolls.length} rolls'),
+            if (rolls == null && data['roll_count'] != null)
+              _outcomeMetric('Rolls', '${data['roll_count']} rolls'),
             if (data['consumed_kg'] != null)
               _outcomeMetric('Yarn consumed', '${data['consumed_kg']} kg'),
             if (data['loss_kg'] != null)
@@ -1776,6 +2641,12 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
               _outcomeMetric('Document total', data['amount'].toString()),
             if (data['status'] != null)
               _outcomeMetric('Status', data['status'].toString()),
+            if (widget.action.id == 'produce_batches' &&
+                data['entries'] is List)
+              _outcomeMetric(
+                'Production rows',
+                '${(data['children'] as List).length} rows',
+              ),
             if (data['completed'] is List)
               _outcomeMetric(
                 'Completed jobs',
@@ -1783,9 +2654,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
               ),
           ],
         ),
+        if (widget.action.id == 'produce_batches' && data['children'] is List)
+          for (final row in data['children'] as List)
+            if (row is Map && row['batch'] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SelectableText('Fabric batch · ${row['batch']}'),
+              ),
         for (final (key, label) in [
           ('job', 'Job'),
           ('lot', 'Yarn lot'),
+          ('batch', 'Fabric batch'),
           ('plan', 'Machine allocation'),
           ('machine', 'Machine'),
           ('inspection', 'Inspection'),
@@ -1877,7 +2756,26 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         final id = v is Map ? v['job'] : v;
         if (id == null) return f.label;
         final known = recordLabels[(f.kind, id.toString())];
-        return known ?? '${_entityLabel(_entityFor(f.kind))} · $id';
+        if (f.kind == 'ProductionMachine') {
+          final source = references[f.key];
+          return known ??
+              (source != null && source['name'] == id
+                  ? knittingProductionMachineTitle(source)
+                  : 'Original machine · select again to verify');
+        }
+        if (f.kind == 'ProductionOperator') {
+          final source = references[f.key];
+          final originalLabel = source != null && source['name'] == id
+              ? knittingProductionOperatorTitle(source)
+              : null;
+          return known ??
+              originalLabel?.toString() ??
+              'Original employee · select again to verify';
+        }
+        if (known != null) return known;
+        return MediaQuery.sizeOf(context).width < 600
+            ? id.toString()
+            : '${_entityLabel(_entityFor(f.kind))} · $id';
       }
 
       return value is List
@@ -1890,6 +2788,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
   }
 
   Widget _reviewField(KnitField f, dynamic value) {
+    if (f.kind == 'batch_rows') return _productionRowsReview(value as List);
     if (_nestedKinds.contains(f.kind)) {
       final descriptors = _childFields(
         f.kind,
@@ -1909,13 +2808,22 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (widget.action.id == 'produce_bulk' &&
+                          f.kind == 'entries' &&
+                          !_hasValue(row['production_operator']))
+                        const Text('Production operator · Unrecorded'),
                       for (final rf in [
                         ...descriptors,
                         if (f.kind == 'programme') ..._retainedProgrammeFields,
                       ])
                         if (_hasValue(row[rf.key]) &&
                             (f.kind != 'programme' || rf.key != 'fabric'))
-                          _reviewField(rf, row[rf.key]),
+                          _reviewField(
+                            rf,
+                            rf.key == 'dia'
+                                ? knittingDiameterTitle(row)
+                                : row[rf.key],
+                          ),
                     ],
                   ),
                 ),
@@ -1957,6 +2865,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     _ => 'Yarn input ${i + 1}',
   };
   Widget _field(KnitField f, Map<String, dynamic> target) {
+    if (f.kind == 'batch_rows') return _productionRowsField(f, target);
     if (f.kind == 'toggle') {
       return SwitchListTile(
         contentPadding: EdgeInsets.zero,
@@ -1964,6 +2873,10 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         value: target[f.key] == true || target[f.key] == 1,
         onChanged: (v) => setState(() {
           target[f.key] = v;
+          if (f.key == 'no_tax' && v) {
+            target.remove('tax_template');
+            references.remove('tax_template');
+          }
           changed = true;
         }),
       );
@@ -2011,7 +2924,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         },
       );
     }
-    if (f.kind == 'select' && f.options.length == 2) {
+    if (f.kind == 'select' && f.options.length == 2 && f.key != 'decision') {
       final selected = target[f.key]?.toString() ?? f.options.first;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2102,6 +3015,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     if (_isPicker(f)) {
       final entity = _entityFor(f.kind);
       final multi = entity != f.kind;
+      final phone = MediaQuery.sizeOf(context).width < 600;
+      void clear(FormFieldState<dynamic> state) {
+        setState(() {
+          if (f.key == 'job') _changeSourceJob(null);
+          target.remove(f.key);
+          if (identical(target, values)) references.remove(f.key);
+          changed = true;
+        });
+        state.didChange(null);
+      }
+
       return FormField<dynamic>(
         initialValue: target[f.key],
         validator: (_) =>
@@ -2116,6 +3040,8 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () async {
+                final api = widget.api, company = workspace.company;
+                final revision = api.accessRevision, sourceJob = values['job'];
                 final row = await pickKnitRecord(
                   context,
                   widget.api,
@@ -2124,7 +3050,13 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                   multiple: multi,
                   job: values['job'] as String?,
                 );
-                if (row != null && mounted) {
+                if (row != null &&
+                    mounted &&
+                    identical(api, widget.api) &&
+                    company == workspace.company &&
+                    revision == api.accessRevision &&
+                    api.accessReady &&
+                    sourceJob == values['job']) {
                   setState(() {
                     if (f.key == 'job') _changeSourceJob(row);
                     target[f.key] = f.kind == 'Jobs'
@@ -2139,15 +3071,44 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                         : multi
                         ? row['names']
                         : row['name'];
+                    if (const {
+                          'machine',
+                          'production_machine',
+                        }.contains(f.key) &&
+                        const {
+                          'produce',
+                          'produce_batch',
+                          'produce_bulk',
+                        }.contains(widget.action.id)) {
+                      final other = f.key == 'machine'
+                          ? 'production_machine'
+                          : 'machine';
+                      target.remove(other);
+                      if (identical(target, values)) references.remove(other);
+                    }
                     for (final record
                         in multi ? row['records'] as List : [row]) {
                       final name = record['name'].toString();
                       final title = _recordTitle(record, entity);
-                      recordLabels[(f.kind, name)] = title == name
+                      recordLabels[(
+                        f.kind,
+                        name,
+                      )] = f.kind == 'ProductionOperator'
+                          ? knittingProductionOperatorTitle(record)
+                          : f.kind == 'ProductionMachine'
+                          ? knittingProductionMachineTitle(record)
+                          : title == name
                           ? name
                           : '$title · $name';
                     }
                     if (identical(target, values)) references[f.key] = row;
+                    if (f.key == 'tax_template') values['no_tax'] = false;
+                    if (f.kind == 'BatchDelivery') {
+                      values['batch'] = row['result']['batch'];
+                      references.remove('batch');
+                      recordLabels[('Batch', values['batch'].toString())] =
+                          values['batch'].toString();
+                    }
                     if (f.key == 'plan') {
                       for (final k in [
                         'programme_line',
@@ -2161,13 +3122,35 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                       }
                     }
                     if (f.key == 'master') {
+                      for (final key in [
+                        'description',
+                        'value',
+                        'severity',
+                        'boundary_kg',
+                        'settings',
+                        'unit',
+                        'order',
+                      ]) {
+                        values.remove(key);
+                      }
                       final raw = row['specification'];
-                      final spec = raw is String ? jsonDecode(raw) : raw;
+                      final spec = raw is String
+                          ? (raw.trim().isEmpty
+                                ? <String, dynamic>{}
+                                : jsonDecode(raw))
+                          : raw;
                       values.addAll({
                         'title': row['title'],
                         'category': row['category'],
                         'enabled': row['enabled'] != 0,
-                        if (spec is Map) ...Map<String, dynamic>.from(spec),
+                        for (final key in [
+                          'description',
+                          'value',
+                          'severity',
+                          'boundary_kg',
+                        ])
+                          if (spec is Map && spec.containsKey(key))
+                            key: spec[key],
                       });
                     }
 
@@ -2181,7 +3164,17 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                   labelText: f.label,
                   floatingLabelBehavior: FloatingLabelBehavior.always,
                   errorText: state.errorText,
-                  suffixIcon: const Icon(Icons.search, size: 18),
+                  suffixIcon: phone && f.optional && _hasValue(target[f.key])
+                      ? IconButton(
+                          tooltip: 'Clear ${f.label}',
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => clear(state),
+                        )
+                      : const Icon(Icons.search, size: 18),
                 ),
                 child: Text(
                   _hasValue(target[f.key])
@@ -2195,19 +3188,11 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                 ),
               ),
             ),
-            if (f.optional && target[f.key] != null)
+            if (!phone && f.optional && target[f.key] != null)
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
-                  onPressed: () {
-                    setState(() {
-                      if (f.key == 'job') _changeSourceJob(null);
-                      target.remove(f.key);
-                      if (identical(target, values)) references.remove(f.key);
-                      changed = true;
-                    });
-                    state.didChange(null);
-                  },
+                  onPressed: () => clear(state),
                   child: const Text('Clear selection'),
                 ),
               ),
@@ -2215,26 +3200,79 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         ),
       );
     }
+    if (f.key == 'dia' &&
+        target.containsKey('dia_display') &&
+        target['dia_basis'] != 'physical') {
+      return InputDecorator(
+        decoration: InputDecoration(labelText: f.label),
+        child: Text(knittingDiameterTitle(target)),
+      );
+    }
+    if (f.kind == 'date' || f.kind == 'datetime') {
+      final api = widget.api,
+          company = workspace.company,
+          revision = widget.api.accessRevision;
+      final owner = api.account;
+      return DateEntry(
+        key: ValueKey((f.key, target, references['master']?['name'])),
+        label: f.label,
+        initialValue: target[f.key]?.toString() ?? '',
+        withTime: f.kind == 'datetime',
+        optional: f.optional,
+        onChanged: (v) {
+          if (mounted &&
+              api == widget.api &&
+              company == workspace.company &&
+              owner == api.account &&
+              revision == api.accessRevision &&
+              api.accessReady) {
+            target[f.key] = v;
+          }
+        },
+      );
+    }
     return TextFormField(
       key: ValueKey((
         f.key,
         references['master']?['name'],
         references['plan']?['name'],
-        _isRevisionRate(f) ? values['job'] : null,
+        f.key == 'rate' && widget.action.id == 'revise_rate'
+            ? (values['job'], sourceVersion)
+            : _isRevisionRate(f)
+            ? values['job']
+            : null,
       )),
       initialValue: target[f.key]?.toString(),
       decoration: InputDecoration(
         labelText: f.label,
         helperText: _isRevisionRate(f)
             ? 'Leave blank to keep line rates. Enter a rate to apply it to every programme line.'
+            : f.key == 'rate' && widget.action.id == 'revise_rate'
+            ? 'Apply this agreed rate to every programme line.'
             : null,
         helperMaxLines: 3,
       ),
       maxLines: const {'notes', 'remarks', 'reason'}.contains(f.key) ? 2 : 1,
-      keyboardType: ['kg', 'money', 'integer'].contains(f.kind)
-          ? const TextInputType.numberWithOptions(decimal: true)
+      keyboardType:
+          [
+            'kg',
+            'money',
+            'integer',
+            'signed_kg',
+            'signed_integer',
+          ].contains(f.kind)
+          ? TextInputType.numberWithOptions(
+              decimal: !f.kind.contains('integer'),
+              signed: f.kind.startsWith('signed_'),
+            )
           : TextInputType.text,
-      onChanged: (v) => target[f.key] = v,
+      onChanged: (v) {
+        target[f.key] = v;
+        if (f.key == 'dia') {
+          target.remove('dia_display');
+          target.remove('dia_basis');
+        }
+      },
       validator: (v) {
         if (v == null || v.trim().isEmpty) {
           return f.optional ? null : 'Enter ${f.label.toLowerCase()}.';

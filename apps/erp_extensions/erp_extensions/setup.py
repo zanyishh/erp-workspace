@@ -21,6 +21,13 @@ def configure_test_site():
     settings.save()
     # The renderer must reach this site through the internal test gateway for assets.
     from frappe.installer import update_site_config
+    from erp_extensions import invoices, operations
+    invoices.install()
+    operations.install()
+    from erp_extensions import master_import
+    master_import.install()
+    from erp_extensions.pos_checkout import install as install_pos
+    install_pos()
     from erp_extensions.onboarding import install
     install()
     update_site_config("native_owner_signup", 1)

@@ -151,7 +151,7 @@ services:
 
   native-test-backend:
     <<: *erp_backend
-    profiles: [native-test]
+    profiles: [native-test, customer]
     command:
       - /home/frappe/frappe-bench/env/bin/gunicorn
       - --chdir=/home/frappe/frappe-bench/sites
@@ -179,6 +179,28 @@ services:
       CLIENT_MAX_BODY_SIZE: 50m
     ports:
       - "127.0.0.1:8081:8080"
+    volumes:
+      - ../../apps/erp_extensions:/home/frappe/frappe-bench/apps/erp_extensions:ro
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ./native-api-methods.conf:/etc/nginx/conf.d/native-api-methods.conf:ro
+      - ./native-security-headers.conf:/etc/nginx/snippets/security_headers.conf:ro
+
+  customer-frontend:
+    <<: *erp_frontend
+    profiles: [customer]
+    depends_on: [native-test-backend, websocket]
+    environment:
+      BACKEND: native-test-backend:8000
+      FRAPPE_SITE_NAME_HEADER: customer-migration.localhost
+      SOCKETIO: websocket:9000
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
+      UPSTREAM_REAL_IP_RECURSIVE: "off"
+      PROXY_READ_TIMEOUT: 120
+      CLIENT_MAX_BODY_SIZE: 50m
+    ports:
+      - "127.0.0.1:8082:8080"
 
   queue-long:
     image: frappe/erpnext:v16.54.0

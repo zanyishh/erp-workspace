@@ -16,6 +16,7 @@ MEMBER = 'Workspace Team Member'
 INVITE = 'Workspace Staff Invitation'
 ROLE_PRESETS = {
     'sales': ('Sales', ('Sales User',)),
+    'cashier': ('Cashier', ('Workspace POS Cashier',)),
     'purchasing': ('Purchasing', ('Purchase User',)),
     'accounts': ('Accounts', ('Accounts User',)),
     'stock': ('Inventory', ('Stock User',)),
@@ -23,9 +24,9 @@ ROLE_PRESETS = {
     'checker': ('Quality checker', ('Knitting Checker',)),
     'planner': ('Production planner', ('Knitting Planner', 'Manufacturing User')),
 }
-GENERAL_ROLES = ('sales', 'purchasing', 'stock', 'accounts')
-OWNER_ROLES = ('Sales User', 'Purchase User', 'Accounts User', 'Stock User', 'Item Manager',
-               'Sales Master Manager', 'Purchase Master Manager', 'Manufacturing User', 'Projects User',
+GENERAL_ROLES = ('sales','cashier', 'purchasing', 'stock', 'accounts')
+OWNER_ROLES = ('Workspace POS Cashier','Sales User', 'Purchase User', 'Accounts User', 'Stock User', 'Stock Manager', 'Item Manager',
+               'Sales Master Manager', 'Purchase Master Manager', 'Manufacturing User', 'Projects User', 'Projects Manager',
                'Quality Manager', 'Knitting Manager')
 
 
@@ -119,6 +120,9 @@ def _add_member(user, company, role):
     frappe.defaults.set_user_default('Company', company, user=user)
     frappe.defaults.set_user_default('native_workspace_company', company, user=user)
     frappe.clear_cache(user=user)
+    if role == 'cashier':
+        from erp_extensions.pos_checkout import assign_default
+        assign_default(company,user)
 
 
 def _knitting_settings(company, email):
@@ -156,11 +160,16 @@ def register_owner(full_name: str, email: str, password: str, company: str, indu
         frappe.throw('Sign out before creating a new owner account.')
     email, company = _email(email), _name(company, 'company name')
     if industry not in ('general', 'knitting'):
-        frappe.throw('Choose General ERP or Knitting ERP.')
+        frappe.throw('Choose General ERP or Knitting.')
     with _provisioning():
         # Creating a Company edits shared account and warehouse trees. Serialize
         # signups until the containing request commits, including duplicate checks.
-        frappe.db.get_value('DocType', MEMBER, 'name', for_update=True)
+        if frappe.request and not frappe.db.transaction_writes:
+            # Cookie validation can open a repeatable-read snapshot before the previous
+            # signup commits. Discard only that read-only snapshot. Our very first SQL
+            # read acquires the lock, so ERPNext sees the preceding company's accounts.
+            frappe.db.rollback()
+        frappe.db.sql('select name from `tabDocType` where name=%s for update', MEMBER)
         _check_hosted_company()
         if frappe.db.get_value('User', email, 'name', for_update=True):
             frappe.throw('This account already exists. Sign in with your existing credentials.')

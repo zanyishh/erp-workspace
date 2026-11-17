@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "baseline_artifact": "evidence/node-native/os-node-native-baseline.json",
+  "baseline_sha256": "4a8cecc17119a6e92c481b2e285498d4db8a4e08b59130d5656aa3918a801e57",
+  "assessment_artifact": "evidence/node-native/assessment.json",
+  "assessment_sha256": "4a93c8524b272dd338c87209126af43b103887d7b25e10ada961ac0f15675c75",
+  "verifier_sha256": "e87e2714d876f38e3dbf5d5891c4a918e32d07e826ef721a46ce4cd804058c85",
+  "bundled_zlib_source_fixed": false,
+  "scope": "Preserve immutable21-file baseline and its actual Linux verification; independently derive exactly four reviewed Vite native additions from pinned archive for exact25-file candidate. Preserve raw High and dynamic-lookup limits.",
+  "verification_artifact": "evidence/node-native/baseline-verification.json",
+  "verification_sha256": "e269e7554670de55ff1a77c4ce64033ed7f83e9df1208fe1a9a2417572b565bf",
+  "candidate_artifact": "evidence/node-native/os-node-native-candidate.json",
+  "candidate_sha256": "67cffad6e64ccd5fab24770ec4c99c5800328681a0ac88ceedef9baf5e8ae258"
+}

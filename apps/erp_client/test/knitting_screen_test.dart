@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/design.dart';
@@ -219,6 +221,10 @@ void main() {
         expect(selection.last.$2, initial);
       }
 
+      await open(balances: {'yarn_kg': '-0.125', 'fabric_kg': '-2.345'});
+      expect(find.text('Review original stock'), findsOneWidget);
+      expect(find.textContaining('-0.125 kg'), findsWidgets);
+      expect(next, findsNothing);
       await open();
       await choose('receive_yarn', {
         'material_owner': 'Customer',
@@ -228,12 +234,30 @@ void main() {
         balances: {'yarn_kg': '9.125'},
         workflow: {'only_lot': 'SOURCE-A'},
       );
-      await choose('produce', {
+      await choose('produce_batch', {
         'programme_line': 'P1',
         'inputs': [
           {'lot': 'SOURCE-A'},
         ],
       });
+      await open(
+        workflow: {
+          'batch_inspection': {'count': 104, 'only': null},
+        },
+      );
+      await choose('review_batch', {});
+      await open(
+        workflow: {
+          'batch_released': {'count': 1, 'only': 'READY-BATCH'},
+        },
+      );
+      await choose('deliver_batch', {'batch': 'READY-BATCH'});
+      await open(
+        workflow: {
+          'batch_held': {'count': 1, 'only': 'HELD-BATCH'},
+        },
+      );
+      await choose('review_batch', {'batch': 'HELD-BATCH'});
       const mixed = {
         'inspection': {'count': 2, 'only': null},
         'released': {'count': 1, 'only': 'READY-A'},
@@ -294,6 +318,10 @@ void main() {
       await open(status: 'Completed');
       expect(next, findsNothing);
       expect(find.text('Job complete'), findsOneWidget);
+      expect(
+        find.textContaining('Reopen it before posting further work.'),
+        findsOneWidget,
+      );
       await open(
         workflow: {
           'inspection': {'count': 1, 'only': 'PRIVATE-ROLL'},
@@ -691,6 +719,45 @@ void main() {
     expect(api.loaded.last, 'Other');
     api.close();
   });
+  testWidgets('late challan results stay with the original company and API', (
+    t,
+  ) async {
+    final old = _ChallanApi(), replacement = _ChallanApi();
+    addTearDown(old.close);
+    addTearDown(replacement.close);
+    t.view.physicalSize = const Size(1440, 1100);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final access = WorkspaceContext.fromJson({
+      'company': 'Demo',
+      'knitting_enabled': true,
+      'capabilities': ['delivery'],
+    });
+    Widget screen(ErpApi api) => MaterialApp(
+      home: KnittingScreen(
+        api: api,
+        workspace: access,
+        onContextChanged: (_) {},
+      ),
+    );
+    await t.pumpWidget(screen(old));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Delivery challan'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Synthetic batch delivery').first);
+    await t.pumpAndSettle();
+    expect(old.exportStarted, isTrue);
+    await t.pumpWidget(screen(replacement));
+    await t.pumpAndSettle();
+    old.export.completeError(
+      const ErpException('Old company delivery failure'),
+    );
+    await t.pumpAndSettle();
+    expect(find.textContaining('Old company delivery failure'), findsNothing);
+    expect(replacement.loaded, contains('Demo'));
+    expect(t.takeException(), isNull);
+  });
   testWidgets(
     'failed command keeps reviewed input and checks status before retry',
     (tester) async {
@@ -736,9 +803,13 @@ void main() {
           api: api,
           workspace: w,
           action: knitActions.firstWhere((a) => a.id == 'invoice'),
-          job: job,
+          job: {
+            ...job,
+            'balances': {'captured_delivered_kg': '12.345'},
+          },
           initial: const {
             'deliveries': ['DELIVERY-01'],
+            'no_tax': true,
           },
         ),
       ),
@@ -746,6 +817,7 @@ void main() {
     await tester.tap(find.text('Review entry'));
     await tester.pumpAndSettle();
     expect(find.text('Total to post'), findsOneWidget);
+    expect(find.textContaining('Current agreed rate'), findsOneWidget);
     expect(find.text('8800.00'), findsWidgets);
     expect(api.writes, 0);
     await tester.ensureVisible(find.text('Confirm & post'));
@@ -753,7 +825,209 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.writes, 1);
     expect(api.posted?['preview_hash'], 'review-verified');
+    expect(api.posted?['no_tax'], isTrue);
   });
+  testWidgets(
+    'invoice requires an explicit tax decision before preview or posting',
+    (tester) async {
+      final api = TestKnitApi();
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: KnittingCommandForm(
+            api: api,
+            workspace: w,
+            action: knitActions.firstWhere((a) => a.id == 'invoice'),
+            job: job,
+            initial: const {
+              'deliveries': ['DELIVERY-01'],
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('Review entry'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Choose a sales tax template or explicitly select No tax.'),
+        findsOneWidget,
+      );
+      expect(api.previewValues, isNull);
+      expect(api.writes, 0);
+      await tester.ensureVisible(find.text('No tax'));
+      await tester.tap(find.text('No tax'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Review entry'));
+      await tester.pumpAndSettle();
+      expect(api.previewValues?['no_tax'], isTrue);
+      expect(api.previewValues?.containsKey('tax_template'), isFalse);
+    },
+  );
+  testWidgets(
+    'selected company sales tax template reaches the reviewed invoice unchanged',
+    (tester) async {
+      final api = _BillingLookupApi();
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: KnittingCommandForm(
+            api: api,
+            workspace: w,
+            action: knitActions.firstWhere((a) => a.id == 'invoice'),
+            job: job,
+            initial: const {
+              'deliveries': ['DELIVERY-01'],
+              'no_tax': true,
+            },
+          ),
+        ),
+      );
+      await tester.ensureVisible(find.text('Sales tax template'));
+      await tester.tap(
+        find
+            .ancestor(
+              of: find.text('Sales tax template'),
+              matching: find.byType(InkWell),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(api.entity, 'SalesTaxTemplate');
+      expect(api.lookupCompany, 'Demo');
+      await tester.tap(find.text('Synthetic sales tax'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Review entry'));
+      await tester.pumpAndSettle();
+      expect(api.previewValues?['tax_template'], 'TEST-TAX');
+      expect(api.previewValues?['no_tax'], isFalse);
+      await tester.ensureVisible(find.text('Confirm & post'));
+      await tester.tap(find.text('Confirm & post'));
+      await tester.pumpAndSettle();
+      expect(api.posted?['tax_template'], 'TEST-TAX');
+      expect(api.posted?['no_tax'], isFalse);
+    },
+  );
+  testWidgets(
+    'original delivery activity shows its date without inventing a native time',
+    (tester) async {
+      final original = KnittingSnapshot.fromJson({
+        'version': 1,
+        'company': 'Demo',
+        'jobs': [job],
+        'events': [
+          {
+            'name': 'MIG-DC-77',
+            'job': job['name'],
+            'kind': 'migration_delivery_reference',
+            'occurred_at': '2020-03-02 00:00:00',
+            'result': {
+              'source_reference': 'Original DC-77',
+              'original_date': '2020-03-02',
+              'quantity_kg': '12.345',
+            },
+          },
+        ],
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: KnittingWorkbench(
+              snapshot: original,
+              page: 'Billing',
+              selected: job,
+              query: '',
+              onQuery: (_) {},
+              onJob: (_) {},
+              onAction: (_, {initial = const {}}) async {},
+              onSource: (_, _) async {},
+              workspace: w,
+              onFind: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Original delivery available for billing'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Original DC-77 · 2020-03-02'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('00:00:00'), findsNothing);
+    },
+  );
+  testWidgets(
+    'invoice picker reads billing references scoped to the selected job',
+    (tester) async {
+      final api = _BillingLookupApi();
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: KnittingCommandForm(
+            api: api,
+            workspace: w,
+            action: knitActions.firstWhere((a) => a.id == 'invoice'),
+            job: job,
+          ),
+        ),
+      );
+      await tester.tap(
+        find
+            .ancestor(
+              of: find.text('Confirmed deliveries'),
+              matching: find.byType(InkWell),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(api.entity, 'BillingDelivery');
+      expect(api.sourceJob, job['name']);
+      expect(find.text('Original delivery DC-77 · 2020-03-02'), findsOneWidget);
+      expect(api.writes, 0);
+    },
+  );
+}
+
+class _BillingLookupApi extends TestKnitApi {
+  String? entity, sourceJob, lookupCompany;
+  @override
+  Future<Map<String, dynamic>> knittingLookup(
+    String company,
+    String entity,
+    String query, {
+    int start = 0,
+    String? job,
+  }) async {
+    this.entity = entity;
+    sourceJob = job;
+    lookupCompany = company;
+    if (entity == 'SalesTaxTemplate') {
+      return {
+        'start': start,
+        'has_more': false,
+        'rows': [
+          {
+            'name': 'TEST-TAX',
+            'title': 'Synthetic sales tax',
+            'company': company,
+          },
+        ],
+      };
+    }
+    return {
+      'start': start,
+      'has_more': false,
+      'rows': [
+        {
+          'name': 'ORIGINAL-DC-77',
+          'job': job,
+          'kind': 'migration_delivery_reference',
+          'title': 'Original delivery DC-77 · 2020-03-02',
+        },
+      ],
+    };
+  }
 }
 
 class _NavigationApi extends TestKnitApi {
@@ -832,6 +1106,7 @@ class TestKnitApi extends ErpApi {
   final loaded = <String>[];
   int writes = 0;
   Map<String, dynamic>? posted;
+  Map<String, dynamic>? previewValues;
   @override
   Future<WorkspaceContext> workspaceContext({String? company}) async =>
       contextFor(company!)!;
@@ -877,10 +1152,29 @@ class TestKnitApi extends ErpApi {
                 'material_mode': 'Customer',
                 'programme': [],
                 'balances': {},
+                if (job != null)
+                  'workflow': {
+                    'inspection': {'count': 1, 'only': 'ROLL-A'},
+                    'held': {'count': 0, 'only': null},
+                    'released': {'count': 1, 'only': 'ROLL-B'},
+                  },
               },
             ]
           : [],
     });
+  }
+
+  @override
+  Future<Map<String, dynamic>> knittingRoll(
+    String company,
+    String job,
+    String roll,
+  ) async {
+    final source = await knittingSnapshot(company, job: job);
+    return {
+      ...source.rows('rolls').firstWhere((r) => r['name'] == roll),
+      'company': company,
+    };
   }
 
   @override
@@ -901,22 +1195,26 @@ class TestKnitApi extends ErpApi {
     String company,
     Map<String, dynamic> values,
     String? modified,
-  ) async => {
-    'currency': 'INR',
-    'items': [
-      {
-        'item': 'Knitting service',
-        'quantity': '88.000',
-        'uom': 'Kg',
-        'rate': '100.00',
-        'amount': '8800.00',
-      },
-    ],
-    'net_total': '8800.00',
-    'tax_total': '0.00',
-    'grand_total': '8800.00',
-    'preview_hash': 'review-verified',
-  };
+  ) async {
+    previewValues = Map.of(values);
+    return {
+      'currency': 'INR',
+      'items': [
+        {
+          'item': 'Knitting service',
+          'quantity': '88.000',
+          'uom': 'Kg',
+          'rate': '100.00',
+          'amount': '8800.00',
+        },
+      ],
+      'net_total': '8800.00',
+      'tax_total': '0.00',
+      'grand_total': '8800.00',
+      'preview_hash': 'review-verified',
+    };
+  }
+
   @override
   Future<Map<String, dynamic>> knittingCommandStatus(
     String company,
@@ -925,6 +1223,33 @@ class TestKnitApi extends ErpApi {
     'event': 'CONFIRMED-EVENT',
     'data': {'job': 'OLD-JOB'},
   };
+}
+
+class _ChallanApi extends TestKnitApi {
+  final export = Completer<Map<String, dynamic>>();
+  bool exportStarted = false;
+  @override
+  Future<Map<String, dynamic>> knittingLookup(
+    String company,
+    String entity,
+    String query, {
+    int start = 0,
+    String? job,
+  }) async => {
+    'rows': [
+      {'name': 'BATCH-DC', 'title': 'Synthetic batch delivery'},
+    ],
+    'has_more': false,
+  };
+  @override
+  Future<Map<String, dynamic>> knittingExport(
+    String company,
+    String format,
+    Map<String, dynamic> filters,
+  ) {
+    exportStarted = true;
+    return export.future;
+  }
 }
 
 class _NewJobApi extends TestKnitApi {

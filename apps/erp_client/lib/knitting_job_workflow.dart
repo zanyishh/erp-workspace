@@ -39,11 +39,41 @@ List<_JobStep> _jobSteps(
       const _JobStep(
         _JobStage.completion,
         'Job complete',
-        'The job is closed. Its programme and posted entries are available below.',
+        'The job is closed. Its programme and posted entries are available below. Reopen it before posting further work.',
+      ),
+    ];
+  }
+  if (job['reconciliation_available'] == false) {
+    return [
+      const _JobStep(
+        _JobStage.completion,
+        'Reconciliation unavailable',
+        'Some source records are outside your access. Ask the company owner to review this job. You can still use your permitted work queues.',
       ),
     ];
   }
   final balances = job['balances'] as Map? ?? {};
+  final negative = <String>[
+    for (final entry in const {
+      'yarn_kg': 'Yarn',
+      'fabric_kg': 'Fabric',
+      'subcontract_kg': 'Subcontract',
+      'unbilled_kg': 'Unbilled fabric',
+      'produced_kg': 'Production',
+      'fabric_transfer_in_kg': 'Fabric received',
+    }.entries)
+      if ((num.tryParse('${balances[entry.key]}') ?? 0) < 0)
+        '${entry.value}: ${balances[entry.key]} kg',
+  ];
+  if (negative.isNotEmpty) {
+    return [
+      _JobStep(
+        _JobStage.completion,
+        'Review original stock',
+        '${negative.join(' · ')}. The original signed quantities are retained. Review the source state before progressing this job.',
+      ),
+    ];
+  }
   final workflow = job['workflow'] as Map?;
   final programme = job['programme'] as List? ?? [];
   final rolls = snapshot.rows('rolls').where((r) => r['job'] == job['name']);
@@ -59,7 +89,9 @@ List<_JobStep> _jobSteps(
         .map((r) => r['name']);
     return (
       names.length,
-      names.length == 1 && snapshot.rows('rolls').length < 500
+      names.length == 1 &&
+              snapshot.page('rolls')?['start'] == 0 &&
+              snapshot.page('rolls')?['has_more'] == false
           ? names.single as String
           : null,
     );
@@ -68,6 +100,17 @@ List<_JobStep> _jobSteps(
   final (awaiting, inspectionRoll) = cohort('inspection', {'Awaiting QC'});
   final (held, heldRoll) = cohort('held', {'On Hold', 'Rejected', 'Rework'});
   final (released, dispatchRoll) = cohort('released', {'Released'});
+  (int, String?) batchCohort(String group) {
+    final current = workflow?['batch_$group'];
+    // A loaded page cannot prove the full batch cohort or a unique next source.
+    return current is Map
+        ? ((current['count'] as num).toInt(), current['only'] as String?)
+        : (0, null);
+  }
+
+  final (awaitingBatches, inspectionBatch) = batchCohort('inspection');
+  final (heldBatches, heldBatch) = batchCohort('held');
+  final (releasedBatches, dispatchBatch) = batchCohort('released');
   BigInt kilos(Object? value) => Kg.parse(value?.toString() ?? '0').milli;
   final remaining = workflow?['remaining_lines'] as List?;
   final needsOutput =
@@ -102,6 +145,22 @@ List<_JobStep> _jobSteps(
           if (dispatchRoll != null) 'rolls': [dispatchRoll],
         },
       ),
+    if (awaitingBatches > 0)
+      _JobStep(
+        _JobStage.quality,
+        'Review the fabric batch',
+        '$awaitingBatches ${awaitingBatches == 1 ? "batch needs" : "batches need"} a weight, count and quality check.',
+        id: 'review_batch',
+        initial: {'batch': ?inspectionBatch},
+      ),
+    if (releasedBatches > 0)
+      _JobStep(
+        _JobStage.dispatch,
+        'Dispatch released batches',
+        '$releasedBatches released ${releasedBatches == 1 ? "batch is" : "batches are"} ready. Enter the measured weight and count to deliver.',
+        id: 'deliver_batch',
+        initial: {'batch': ?dispatchBatch},
+      ),
     if (kilos(balances['unbilled_kg']) > BigInt.zero &&
         workspace.allows('billing'))
       _JobStep(
@@ -126,8 +185,10 @@ List<_JobStep> _jobSteps(
       _JobStep(
         _JobStage.production,
         'Record the next production run',
-        'Weigh each roll and enter the actual yarn used.',
-        id: 'produce',
+        job['material_mode'] == 'Customer'
+            ? 'Enter the measured batch weight, recorded count and actual customer yarn used.'
+            : 'Weigh each roll and enter the actual yarn used.',
+        id: job['material_mode'] == 'Customer' ? 'produce_batch' : 'produce',
         initial: {
           'programme_line': ?line,
           if (lot != null)
@@ -135,6 +196,14 @@ List<_JobStep> _jobSteps(
               {'lot': lot},
             ],
         },
+      ),
+    if (heldBatches > 0)
+      _JobStep(
+        _JobStage.quality,
+        'Review held batches',
+        '$heldBatches ${heldBatches == 1 ? "batch needs" : "batches need"} another check before release.',
+        id: 'review_batch',
+        initial: {'batch': ?heldBatch},
       ),
     if (subcontract || workflow?['open_subcontract'] == true)
       _JobStep(
@@ -248,7 +317,7 @@ class _JobWorkflow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    job['name'].toString(),
+                    knittingJobTitle(job),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -256,9 +325,17 @@ class _JobWorkflow extends StatelessWidget {
                       letterSpacing: .7,
                     ),
                   ),
+                  if (knittingJobTitle(job) != job['name'])
+                    Text(
+                      job['name'].toString(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: WorkspaceTheme.muted,
+                      ),
+                    ),
                   const SizedBox(height: 5),
                   Display(
-                    job['customer']?.toString() ?? 'Job details',
+                    knittingCustomerTitle(job, fallback: 'Job details'),
                     size: compact ? 31 : 40,
                   ),
                   const SizedBox(height: 8),
@@ -272,6 +349,8 @@ class _JobWorkflow extends StatelessWidget {
                         Text('${job['material_mode']} material'),
                       if (job['target_kg'] != null)
                         Text('${job['target_kg']} kg target'),
+                      if (job['job_date'] != null)
+                        Text('Order date ${job['job_date']}'),
                       if (job['due_date'] != null)
                         Text('Due ${job['due_date']}'),
                     ],

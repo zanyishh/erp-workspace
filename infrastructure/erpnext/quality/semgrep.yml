@@ -1,0 +1,27 @@
+rules:
+  - id: erp-python-eval
+    languages: [python]
+    severity: ERROR
+    message: Review dynamic code execution; never evaluate untrusted ERP input.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+  - id: erp-python-shell
+    languages: [python]
+    severity: ERROR
+    message: Shell execution needs explicit review for injection risk.
+    pattern-either:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+      - pattern: os.system(...)
+  - id: erp-python-tls-verification
+    languages: [python]
+    severity: ERROR
+    message: Do not disable TLS verification for network requests.
+    pattern: requests.$FUNC(..., verify=False, ...)
+  - id: erp-permission-bypass
+    languages: [python]
+    severity: WARNING
+    message: Verify this Frappe permission bypass is justified and company scoped.
+    pattern-either:
+      - pattern: $DOC.insert(..., ignore_permissions=True, ...)
+      - pattern: $DOC.save(..., ignore_permissions=True, ...)

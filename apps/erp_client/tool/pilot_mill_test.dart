@@ -1,6 +1,7 @@
 // Opt-in connected Flutter rehearsal. Run only on the dedicated local test site.
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/design.dart';
@@ -199,10 +200,11 @@ void main() {
         await post('receive_yarn');
       }
       if (state['produce'] != true) {
-        await next('Record production');
+        await next('Record batch production');
         await input('Shift', 'A');
-        await input('Individual roll weights · kg', '12');
-        await input('Quantity · kg', '16');
+        await input('Quantity · kg', '12');
+        await input('Recorded rolls / pieces', '1');
+        await input('Quantity · kg', '16', index: 1);
         await input('Declared loss · kg', '4');
         await label('Review entry');
         await label('Confirm & post');
@@ -212,13 +214,13 @@ void main() {
         expect(find.text('Review entry'), findsOneWidget);
         expect(find.text('Check save status'), findsNothing);
         expect(find.text('16'), findsOneWidget);
-        await input('Quantity · kg', '13');
+        await input('Quantity · kg', '13', index: 1);
         await input('Declared loss · kg', '1');
         await post('produce');
         state['correctedExcessInput'] = true;
       }
       if (state['hold'] != true) {
-        await next('Inspect roll');
+        await next('Review fabric batch');
         await input('Inspection notes', 'Hold pending second inspection');
         await label('Review entry');
         await wait(find.text('Choose an inspection decision.'));
@@ -227,19 +229,22 @@ void main() {
         await post('hold');
       }
       if (state['quality'] != true) {
-        await next('Inspect roll');
+        await next('Review fabric batch');
         await input('Inspection notes', 'Second inspection passed');
         await tap(find.byType(DropdownButton<String>));
         await label('Released');
         await post('quality');
       }
       if (state['deliver'] != true) {
-        await next('Create delivery');
+        await next('Deliver fabric batch');
+        await input('Quantity · kg', '12');
+        await input('Roll count', '1');
         await input('Delivery destination', 'Pilot packing desk');
         await post('deliver');
       }
       if (state['invoice'] != true) {
         await next('Create invoice');
+        await label('No tax');
         await post('invoice');
       }
       if (state['return_yarn'] != true) {

@@ -15,6 +15,10 @@ SCHEMAS = {
     "Workspace Industry Setup": [field("company", "Link", "Company", reqd=1, unique=1),
         field("state", "Select", "Setup\nActive\nClosing\nInactive", reqd=1), field("settings", "JSON"), field("revision", "Int")],
     "Knitting Job": [*BASE, field("customer", "Link", "Customer", reqd=1, in_list_view=1),
+        field("billing_customer", "Link", "Customer", label="Bill to", permlevel=1),
+        field("finance_book", "Link", "Finance Book", permlevel=1),
+        field("source_record", read_only=1), field("source_reference", label="Original order", read_only=1), field("migration_digest", read_only=1), field("migration_cutoff", "Datetime", read_only=1),
+        field("job_date", "Date", label="Order date"),
         field("kind", "Select", "Order\nSample"), field("material_mode", "Select", "Customer\nOwned"),
         field("fabric_owner", "Link", "Customer"), field("due_date", "Date"),
         field("status", "Select", "Running\nCompleted\nCancelled", in_list_view=1),
@@ -42,6 +46,12 @@ SCHEMAS = {
         field("state", "Select", "Awaiting QC\nReleased\nOn Hold\nRework\nRejected\nDelivered\nSplit\nCancelled", in_list_view=1),
         field("production", "Link", "Knitting Event"), field("delivery", "Link", "Knitting Event"),
         field("parent_roll", "Link", "Knitting Roll"), field("specification", "JSON")],
+    "Knitting Fabric Batch": [*BASE, field("job", "Link", "Knitting Job", reqd=1), field("programme_line", reqd=1),
+        field("quantity_kg", reqd=1), field("rolls", reqd=1),
+        field("state", "Select", "Awaiting review\nReleased\nOn Hold\nCancelled", reqd=1),
+        field("production", "Link", "Knitting Event"), field("warehouse", "Link", "Warehouse"),
+        field("source_reference"), field("source_record", read_only=1),
+        field("captured_at", "Datetime"), field("specification", "JSON")],
     "Knitting QC": [*BASE, field("roll", "Link", "Knitting Roll", reqd=1), field("job", "Link", "Knitting Job"),
         field("checker", "Link", "User"), field("decision", "Select", "Released\nOn Hold\nRework\nRejected"),
         field("defects", "JSON"), field("remarks", "Small Text"), field("event", "Link", "Knitting Event")],
@@ -57,6 +67,28 @@ SCHEMAS = {
     "Knitting Rate": [*BASE, field("customer", "Link", "Customer", reqd=1), field("fabric", reqd=1),
         field("yarn_count"), field("gauge"), field("rate", "Currency", permlevel=1), field("effective_from", "Date", reqd=1)],
 }
+
+
+def upgrade_batch_production_schema():
+    """Upgrade only batch metadata, preserving all business and audit records."""
+    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+        frappe.throw("Only a system manager can upgrade the industry schema.", frappe.PermissionError)
+    doc = frappe.get_doc("DocType", "Knitting Fabric Batch")
+    changed = False
+    for definition in SCHEMAS[doc.name]:
+        if definition["fieldname"] not in ("state", "production", "warehouse"):
+            continue
+        existing = next((f for f in doc.fields if f.fieldname == definition["fieldname"]), None)
+        if existing is None:
+            doc.append("fields", definition)
+            changed = True
+        elif existing.fieldname == "state" and existing.options != definition["options"]:
+            existing.options = definition["options"]
+            changed = True
+    if changed:
+        doc.save(ignore_version=True)
+        frappe.clear_cache(doctype=doc.name)
+    return {"doctype": doc.name, "changed": changed}
 
 
 def install():
@@ -90,6 +122,9 @@ def install():
                     changed = True
                 if existing and definition.get("unique") and not existing.unique:
                     existing.unique = 1
+                    changed = True
+                if existing and name == "Knitting Fabric Batch" and existing.fieldname == "state" and existing.options != definition["options"]:
+                    existing.options = definition["options"]
                     changed = True
             for permission in permissions:
                 if not any(p.role == permission["role"] and p.permlevel == permission.get("permlevel", 0) for p in doc.permissions):

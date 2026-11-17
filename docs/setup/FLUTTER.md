@@ -35,6 +35,8 @@ macOS and iPhone simulator builds succeeded after these sample settings. The And
 
 ## Host and device limits
 
-A Windows project was generated, but native Windows compilation requires a Windows host with Visual Studio's Desktop development with C++ workload. Physical iPhone signing/deployment and Android device execution remain unverified because no device is currently attached. iPhone simulator build verification does not imply App Store signing or publishing readiness.
+A Windows project was generated, but native Windows compilation requires a Windows host with Visual Studio's Desktop development with C++ workload. A physical iPhone was detected during the company invoice review. Physical-device invoice journeys and distribution signing remain open. See the private launch review. iPhone simulator build verification does not imply App Store signing or publishing readiness.
 
 The Android SDK's standard license records are copied under `licenses/android-sdk/`. The optional microXR license was not accepted or installed; Flutter doctor can continue to mention it. The Android SDK package manager may install NDK and CMake versions required by the standard Flutter Android build.
+
+For Android distribution, configure the business's upload keystore using the ignored `apps/erp_client/android/key.properties` with `storeFile`, `keyAlias`, `storePassword` and `keyPassword`. Relative keystore paths resolve from `android/app`. Without this configuration the release artifact is unsigned. Debug builds continue to use the local development key.

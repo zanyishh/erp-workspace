@@ -133,9 +133,8 @@ void main() {
       MaterialApp(
         theme: WorkspaceTheme.theme,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: const TextScaler.linear(1.6)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.6)),
           child: child!,
         ),
         home: Scaffold(
@@ -194,6 +193,40 @@ void main() {
       expect(find.text('Invoice access unavailable'), findsOneWidget);
       expect(find.textContaining('₹'), findsNothing);
       expect(find.bySemanticsLabel('Monthly sales chart'), findsNothing);
+    },
+  );
+  testWidgets(
+    'changing chart period resets selection and excludes the end date',
+    (t) async {
+      Widget view(DateRange range) => MaterialApp(
+        home: Scaffold(
+          body: SalesChart(data: sample, range: range),
+        ),
+      );
+      await t.pumpWidget(
+        view(DateRange(DateTime(2026, 2), DateTime(2026, 2, 5))),
+      );
+      await t.tap(find.byTooltip('Previous day'));
+      await t.pumpAndSettle();
+      expect(find.text('Feb 2, 2026 · ₹0'), findsOneWidget);
+      await t.pumpWidget(
+        view(DateRange(DateTime(2026, 2), DateTime(2026, 2, 3))),
+      );
+      await t.pumpAndSettle();
+      expect(find.text('Feb 1, 2026 · ₹100.50'), findsOneWidget);
+      await t.tap(find.byTooltip('Next day'));
+      await t.pumpAndSettle();
+      expect(find.text('Feb 2, 2026 · ₹0'), findsOneWidget);
+      expect(
+        t
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (w) => w is IconButton && w.tooltip == 'Next day',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
     },
   );
 }

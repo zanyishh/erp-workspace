@@ -109,6 +109,15 @@ class NativeApiTests(unittest.TestCase):
         if not frappe.db.exists("User", "native-mapper@example.invalid"):
             frappe.get_doc({"doctype":"User","email":"native-mapper@example.invalid","first_name":"Native mapper",
                 "send_welcome_email":0,"roles":[{"role":"Sales User"},{"role":"Native Draft Creator"}]}).insert()
+        for typ, fields in [(TYPE, [('proof_file','Attach'),('proof_image','Attach Image'),('field_evidence_restricted','Attach'),('signed_by','Signature'),('scan','Barcode')]),(ROW,[('proof_file','Attach')])]:
+            meta = frappe.get_doc("DocType", typ)
+            added = False
+            for key, kind in fields:
+                if not meta.get("fields", {"fieldname":key}):
+                    meta.append("fields", {"fieldname":key, "fieldtype":kind, "label":key.replace("_"," ").title(), "permlevel":1 if key=="field_evidence_restricted" else 0})
+                    added = True
+            if added:
+                meta.save()
         frappe.db.commit()
 
     def setUp(self):
@@ -126,6 +135,43 @@ class NativeApiTests(unittest.TestCase):
         doc = api.document(TYPE)["doc"]
         doc.update(title=title, **values)
         return api.save(doc)["doc"]
+
+    def test_report_defaults_use_company_fiscal_boundaries_and_user_calendar(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+        from erpnext.accounts.utils import get_fiscal_year
+        from frappe.utils import getdate, today
+        company = 'ERP Native Verification'
+        date = getdate(today())
+        fiscal = get_fiscal_year(date, company=company)
+        with patch('frappe.utils.get_datetime_in_timezone', return_value=datetime.combine(date, datetime.min.time(), tzinfo=ZoneInfo('UTC'))):
+            definition = api.report_definition('Trial Balance', company)
+        self.assertEqual(definition['defaults']['from_date'], str(fiscal[1]))
+        self.assertEqual(definition['defaults']['to_date'], str(fiscal[2]))
+        names = {f['fieldname'] for f in definition['fields']}
+        self.assertNotIn('report_template', names)
+        self.assertNotIn('periodicity', names)
+        self.assertIn('INR', next(f for f in definition['fields'] if f['fieldname']=='presentation_currency')['options'].splitlines())
+        with patch('frappe.utils.get_datetime_in_timezone', return_value=datetime(2032,3,1,1,15,tzinfo=ZoneInfo('Asia/Kolkata'))), patch('frappe.utils.get_system_timezone',return_value='UTC'):
+            self.assertEqual(api._report_default({'native_default':'date_offset','base':'month_start','unit':'days','value':-1}), '2032-02-29')
+            self.assertEqual(api._report_default({'native_default':'system_month_offset','value':-1}), '2032-01-31 19:45:00')
+
+    def test_saved_report_builder_sums_averages_and_counts_filtered_rows(self):
+        marker = "Grouped report test"
+        for amount in (12.5, 9.5):
+            frappe.get_doc({"doctype":TYPE, "title":marker, "amount":amount}).insert()
+        frappe.get_doc({"doctype":TYPE, "title":marker + " excluded", "amount":40}).insert()
+        for function, expected in (("sum", 22), ("avg", 11), ("count", 2)):
+            with self.subTest(function=function):
+                config = {"filters":[[TYPE,"title","=",marker]], "fields":[["title", TYPE]],
+                    "group_by":{"group_by":f"`tab{TYPE}`.`title`", "aggregate_function":function,
+                                "aggregate_on":"amount" if function != "count" else None}}
+                report = frappe._dict(ref_doctype=TYPE, json=frappe.as_json(config))
+                data = api._builder_report(report, {})
+                self.assertEqual([(r["title"], r["_aggregate_column"]) for r in data["result"]], [(marker, expected)])
+                self.assertEqual(data["columns"][1]["fieldname"], "_aggregate_column")
+                self.assertFalse(data["truncated"])
 
     def test_industry_source_fields_only_display_on_linked_general_documents(self):
         fields = api.schema("Purchase Order")["fields"]
@@ -241,6 +287,41 @@ class NativeApiTests(unittest.TestCase):
             api.tree_children("Warehouse", parent="All Warehouses - NTEST", company=company)
         with self.assertRaises(frappe.PermissionError):
             api.document("Warehouse", company=company, tree_parent="All Warehouses - NTEST")
+
+    def test_field_files_follow_the_saved_parent_and_child(self):
+        import base64
+        content = base64.b64encode(b"native private field evidence").decode()
+        pending = {"filename":"field-proof.txt", "content":content}
+        doc = api.save({"doctype":TYPE, "__islocal":1, "title":"Fields", "proof_file":pending,
+            "rows":[{"doctype":ROW, "description":"Child", "proof_file":pending}]})["doc"]
+        for row in [None, doc["rows"][0]["name"]]:
+            result = api.field_attachment(TYPE, doc["name"], "proof_file", "rows" if row else None, row)
+            self.assertEqual(result["content"], content)
+        file = frappe.get_doc("File", {"attached_to_doctype":TYPE, "attached_to_name":doc["name"],"attached_to_field":"proof_file"})
+        self.assertTrue(file.is_private)
+        self.assertEqual(file.file_url, doc["proof_file"])
+        with self.assertRaises(frappe.ValidationError):
+            api.remove_attachment(TYPE, doc["name"], file.name)
+        with self.assertRaises(frappe.PermissionError):
+            api.save(dict(doc, proof_file="/private/files/another-company.txt"))
+        with self.assertRaises(frappe.ValidationError):
+            api.save(dict(doc, proof_image=pending))
+        private_title="restricted-field-proof.txt"
+        doc=api.save(dict(doc,field_evidence_restricted={"filename":private_title,"content":base64.b64encode(b"Restricted synthetic content").decode()}))["doc"]
+        frappe.set_user("native-reader@example.invalid")
+        with self.assertRaises(frappe.PermissionError):
+            api.field_attachment(TYPE,doc["name"],"field_evidence_restricted")
+        self.assertNotIn(private_title,str(api.activity(TYPE,doc["name"])))
+        self.assertEqual(api.field_attachment(TYPE,doc["name"],"proof_file")["content"], content)
+        with self.assertRaises(frappe.PermissionError):
+            api.save(dict(doc,proof_file=pending))
+        frappe.set_user("Administrator")
+        changed = api.save(dict(doc, proof_file=""))["doc"]
+        self.assertFalse(changed["proof_file"])
+        self.assertFalse(frappe.db.exists("File",file.name))
+        self.assertEqual(api.field_attachment(TYPE,doc["name"],"proof_file","rows",doc["rows"][0]["name"])["content"], content)
+        api.save(dict(changed,rows=[]))
+        self.assertFalse(frappe.db.exists("File",{"attached_to_doctype":ROW,"attached_to_name":doc["rows"][0]["name"],"attached_to_field":"proof_file"}))
 
     def test_activity_comments_and_private_attachment_roundtrip(self):
         import base64
@@ -533,6 +614,8 @@ class NativeApiTests(unittest.TestCase):
         frappe.db.set_value("Sales Order",order["name"],{"per_billed":100,"per_delivered":100})
         frappe.db.set_value("Sales Order Item",order["items"][0]["name"],{"delivered_qty":2,"billed_amt":200})
         fulfilled=frappe.get_doc("Sales Order",order["name"])
+        self.assertNotIn("Delivery Note", api._related_actions(fulfilled))
+        self.assertNotIn("Payment Entry", api._related_actions(fulfilled))
         duplicate=api.new_from("Sales Order",order["name"],"Duplicate",str(fulfilled.modified))["doc"]
         self.assertFalse(duplicate.get("per_billed"))
         self.assertFalse(duplicate["items"][0].get("delivered_qty"))

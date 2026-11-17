@@ -1,0 +1,81 @@
+{
+  "postgresql": {
+    "version": "17.12-0+deb13u1",
+    "metadata_verification": {
+      "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+      "inrelease_sha256": "0c0e4f34b97ac4bbea4873879d9de69de81df505e9d3f68421147ea3241f4ff0",
+      "keyring_sha256": "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017",
+      "packages_sha256": "da10b3ed199a5577402efafbbef2428fb9724168c8bdfd8768efaf17340a67fb",
+      "date": "Sun, 15 Nov 2026 19:49:50 UTC",
+      "valid_until": "Sun, 22 Nov 2026 19:49:50 UTC",
+      "valid_signature_status": "[GNUPG:] PLAINTEXT 74 0 \n[GNUPG:] NEWSIG\n[GNUPG:] KEY_CONSIDERED 05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0 0\n[GNUPG:] SIG_ID PsKL1X+npDZwzh40MLLzk52nWJE 2026-11-15 1794772191\n[GNUPG:] GOODSIG BDE6D2B9216EC7A8 Debian Security Archive Automatic Signing Key (12/bookworm) <ftpmaster@debian.org>\n[GNUPG:] VALIDSIG B0CAB9266E8C3929798B3EEEBDE6D2B9216EC7A8 2026-11-15 1794772191 0 4 0 1 8 01 05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0\n[GNUPG:] NEWSIG\n[GNUPG:] KEY_CONSIDERED 5E04A1E3223A19A20706E20F9904613D4CCE68C6 0\n[GNUPG:] SIG_ID H+utXXEb80h6f3iv33M78nWvivE 2026-11-15 1794772191\n[GNUPG:] GOODSIG 8E9F831205B4BA95 Debian Security Archive Automatic Signing Key (13/trixie) <ftpmaster@debian.org>\n[GNUPG:] VALIDSIG 89C87ACEA5DD6B8E6A7068808E9F831205B4BA95 2026-11-15 1794772191 0 4 0 1 8 01 5E04A1E3223A19A20706E20F9904613D4CCE68C6\n"
+    },
+    "packages": [
+      {
+        "Package": "libpq-dev",
+        "Version": "17.12-0+deb13u1",
+        "Architecture": "arm64",
+        "Filename": "pool/updates/main/p/postgresql-17/libpq-dev_17.12-0+deb13u1_arm64.deb",
+        "Size": "156700",
+        "SHA256": "768eb6d5be2b5cd28264df3ab222f993a02e7e79b64eb1acc4908734ae28f1fb",
+        "Depends": "libpq5 (= 17.12-0+deb13u1), libssl-dev"
+      },
+      {
+        "Package": "libpq5",
+        "Version": "17.12-0+deb13u1",
+        "Architecture": "arm64",
+        "Filename": "pool/updates/main/p/postgresql-17/libpq5_17.12-0+deb13u1_arm64.deb",
+        "Size": "228808",
+        "SHA256": "bd9032e803a1513fa85aea93e9b239cf4ecbebf9ec0f87b5ecd70448f9c1c3bb",
+        "Depends": "libc6 (>= 2.38), libgssapi-krb5-2 (>= 1.17), libldap2 (>= 2.6.2), libssl3t64 (>= 3.0.0)"
+      },
+      {
+        "Package": "postgresql-client-17",
+        "Version": "17.12-0+deb13u1",
+        "Architecture": "arm64",
+        "Filename": "pool/updates/main/p/postgresql-17/postgresql-client-17_17.12-0+deb13u1_arm64.deb",
+        "Size": "2014788",
+        "SHA256": "a88feef6dc8e219b1294c8dbc551bdd393d7a91eba9dc01271b7a3f603e50393",
+        "Depends": "libpq5 (>= 17.12), postgresql-client-common (>= 182~), sensible-utils, libc6 (>= 2.38), liblz4-1 (>= 0.0~r127), libreadline8t64 (>= 6.0), libssl3t64 (>= 3.0.0), libzstd1 (>= 1.5.5), zlib1g (>= 1:1.1.4)"
+      }
+    ]
+  },
+  "python_wheels": [
+    {
+      "name": "GitPython",
+      "version": "3.2.1",
+      "artifacts": [
+        {
+          "file": "gitpython-3.2.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/6b/50/2a923c4dc02522ff9567f07c67ed1deca6d5fa9474f4708168b8088dfa37/gitpython-3.2.1-py3-none-any.whl",
+          "sha256": "d66b0832aa8755c1a84892937282df0befb16c97e5a64aeebd68be9c5e323f53",
+          "bytes": 231548
+        }
+      ]
+    },
+    {
+      "name": "pypdf",
+      "version": "6.21.4",
+      "artifacts": [
+        {
+          "file": "pypdf-6.21.4-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/3f/4b/77e8ad4ac42c9d93600f40541a50e9feb3a61d2bbee2d76f659346072051/pypdf-6.21.4-py3-none-any.whl",
+          "sha256": "33e4fb41ca352810eb4e9838aa0d82d6888a5f8bf682f43e99cce5faa666255c",
+          "bytes": 410430
+        }
+      ]
+    },
+    {
+      "name": "flit_core",
+      "version": "3.12.0",
+      "artifacts": [
+        {
+          "file": "flit_core-3.12.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/f2/65/b6ba90634c984a4fcc02c7e3afe523fef500c4980fec67cc27536ee50acf/flit_core-3.12.0-py3-none-any.whl",
+          "sha256": "e7a0304069ea895172e3c7bb703292e992c5d1555dd1233ab7b5621b5b69e62c",
+          "bytes": 45594
+        }
+      ]
+    }
+  ]
+}

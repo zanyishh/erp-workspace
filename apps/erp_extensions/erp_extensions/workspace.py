@@ -45,7 +45,7 @@ def obligations(company):
 def context(company=None):
     import hashlib
     import json
-    from erp_extensions.onboarding import can_manage_team
+    from erp_extensions.onboarding import can_manage_team, membership
     available = permissions.companies()
     if frappe.session.user == "Guest":
         frappe.throw("Sign in first.", frappe.PermissionError)
@@ -60,13 +60,19 @@ def context(company=None):
     caps = permissions.capabilities() if setup and setup.state in ("Active", "Closing") else set()
     scope = frappe.get_all("User Permission", filters={"user": frappe.session.user},
                            fields=["allow", "for_value", "applicable_for", "apply_to_all_doctypes", "hide_descendants", "modified"], order_by="name")
-    core_records = ("Sales Invoice", "Sales Order", "Purchase Order", "Item", "Work Order", "Project", "Asset", "Quality Inspection")
+    core_records = ("Sales Invoice", "Sales Order", "Quotation", "Purchase Order", "Item", "Work Order", "Project", "Asset", "Quality Inspection")
     readable = [name for name in core_records if selected and frappe.has_permission(name, "read")]
     creatable = [name for name in core_records if frappe.has_permission(name, "create")]
     unavailable = []
     if "factory" in caps and not frappe.has_permission("Workstation", "create"):
         unavailable.append("create_machine")
+    if "new_job" in caps and not frappe.has_permission("Quotation", "read"):
+        unavailable.append("job_from_estimate")
     if "billing" in caps:
+        if not frappe.has_permission("Quotation", "create"):
+            unavailable.append("create_estimate")
+        if not all(frappe.has_permission("Quotation", permission) for permission in ("read", "write", "submit")):
+            unavailable.append("accept_estimate")
         for doctype, actions in (
             ("Purchase Order", ("create_subcontract", "create_yarn_order")),
             ("Purchase Invoice", ("bill_yarn", "subcontract_bill")),
@@ -74,9 +80,26 @@ def context(company=None):
         ):
             if not (frappe.has_permission(doctype, "create") and frappe.has_permission(doctype, "submit")):
                 unavailable.extend(actions)
-    fingerprint = hashlib.sha256(json.dumps([sorted(frappe.get_roles()), scope, readable, creatable, unavailable], sort_keys=True, default=str).encode()).hexdigest()
-    return {"version": 1, "companies": available, "company": selected, "access_fingerprint": fingerprint,
-            "can_manage_team": can_manage_team(selected),
+    manage_team = can_manage_team(selected)
+    member = membership()
+    open_desk = not member
+    cashier_home = bool(member and member.team_role == "cashier")
+    from erp_extensions.reconciliation import permitted
+    from erp_extensions.bank_matching import permitted as bank_matching_permitted
+    from erp_extensions.pos_checkout import permitted as pos_permitted
+    point_of_sale = bool(selected and pos_permitted())
+    reconcile = bool(selected and permitted())
+    bank_match = bool(selected and bank_matching_permitted())
+    from erp_extensions.migration.api import available as imported_history_available, customer_workspace
+    imported_history = bool(selected and imported_history_available(selected))
+    knitting_only = bool(selected and customer_workspace(selected))
+    fingerprint = hashlib.sha256(json.dumps([sorted(frappe.get_roles()), scope, readable, creatable, unavailable, manage_team, open_desk, reconcile, bank_match, point_of_sale, cashier_home, imported_history, knitting_only], sort_keys=True, default=str).encode()).hexdigest()
+    from erp_extensions import operations
+    return {"version": 1, "operation_recovery_version": 1 if operations.available() and not cashier_home else 0,
+            "companies": available, "company": selected, "access_fingerprint": fingerprint,
+            "cashier_home":cashier_home, "can_operate_pos": point_of_sale, "can_manage_team": manage_team, "can_open_desk": open_desk, "can_reconcile_payments": reconcile, "can_match_bank_statements": bank_match,
+            "can_read_imported_history": imported_history,
+            "knitting_only": knitting_only,
             "setup_state": setup.state if setup else "General ERP", "revision": setup.revision if setup else 0,
             "needs_industry_selection": bool(selected and (not setup or setup.state == "Setup") and "configure" in permissions.capabilities()),
             "knitting_enabled": bool(caps), "capabilities": sorted(caps), "creatable_records": creatable, "readable_records": readable,

@@ -1,0 +1,51 @@
+{
+  "reviewed_origin": "quality-home/util-linux-finish-20261116-4",
+  "source_lock_sha256": "5d031a7bff35cd14f2fe0e99675ab2b3830446827b64957b77da81d58240fc82",
+  "files": {
+    "package-receipt.json": {
+      "bytes": 13572,
+      "sha256": "70db9f67b9ccd8270e771add6fa50efdc64b88934d6dd040c9902a2abbdc9aeb"
+    },
+    "prior-package-install-failed.json": {
+      "bytes": 4431,
+      "sha256": "dc0de0f1f392804224a4090268583a1789439480b53d312d056b8d41e831393c"
+    },
+    "util-linux_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 1197324,
+      "sha256": "0e19dde4ea24168826ba4708fdb87e218dca47c46b4f682f9feceab3958d0d8a"
+    },
+    "mount_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 165948,
+      "sha256": "816e5edb25f22c5be908ac8e49cfab4f89ecbe008d835ae735934901f322df2f"
+    },
+    "bsdutils_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 114280,
+      "sha256": "904f626d18a63602f13ad488e49ef06387fe707b22d4a985f5e31683985c0f97"
+    },
+    "libblkid1_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 171096,
+      "sha256": "c957017e60d903c5419fb4fb9b1caff8c5ed1ce87648e86095cbe6f22d639e6a"
+    },
+    "libmount1_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 205952,
+      "sha256": "135fbf6f8a9b52d2ebe666a0daa36816dbd2f7b5cebc619b80409617b1150239"
+    },
+    "libsmartcols1_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 144464,
+      "sha256": "af12d62a36d5572f791bc9098d65c461b42ec5d83fd95bf689027cd7ec9361c7"
+    },
+    "libuuid1_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 43536,
+      "sha256": "01aca47565bddd793a4865fa61fe6914733bbdf1278432f31e554a797c62a981"
+    },
+    "liblastlog2-2_2.41.6-0+erp1_arm64.deb": {
+      "bytes": 34552,
+      "sha256": "8c679e972315efa71ad70d74b7499a272d48516630872caf77aeb0e3dfc4e386"
+    },
+    "login_4.16.0-2+really2.41.6-0+erp1_arm64.deb": {
+      "bytes": 121916,
+      "sha256": "e13b5f73018de4d6018aedf9db42ac19e1cc6c0e87f50d65197d131e179802b3"
+    }
+  },
+  "expected_failed_exit_code": 100
+}

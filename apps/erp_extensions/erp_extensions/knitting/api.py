@@ -3,12 +3,30 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
+from contextlib import contextmanager
 from decimal import Decimal
 
 import frappe
 from frappe.utils import now_datetime
 
 from . import domain, permissions
+
+
+@contextmanager
+def _operation_savepoint(name, *, preview=False):
+    frappe.db.savepoint(name)
+    try:
+        yield
+    except frappe.QueryDeadlockError:
+        # InnoDB already rolled back the whole transaction, including this savepoint.
+        frappe.throw("Another update interrupted this request. Your changes were not saved. Please try again.")
+    except Exception:
+        frappe.db.rollback(save_point=name)
+        raise
+    else:
+        if preview:
+            # ERPNext controllers can create supporting data while calculating a preview.
+            frappe.db.rollback(save_point=name)
 
 
 def request_key(company, request_id):
@@ -22,7 +40,7 @@ def project(value, *, financial_read=None):
         financial_read = "financial_read" in permissions.capabilities()
     if financial_read:
         return value
-    private = {"rate", "amount", "valuation_rate", "charge_rate", "income_account", "expense_account", "grand_total", "pricing"}
+    private = {"rate", "original_dc_rate", "amount", "valuation_rate", "charge_rate", "income_account", "expense_account", "grand_total", "pricing", "billing_customer"}
     if isinstance(value, Mapping):
         return {key: project(item, financial_read=False) for key, item in value.items() if key not in private}
     return [project(item, financial_read=False) for item in value] if isinstance(value, list) else value
@@ -35,18 +53,35 @@ def response(event):
 
 @frappe.whitelist(methods=["POST"])
 def command(company, action, payload, request_id, modified=None):
+    from erp_extensions import operations
+    data = frappe.parse_json(payload) if isinstance(payload, str) else payload
+    return operations.execute(company, 'knitting', request_id,
+        {'action': action, 'payload': data, 'modified': modified},
+        lambda: _command(company, action, data, request_id, modified), action=action, optional=True)
+
+
+def _command(company, action, payload, request_id, modified=None):
     data = frappe.parse_json(payload) if isinstance(payload, str) else payload
     if not isinstance(data, Mapping) or len(frappe.as_json(data)) > 262144:
         frappe.throw("A bounded, structured action payload is required.")
-    from . import factory, procurement
-    actions = {**domain.ACTIONS, **factory.ACTIONS, **procurement.ACTIONS}
+    from . import factory, procurement, batches
+    actions = {**domain.ACTIONS, **factory.ACTIONS, **procurement.ACTIONS, **batches.ACTIONS}
     if action not in actions:
         frappe.throw("That knitting action is not supported.")
     capability, handler = actions[action]
+    if action == 'produce_bulk':
+        from .machines import reject_output_fields
+        from .operators import reject_output_fields as reject_operator_output_fields
+        reject_output_fields(data)
+        reject_operator_output_fields(data)
+        if data.get('production_machine') not in (None, ''):
+            frappe.throw('Choose the original recorded machine separately for each production row.')
+        if data.get('production_operator') not in (None, ''):
+            frappe.throw('Choose the original production employee separately for each production row.')
     if "financial_read" not in permissions.capabilities():
         def financial_keys(value):
             if isinstance(value, Mapping):
-                return any(k in {"rate", "valuation_rate", "charge_rate", "charge_item", "income_account", "expense_account"} or
+                return any(k in {"rate", "valuation_rate", "charge_rate", "charge_item", "income_account", "expense_account", "billing_customer"} or
                            financial_keys(v) for k, v in value.items())
             return isinstance(value, list) and any(financial_keys(v) for v in value)
         if financial_keys(data):
@@ -79,11 +114,9 @@ def command(company, action, payload, request_id, modified=None):
             _check_version(job, modified)
         if job.status != "Running" and action not in ("reopen_job",):
             frappe.throw("Reopen this job before posting more work.")
-    elif action not in {"create_job", "receive_yarn", "create_yarn_order", "bill_yarn", *factory.JOB_OPTIONAL}:
+    elif action not in {"create_job", "receive_yarn", "create_yarn_order", "bill_yarn", "produce_batches", *factory.JOB_OPTIONAL}:
         frappe.throw("Select the source knitting job.")
-    savepoint = "knitting_command"
-    frappe.db.savepoint(savepoint)
-    try:
+    with _operation_savepoint("knitting_command"):
         with permissions.service_write():
             event = domain.insert("Knitting Event", company=company, job=job.name if job else None, kind=action,
                 request_key=key, payload_hash=digest, actor=frappe.session.user, occurred_at=now_datetime(), payload=frappe.as_json(data))
@@ -98,9 +131,6 @@ def command(company, action, payload, request_id, modified=None):
             event.voucher_type, event.voucher_name = result.get("voucher_type"), result.get("voucher")
             event.save()
             return response(event)
-    except Exception:
-        frappe.db.rollback(save_point=savepoint)
-        raise
 
 
 @frappe.whitelist()
@@ -117,86 +147,47 @@ def command_status(company, request_id):
 @frappe.whitelist()
 @permissions.snapshot_link_checks()
 def snapshot(company, job=None):
-    permissions.require(company, "jobs", history=True)
-    finance = "financial_read" in permissions.capabilities()
-    if job:
-        domain.reference("Knitting Job", job, company)
-        permissions.require_aggregate_scope(company, job)
-    jobs = []
-    fields = ["name", "modified", "customer", "kind", "material_mode", "due_date", "status", "target_kg", "revision", "programme"]
-    if finance:
-        fields += ["rate", "service_item"]
-    for row in frappe.get_list("Knitting Job", filters={"company": company, **({"name": job} if job else {})}, fields=fields, order_by="modified desc", limit=200):
-        row.programme = domain.json_value(row.programme, [])
-        if job:
-            row.workflow = {}
-            row.balances = domain.balances(row.name, workflow=row.workflow, programme=row.programme)
-        if finance:
-            row.rate = domain.money(row.rate or 0)
-        jobs.append(row)
-    if not job:
-        balances = domain.register_balances(company, jobs)
-        for row in jobs:
-            row.balances = balances[row.name]
-    limits = {"jobs": jobs}
-    for key, doctype, fields in (
-        ("rolls", "Knitting Roll", ["name", "job", "programme_line", "weight_kg", "state", "warehouse", "machine", "operator", "shift", "produced_at", "production", "delivery"]),
-        ("lots", "Knitting Material Lot", ["name", "item", "party", "material_owner", "warehouse", "source_lot", "specification"]),
-        ("machines", "Knitting Machine", ["name", "title", "dia", "gauge", "knit_type", "capacity_kg", "enabled"]),
-        ("plans", "Knitting Plan", ["name", "job", "machine", "starts_at", "ends_at", "quantity_kg", "state", "programme_line", "produced_kg", "required_yarn_kg"]),
-        ("inspections", "Knitting QC", ["name", "job", "roll", "checker", "decision", "remarks", "creation"]),
-        ("events", "Knitting Event", ["name", "job", "kind", "occurred_at", "cancelled", "result"]),
-        ("subcontracts", "Knitting Subcontract", ["name", "job", "supplier", "target_kg", "status", "warehouse", "purchase_order"]),
-        ("components", "Knitting Component", ["name", "machine", "component_type", "boundary_kg", "run_kg", "installed_at"]),
-        ("masters", "Knitting Master", ["name", "category", "title", "enabled", "specification", "modified"]),
-        ("holidays", "Knitting Holiday", ["name", "machine", "date", "description"]),
-    ):
-        # Event result JSON has a private field level; read it only after scoped row permission filtering.
-        query_fields = [f for f in fields if f != "result"] if key == "events" else fields
-        filters = {"company": company, **({"job": job} if job and frappe.get_meta(doctype).has_field("job") else {})}
-        limits[key] = frappe.get_list(doctype, filters=filters, fields=query_fields, order_by="creation desc", limit=500)
-    visible_events = limits["events"]
-    if visible_events:
-        results = dict(frappe.get_all("Knitting Event", filters={"name": ["in", [event.name for event in visible_events]]},
-                                      fields=["name", "result"], as_list=True))
-        for event in visible_events:
-            event.result = project(domain.json_value(results.get(event.name), {}), financial_read=finance)
-    for component in limits["components"]:
-        component.remaining_kg = domain.kg(Decimal(component.boundary_kg) - Decimal(component.run_kg or "0"))
-    if finance:
-        limits["rates"] = frappe.get_list("Knitting Rate", filters={"company": company}, fields=["name", "customer", "fabric", "yarn_count", "gauge", "rate", "effective_from"], limit=500)
-        for row in limits["rates"]:
-            row.rate = domain.money(row.rate or 0)
-    allocated = {}
-    units = {}
-    if limits["lots"]:
-        for row in frappe.get_all("Knitting Ledger Entry", filters={"company": company, "lot": ["in", [l.name for l in limits["lots"]]], "custodian": "Warehouse"},
-                                  fields=["lot", "job", "quantity_kg", "units"]):
-            key = (row.lot, row.job or None)
-            allocated[key] = allocated.get(key, Decimal(0)) + Decimal(row.quantity_kg)
-            units[key] = units.get(key, Decimal(0)) + Decimal(row.units or '0')
-    visible_jobs = {row.name for row in jobs}
-    by_lot = {}
-    for (lot, owner_job), quantity in allocated.items():
-        physical = units[(lot, owner_job)]
-        if owner_job in visible_jobs and (quantity or physical):
-            by_lot.setdefault(lot, []).append({"job": owner_job, "quantity_kg": domain.kg(quantity), "units": str(physical)})
-    for lot in limits["lots"]:
-        lot.allocations = by_lot.get(lot.name, [])
-        lot.general_kg = domain.kg(allocated.get((lot.name, None), 0))
-        lot.general_units = str(units.get((lot.name, None),0))
-    return {"version": 1, "company": company, "financial_read": finance, **limits,
-            "integrations": [{"name": name, "status": "Not configured"} for name in ("E-Invoice", "E-Way Bill", "Payment gateway")]}
+    from .registers import snapshot as read_snapshot
+    return read_snapshot(company, job)
+
+
+@frappe.whitelist()
+@permissions.snapshot_link_checks()
+def register(company, collection, job=None, start=0, query="", state=None, production_date=None, from_date=None, to_date=None, customer=None, category=None):
+    from .registers import page
+    return page(company, collection, job, start, query, state, production_date, from_date, to_date, customer, category)
+
+
+@frappe.whitelist()
+@permissions.snapshot_link_checks()
+def overview(company):
+    from .registers import overview as read_overview
+    return read_overview(company)
+
+
+@frappe.whitelist()
+@permissions.snapshot_link_checks()
+def roll(company, job, roll):
+    from .registers import roll as read_roll
+    return read_roll(company, job, roll)
 
 
 @frappe.whitelist()
 def lookup(company, entity, query="", start=0, job=None):
     """Bounded permission-scoped selectors, never an arbitrary DocType/query endpoint."""
+    if entity == 'ProductionOperator':
+        from .operators import choices
+        return choices(company, query, start, job)
+    if entity == 'ProductionMachine':
+        from .machines import choices
+        return choices(company, query, start, job)
+    if entity == "SalesTaxTemplate":
+        permissions.require(company, "billing", history=True)
     if "configure" not in permissions.capabilities() or not permissions.company_allowed(company):
         permissions.require(company, "jobs", history=True)
     registry = {
-        "ClosingJob": ("Knitting Job", ["name", "customer", "status", "modified"], {"status": "Running"}),
-        "Job": ("Knitting Job", ["name", "customer", "status", "modified", "programme"], {}),
+        "ClosingJob": ("Knitting Job", ["name", "source_reference", "customer", "status", "modified", "programme"], {"status": "Running"}),
+        "Job": ("Knitting Job", ["name", "source_reference", "customer", "status", "material_mode", "modified", "programme"], {}),
         "Lot": ("Knitting Material Lot", ["name", "item", "party", "material_owner"], {}),
         "Machine": ("Knitting Machine", ["name", "title", "dia", "gauge"], {"enabled": 1}),
         "Roll": ("Knitting Roll", ["name", "job", "state", "weight_kg"], {"state": ["not in", ["Split", "Cancelled", "Delivered"]]}),
@@ -204,7 +195,9 @@ def lookup(company, entity, query="", start=0, job=None):
         "ReleasedRoll": ("Knitting Roll", ["name", "job", "state", "weight_kg"], {"state": "Released"}),
         "InvoiceEvent": ("Knitting Event", ["name", "job", "kind"], {"kind": "invoice", "cancelled": 0}),
         "DeliveredRoll": ("Knitting Roll", ["name", "job", "state", "weight_kg"], {"state": "Delivered"}),
-        "Delivery": ("Knitting Event", ["name", "job", "kind"], {"kind": "deliver", "cancelled": 0}),
+        "Delivery": ("Knitting Event", ["name", "job", "kind"], {"kind": ["in", ["deliver", "deliver_batch"]], "cancelled": 0}),
+        "BillingDelivery": ("Knitting Event", ["name", "job", "kind"], {"kind": ["in", ["deliver", "deliver_batch", "migration_delivery_reference"]], "cancelled": 0}),
+        "RollDelivery": ("Knitting Event", ["name", "job", "kind"], {"kind": "deliver", "cancelled": 0}),
         "CompanyEvent": ("Knitting Event", ["name", "job", "kind"], {"job": ["is", "not set"], "kind": ["in", domain.CORRECTABLE], "cancelled": 0}),
         "CompletedSubcontract": ("Knitting Subcontract", ["name", "job", "supplier", "status"], {"status": "Completed"}),
         "Event": ("Knitting Event", ["name", "job", "kind"], {"kind": ["in", domain.CORRECTABLE], "cancelled": 0}),
@@ -215,6 +208,8 @@ def lookup(company, entity, query="", start=0, job=None):
         "Defect": ("Knitting Master", ["name", "title", "specification"], {"category": "QC defect", "enabled": 1}),
         "Component": ("Knitting Component", ["name", "machine", "component_type"], {}),
         "Customer": ("Customer", ["name", "customer_name as title"], {"disabled": 0}),
+        "JobCustomer": ("Customer", ["name", "customer_name as title"], {}),
+        "SalesTaxTemplate": ("Sales Taxes and Charges Template", ["name", "title"], {"disabled": 0}),
         "Supplier": ("Supplier", ["name", "supplier_name as title"], {"disabled": 0}),
         "Item": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0}),
         "StockKgItem": ("Item", ["name", "item_name as title", "stock_uom"], {"disabled": 0, "is_stock_item": 1, "stock_uom": "Kg"}),
@@ -229,24 +224,57 @@ def lookup(company, entity, query="", start=0, job=None):
     if entity not in registry or len(str(query)) > 120 or not str(start).isdigit() or int(start) > 1000000:
         frappe.throw("Choose a supported record selector and page.")
     doctype, fields, filters = registry[entity]
+    if entity == "JobCustomer":
+        permissions.require(company, "jobs", history=True)
+        parties = frappe.get_list("Knitting Job", filters={"company": company}, pluck="customer", limit=0)
+        filters = {"name": ["in", sorted(set(parties))]}
     if frappe.get_meta(doctype).has_field("company"):
         filters = {**filters, "company": company}
     if job and frappe.get_meta(doctype).has_field("job") and "job" not in filters:
         domain.reference("Knitting Job", job, company)
         filters = {**filters, "job": job}
-    rows = frappe.get_list(doctype, filters=filters, or_filters=[[field, "like", "%" + query + "%"] for field in ("name", "title", "customer", "supplier", "item", "customer_name", "supplier_name", "item_name") if field == "name" or frappe.get_meta(doctype).has_field(field)] if query else None,
-                           fields=fields, order_by="modified desc, name", start=int(start), limit=51)
+    from .registers import (JOB_ORDER, JOB_ORDER_FIELD, customer_names, customer_name_matches,
+                            literal_search_pattern, original_reference_matches)
+    pattern = literal_search_pattern(query) if doctype == "Knitting Job" or entity == "JobCustomer" else "%" + query + "%"
+    search = [[field, "like", pattern] for field in ("name", "title", "source_reference", "customer", "supplier", "item", "customer_name", "supplier_name", "item_name")
+        if field == "name" or frappe.get_meta(doctype).has_field(field)] if query else None
+    if doctype == "Knitting Job":
+        fields = [*fields, "source_record", "job_date", JOB_ORDER_FIELD]
+        matches = customer_name_matches(query, literal=True)
+        if matches:
+            search.append(["customer", "in", matches])
+        references = original_reference_matches(company, query)
+        if references:
+            search.append(["name", "in", references])
+    rows = frappe.get_list(doctype, filters=filters, or_filters=search,
+                           fields=fields, order_by=JOB_ORDER if doctype == "Knitting Job" else "modified desc, name", start=int(start), limit=51)
+    if doctype == "Knitting Job":
+        customer_names(rows)
     for row in rows:
         if doctype == "Knitting Event":
             result = domain.json_value(frappe.db.get_value("Knitting Event", row.name, "result"), {})
             reference = result.get("invoice") or result.get("purchase_order") or result.get("lot") or result.get("subcontract") or ""
             row.title = row.kind.replace("_", " ").title() + (" · " + reference if reference else "")
+            if row.kind == 'migration_delivery_reference':
+                row.title = 'Original delivery ' + str(result.get('source_reference') or row.name)
+                if result.get('original_date'):
+                    row.title += ' · ' + str(result['original_date'])
             if row.job and entity in ("YarnReceipt", "ConsumableIssue"):
                 row.job_modified = frappe.db.get_value("Knitting Job", row.job, "modified")
         if entity == "Job":
             row.programme = domain.json_value(row.programme, [])
-            row.balances = domain.balances(row.name)
+            try:
+                row.balances = domain.balances(row.name)
+            except permissions.SourceReconciliationError:
+                row.balances = None
+                row.reconciliation_available = False
     result = {"rows": rows[:50], "has_more": len(rows) > 50, "start": int(start)}
+    if entity in ("Job", "ClosingJob"):
+        from erp_extensions.migration.dimensions import programmes
+        programmes(company, result["rows"])
+        if entity == "ClosingJob":
+            for row in result["rows"]:
+                row.pop("programme", None)
     if entity == "Customer":
         result["can_create"] = bool(frappe.has_permission("Customer", "create"))
     return result
@@ -267,6 +295,7 @@ def export(company, format, filters=None):
 
 def invoice_review(doc):
     return {"currency": doc.currency, "net_total": domain.money(doc.net_total), "tax_total": domain.money(doc.total_taxes_and_charges), "grand_total": domain.money(doc.grand_total),
+        "tax_template": doc.taxes_and_charges or None, "no_tax": bool(doc.flags.get("knitting_tax_choice", {}).get("no_tax")),
         "items": [{"item": row.item_code, "quantity": format(Decimal(str(row.qty)).normalize(), "f"), "rate": domain.money(row.rate), "amount": domain.money(row.amount), "uom": row.uom} for row in doc.items],
         "taxes": [{"description": row.description, "account": row.account_head, "rate": str(row.rate), "amount": domain.money(row.tax_amount)} for row in doc.taxes]}
 
@@ -286,8 +315,7 @@ def invoice_preview(company, payload, modified=None):
     job = domain.reference("Knitting Job", data.get("job"), company, lock=True)
     from erp_extensions.api import _check_version, _preview_prices
     _check_version(job, modified)
-    frappe.db.savepoint("knitting_invoice_preview")
-    try:
+    with _operation_savepoint("knitting_invoice_preview", preview=True):
         event = frappe._dict(company=company, job=job.name, name=None)
         with permissions.service_write(), _preview_prices():
             doc = domain.invoice(event, data, job, preview=True)
@@ -301,6 +329,3 @@ def invoice_preview(company, payload, modified=None):
             result = invoice_review(doc)
             result["preview_hash"] = invoice_signature(doc)
             return result
-    finally:
-        # Original controller defaults may create supporting data. A preview commits none of it.
-        frappe.db.rollback(save_point="knitting_invoice_preview")

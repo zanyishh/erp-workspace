@@ -1,11 +1,15 @@
 import 'ui/workspace_art.dart';
+
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
 import 'design.dart';
 import 'document_editor.dart';
 import 'erp_api.dart';
 import 'file_actions.dart';
 import 'knitting_forms.dart';
+import 'original_production_report.dart';
 import 'widgets.dart';
 import 'ui/access_gate.dart';
 
@@ -31,6 +35,147 @@ class _KnittingReportsState extends State<KnittingReports> {
       widget.financialRead;
   String report = 'jobs', mode = 'as_of', group = '';
   String kind = '';
+  String? preset;
+  bool get yarnMovement => report == 'yarn_inwards' || report == 'yarn_returns';
+  static const presets = <String, (String, String, String)>{
+    'roll_status': ('Production Roll Status', 'rolls', ''),
+    'roll_time': ('Roll Time Register', 'rolls', ''),
+    'shift_stoppage': ('Shiftwise Stoppage', 'stoppage', 'shift'),
+    'machine_stoppage': ('Machinewise Stoppage', 'stoppage', 'machine'),
+    'hourly_rolls': ('Hourly Roll Register', 'rolls', 'hour'),
+    'employee_rolls': (
+      'Employee Roll Register',
+      'rolls',
+      'production_operator',
+    ),
+    'employee_hourly_rolls': (
+      'Employee Hourly Roll Register',
+      'rolls',
+      'employee_hour',
+    ),
+    'daily_production': ('Daily Production Report', 'production', 'day'),
+    'employee_production': (
+      'Employee Production Report',
+      'production',
+      'production_operator',
+    ),
+  };
+  static const dimensionLabels = {
+    'customer': 'Customer / material owner ID',
+    'job': 'Order ID',
+    'machine': 'Machine ID',
+    'operator': 'Operator user ID',
+    'production_operator': 'Production operator · original employee',
+    'production_machine': 'Original production machine',
+    'employee': 'Employee ID',
+    'shift': 'Shift',
+    'warehouse': 'Godown',
+    'source_lot': 'Supplier / customer lot',
+    'party_dc_number': 'Party challan number',
+    'fabric': 'Fabric',
+    'dia': 'Dia',
+    'gauge': 'Gauge',
+  };
+  static const entities = {
+    'customer': 'Customer',
+    'job': 'Job',
+    'machine': 'Machine',
+    'operator': 'User',
+    'production_operator': 'ProductionOperator',
+    'production_machine': 'ProductionMachine',
+    'employee': 'Employee',
+    'warehouse': 'Warehouse',
+  };
+  static const dimensions = <String, List<String>>{
+    'jobs': ['customer', 'job'],
+    'yarn': ['customer', 'job'],
+    'yarn_inwards': [
+      'customer',
+      'job',
+      'warehouse',
+      'source_lot',
+      'party_dc_number',
+    ],
+    'yarn_returns': ['customer', 'job', 'warehouse', 'source_lot'],
+    'fabric': [
+      'customer',
+      'job',
+      'machine',
+      'production_machine',
+      'operator',
+      'production_operator',
+      'shift',
+      'fabric',
+      'dia',
+      'gauge',
+    ],
+    'rolls': [
+      'customer',
+      'job',
+      'machine',
+      'production_machine',
+      'operator',
+      'production_operator',
+      'shift',
+      'fabric',
+      'dia',
+      'gauge',
+    ],
+    'planning': ['customer', 'job', 'machine', 'operator', 'shift'],
+    'shortages': ['customer', 'job', 'machine'],
+    'changes': ['customer', 'job', 'machine'],
+    'unplanned': ['customer', 'job'],
+    'production': [
+      'customer',
+      'job',
+      'machine',
+      'operator',
+      'production_operator',
+      'production_machine',
+      'shift',
+      'fabric',
+      'dia',
+      'gauge',
+    ],
+    'quality': ['customer', 'job', 'operator'],
+    'subcontract': ['customer', 'job'],
+    'components': ['machine'],
+    'breakage': [
+      'customer',
+      'job',
+      'machine',
+      'operator',
+      'employee',
+      'fabric',
+      'dia',
+      'gauge',
+    ],
+    'stoppage': [
+      'customer',
+      'job',
+      'machine',
+      'operator',
+      'warehouse',
+      'shift',
+    ],
+    'activity': [
+      'customer',
+      'job',
+      'machine',
+      'operator',
+      'shift',
+      'fabric',
+      'dia',
+      'gauge',
+    ],
+    'billing': ['customer', 'job'],
+    'margin': ['customer', 'job'],
+  };
+  final dimensionValues = {
+    for (final key in dimensionLabels.keys) key: TextEditingController(),
+  };
+  final dimensionChoiceLabels = <String, String>{};
+  Map<String, String> appliedChoiceLabels = {};
   int start = 0;
   String? error;
   bool exporting = false, showFilters = false;
@@ -61,6 +206,8 @@ class _KnittingReportsState extends State<KnittingReports> {
     'activity': 'Transaction register',
     'billing': 'Source billing',
     'margin': 'Margin before overhead',
+    'yarn_inwards': 'Yarn Inward Register',
+    'yarn_returns': 'Yarn Return Register',
   };
   Map<String, dynamic> get filters => {
     'mode': mode,
@@ -71,26 +218,65 @@ class _KnittingReportsState extends State<KnittingReports> {
     'report': report,
     if (group.isNotEmpty) 'group_by': group,
     if (report == 'activity' && kind.isNotEmpty) 'kind': kind,
+    for (final key in dimensions[report]!)
+      if (!(key == 'job' && widget.job != null) &&
+          dimensionValues[key]!.text.trim().isNotEmpty)
+        key: dimensionValues[key]!.text.trim(),
   };
-  Future<Map<String, dynamic>> load() {
-    appliedFilters = filters;
-    return widget.api.knittingReport(widget.company, report, appliedFilters);
+  String _groupLabel(String key) {
+    if (key.isEmpty) return 'Individual records';
+    if (key == 'employee_hour') return 'Production employee and hour';
+    return const {'production_operator', 'production_machine'}.contains(key)
+        ? dimensionLabels[key]!
+        : key.replaceAll('_', ' ');
+  }
+
+  String _appliedFilterLabel(MapEntry<String, dynamic> entry) {
+    final key = entry.key;
+    final label = key == 'group_by'
+        ? 'Group records'
+        : dimensionLabels[key] ?? key.replaceAll('_', ' ');
+    final value = key == 'group_by'
+        ? _groupLabel(entry.value.toString())
+        : const {'production_operator', 'production_machine'}.contains(key)
+        ? appliedChoiceLabels[key] ?? 'Selected original reference'
+        : entry.value;
+    return '$label: $value';
+  }
+
+  Future<Map<String, dynamic>> load({bool apply = true}) {
+    exporting = false;
+    if (apply) appliedChoiceLabels = Map.from(dimensionChoiceLabels);
+    appliedFilters = apply ? filters : {...appliedFilters, 'start': start};
+    return widget.api.knittingReport(
+      widget.company,
+      appliedFilters['report'] as String,
+      Map.from(appliedFilters),
+    );
   }
 
   @override
   void dispose() {
     from.dispose();
     to.dispose();
+    for (final controller in dimensionValues.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant KnittingReports old) {
     super.didUpdateWidget(old);
-    if (old.company != widget.company ||
+    if (old.api != widget.api ||
+        old.company != widget.company ||
         old.job != widget.job ||
         old.financialRead != financialRead) {
       start = 0;
+      for (final controller in dimensionValues.values) {
+        controller.clear();
+      }
+      dimensionChoiceLabels.clear();
       if (!financialRead && ['billing', 'margin'].contains(report)) {
         report = 'jobs';
       }
@@ -98,45 +284,59 @@ class _KnittingReportsState extends State<KnittingReports> {
     }
   }
 
-  void refresh() => setState(() {
-    future = load();
+  void refresh({bool apply = true}) => setState(() {
+    future = load(apply: apply);
   });
   Future<void> export(String kind) async {
-    if (exporting) return;
+    if (exporting || !widget.api.accessReady) return;
+    final api = widget.api;
+    final company = widget.company;
+    final job = widget.job;
+    final access = api.accessRevision;
+    final applied = appliedFilters;
+    bool current() =>
+        mounted &&
+        identical(api, widget.api) &&
+        company == widget.company &&
+        job == widget.job &&
+        access == api.accessRevision &&
+        api.accessReady &&
+        identical(applied, appliedFilters);
     setState(() {
       exporting = true;
       error = null;
     });
     try {
-      final f = Map<String, dynamic>.from(appliedFilters);
+      final f = Map<String, dynamic>.from(applied);
       if (kind == 'roll_label') {
         final row = await pickKnitRecord(
           context,
-          widget.api,
-          widget.company,
+          api,
+          company,
           'LabelRoll',
-          job: widget.job,
+          job: applied['job'] as String?,
         );
-        if (row == null) return;
+        if (row == null || !current()) return;
         f['roll'] = row['name'];
       }
-      final r = await widget.api.knittingExport(widget.company, kind, f);
-      if (!mounted) return;
+      final r = await api.knittingExport(company, kind, f);
+      if (!mounted || !current()) return;
       final bytes = base64Decode(r['content'] as String);
       if (r['mime'] == 'application/pdf') {
-        await previewFile(context, r['name'] as String, bytes, api: widget.api);
+        await previewFile(context, r['name'] as String, bytes, api: api);
       } else {
         await saveOrShareFile(
           context,
           r['name'] as String,
           bytes,
           mime: r['mime'] as String,
+          canContinue: current,
         );
       }
     } catch (e) {
-      if (mounted) setState(() => error = e.toString());
+      if (current()) setState(() => error = e.toString());
     } finally {
-      if (mounted) setState(() => exporting = false);
+      if (current()) setState(() => exporting = false);
     }
   }
 
@@ -153,6 +353,7 @@ class _KnittingReportsState extends State<KnittingReports> {
   );
   @override
   Widget build(BuildContext context) => AccessGate(
+    key: ValueKey((widget.api, widget.company, widget.job)),
     api: widget.api,
     fullPage: false,
     revalidate: () async {
@@ -165,6 +366,10 @@ class _KnittingReportsState extends State<KnittingReports> {
       }
       error = null;
       start = 0;
+      for (final controller in dimensionValues.values) {
+        controller.clear();
+      }
+      dimensionChoiceLabels.clear();
       final fresh = load();
       setState(() {
         future = fresh;
@@ -173,10 +378,28 @@ class _KnittingReportsState extends State<KnittingReports> {
     },
     child: LayoutBuilder(
       builder: (context, bounds) {
-        final compact = bounds.maxWidth < 650 || bounds.maxHeight < 590;
+        final compact = bounds.maxWidth < 650 || bounds.maxHeight < 750;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.job == null &&
+                widget.api.contextFor(widget.company)?.canReadImportedHistory ==
+                    true)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => OriginalProductionReport(
+                        api: widget.api,
+                        company: widget.company,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.summarize_outlined),
+                  label: const Text('Original production reports'),
+                ),
+              ),
             if (compact)
               Align(
                 alignment: Alignment.centerLeft,
@@ -198,15 +421,25 @@ class _KnittingReportsState extends State<KnittingReports> {
                 ),
               )
             else ...[
-              if (!compact) _controls(),
-              if (compact) Text(labels[report]!, style: displayStyle(22)),
+              if (!compact)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: bounds.maxHeight * .48,
+                  ),
+                  child: SingleChildScrollView(child: _controls()),
+                ),
+              if (compact)
+                Text(
+                  presets[preset]?.$1 ?? labels[report]!,
+                  style: displayStyle(22),
+                ),
               const SizedBox(height: 12),
               if (error != null)
                 Text(
                   error!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-              Expanded(child: _results()),
+              Expanded(child: _results(phone: bounds.maxWidth < 650)),
               if (!compact) ...[const Divider(), _providers()],
             ],
           ],
@@ -223,19 +456,38 @@ class _KnittingReportsState extends State<KnittingReports> {
       SizedBox(
         width: 260,
         child: DropdownButtonFormField<String>(
-          key: ValueKey('report-$financialRead'),
+          key: ValueKey(('report', financialRead, preset)),
           isExpanded: true,
-          initialValue: report,
+          initialValue: preset ?? report,
           decoration: const InputDecoration(labelText: 'Report'),
           items: [
             for (final e in labels.entries)
               if (financialRead || !['billing', 'margin'].contains(e.key))
                 DropdownMenuItem(value: e.key, child: Text(e.value)),
+            for (final option in presets.entries)
+              DropdownMenuItem(value: option.key, child: Text(option.value.$1)),
           ],
           onChanged: (v) {
             setState(() {
-              report = v!;
+              final option = presets[v];
+              preset = option == null ? null : v;
+              report = option?.$2 ?? v!;
               start = 0;
+              group = option?.$3 ?? '';
+              if (option != null || yarnMovement) {
+                showFilters = false;
+                if (mode != 'period') {
+                  mode = 'period';
+                  if (option != null) from.text = to.text;
+                }
+              }
+              kind = '';
+              for (final key in dimensionValues.keys) {
+                if (!dimensions[report]!.contains(key)) {
+                  dimensionValues[key]!.clear();
+                  dimensionChoiceLabels.remove(key);
+                }
+              }
               future = load();
             });
           },
@@ -245,6 +497,7 @@ class _KnittingReportsState extends State<KnittingReports> {
         width: 170,
         child: DropdownButtonFormField<String>(
           isExpanded: true,
+          key: ValueKey(('time-basis', preset)),
           initialValue: mode,
           decoration: const InputDecoration(labelText: 'Time basis'),
           items: const [
@@ -254,8 +507,7 @@ class _KnittingReportsState extends State<KnittingReports> {
           onChanged: (v) {
             setState(() {
               mode = v!;
-              start = 0;
-              future = load();
+              if (mode != 'period') preset = null;
             });
           },
         ),
@@ -278,6 +530,7 @@ class _KnittingReportsState extends State<KnittingReports> {
       SizedBox(
         width: 200,
         child: DropdownButtonFormField<String>(
+          key: ValueKey('group-${preset ?? report}'),
           isExpanded: true,
           initialValue: group,
           decoration: const InputDecoration(labelText: 'Group records'),
@@ -285,30 +538,36 @@ class _KnittingReportsState extends State<KnittingReports> {
             for (final key in [
               '',
               'customer',
-              'machine',
-              'operator',
-              'employee',
-              'gauge',
-              'shift',
-              'day',
-              'hour',
-              'fabric',
-              'dia',
-              'programme_line',
-              'kind',
+              if (yarnMovement) ...[
+                'day',
+                'hour',
+                'warehouse',
+                'source_lot',
+              ] else ...[
+                'machine',
+                'operator',
+                if (dimensions[report]!.contains('production_operator')) ...[
+                  'production_operator',
+                  'production_machine',
+                ],
+                'employee',
+                'gauge',
+                'shift',
+                'day',
+                'hour',
+                if (report == 'rolls') 'employee_hour',
+                'fabric',
+                'dia',
+                'programme_line',
+                'kind',
+              ],
             ])
-              DropdownMenuItem(
-                value: key,
-                child: Text(
-                  key.isEmpty ? 'Individual records' : key.replaceAll('_', ' '),
-                ),
-              ),
+              DropdownMenuItem(value: key, child: Text(_groupLabel(key))),
           ],
           onChanged: (v) {
             setState(() {
               group = v!;
-              start = 0;
-              future = load();
+              if (group != presets[preset]?.$3) preset = null;
             });
           },
         ),
@@ -332,11 +591,55 @@ class _KnittingReportsState extends State<KnittingReports> {
             ],
             onChanged: (v) => setState(() {
               kind = v!;
-              start = 0;
-              future = load();
             }),
           ),
         ),
+      for (final key in dimensions[report]!)
+        if (!(key == 'job' && widget.job != null))
+          SizedBox(
+            width: 240,
+            child:
+                const {
+                  'production_operator',
+                  'production_machine',
+                }.contains(key)
+                ? _originalProductionFilter(key)
+                : TextField(
+                    key: ValueKey('report-filter-$key'),
+                    controller: dimensionValues[key],
+                    onChanged: key == 'machine'
+                        ? (value) {
+                            if (value.trim().isNotEmpty) {
+                              setState(() {
+                                dimensionValues['production_machine']!.clear();
+                                dimensionChoiceLabels.remove(
+                                  'production_machine',
+                                );
+                              });
+                            }
+                          }
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: dimensionLabels[key],
+                      hintText: 'All · or exact historical value',
+                      suffixIcon: entities.containsKey(key)
+                          ? IconButton(
+                              tooltip: 'Choose ${entities[key]}',
+                              icon: const Icon(Icons.search),
+                              onPressed: () => _pickDimension(key),
+                            )
+                          : null,
+                    ),
+                  ),
+          ),
+      if (widget.job != null) Text('Order fixed: ${widget.job}'),
+      const SizedBox(
+        width: 300,
+        child: Text(
+          'Type an exact saved value for historical or inactive records. Choices show active records. Customer means material owner.',
+          style: TextStyle(fontSize: 11),
+        ),
+      ),
       FilledButton.icon(
         onPressed: () {
           start = 0;
@@ -371,6 +674,81 @@ class _KnittingReportsState extends State<KnittingReports> {
       ),
     ],
   );
+
+  Future<void> _pickDimension(String key) async {
+    final api = widget.api;
+    final sourceJob = widget.job;
+    final company = widget.company, kind = report, access = api.accessRevision;
+    final row = await pickKnitRecord(
+      context,
+      api,
+      company,
+      entities[key]!,
+      job: sourceJob,
+    );
+    if (!mounted ||
+        row == null ||
+        !identical(api, widget.api) ||
+        sourceJob != widget.job ||
+        company != widget.company ||
+        kind != report ||
+        access != widget.api.accessRevision ||
+        !widget.api.accessReady) {
+      return;
+    }
+    setState(() {
+      dimensionValues[key]!.text = row['name']?.toString() ?? '';
+      if (const {'machine', 'production_machine'}.contains(key)) {
+        final other = key == 'machine' ? 'production_machine' : 'machine';
+        dimensionValues[other]!.clear();
+        dimensionChoiceLabels.remove(other);
+      }
+      if (key == 'production_operator') {
+        dimensionChoiceLabels[key] = knittingProductionOperatorTitle(row);
+      } else if (key == 'production_machine') {
+        dimensionChoiceLabels[key] = knittingProductionMachineTitle(row);
+      }
+    });
+  }
+
+  Widget _originalProductionFilter(String key) => InkWell(
+    key: ValueKey('report-filter-$key'),
+    onTap: () => _pickDimension(key),
+    child: InputDecorator(
+      decoration: InputDecoration(
+        labelText: dimensionLabels[key],
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dimensionValues[key]!.text.isNotEmpty)
+              IconButton(
+                tooltip: 'Clear ${key.replaceAll('_', ' ')}',
+                onPressed: () => setState(() {
+                  dimensionValues[key]!.clear();
+                  dimensionChoiceLabels.remove(key);
+                }),
+                icon: const Icon(Icons.clear),
+              ),
+            IconButton(
+              tooltip: key == 'production_machine'
+                  ? 'Choose original machine'
+                  : 'Choose original employee',
+              onPressed: () => _pickDimension(key),
+              icon: const Icon(Icons.search),
+            ),
+          ],
+        ),
+      ),
+      child: Text(
+        dimensionChoiceLabels[key] ??
+            (key == 'production_machine'
+                ? 'All original machines'
+                : 'All original employees'),
+      ),
+    ),
+  );
+
   Widget _providers() => Wrap(
     spacing: 12,
     runSpacing: 8,
@@ -396,7 +774,7 @@ class _KnittingReportsState extends State<KnittingReports> {
         ),
     ],
   );
-  Widget _results() => FutureBuilder<Map<String, dynamic>>(
+  Widget _results({required bool phone}) => FutureBuilder<Map<String, dynamic>>(
     future: future,
     builder: (context, state) {
       if (state.connectionState != ConnectionState.done) {
@@ -406,7 +784,7 @@ class _KnittingReportsState extends State<KnittingReports> {
         return MessagePanel(
           title: 'REPORT COULD NOT LOAD',
           message: state.error.toString(),
-          action: refresh,
+          action: () => refresh(apply: false),
         );
       }
       if (!state.hasData) {
@@ -416,42 +794,115 @@ class _KnittingReportsState extends State<KnittingReports> {
       }
       final r = state.data!,
           cols = List<Map<String, dynamic>>.from(
-            (r['columns'] as List).map((c) => Map<String, dynamic>.from(c)),
+            (r['columns'] as List)
+                .map((c) => Map<String, dynamic>.from(c))
+                .where(
+                  (c) => !const {
+                    'production_operator_record',
+                    'production_operator',
+                    'production_machine_record',
+                    'production_machine',
+                  }.contains(c['key']),
+                ),
           ),
           rows = List<Map<String, dynamic>>.from(
             (r['rows'] as List).map((c) => Map<String, dynamic>.from(c)),
           );
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      final summary = <Widget>[
+        Text(
+          'Applied: ${appliedFilters.entries.where((e) => !['start', 'report', 'mode'].contains(e.key)).map(_appliedFilterLabel).join(' · ')}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            '${r['row_count']} records · ${r['mode']} · Through ${r['to_date']}\n${r['basis']}',
+            style: const TextStyle(fontSize: 11, color: WorkspaceTheme.muted),
+          ),
+        ),
+        if ((r['summary'] as Map).isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              '${r['row_count']} records · ${r['mode']} · Through ${r['to_date']}\n${r['basis']}',
-              style: const TextStyle(fontSize: 11, color: WorkspaceTheme.muted),
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Wrap(
+              spacing: 20,
+              runSpacing: 10,
+              children: [
+                for (final e in (r['summary'] as Map).entries)
+                  Text(
+                    '${e.key.toString().replaceAll('_', ' ')}: ${e.value ?? '—'}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+              ],
             ),
           ),
-          if ((r['summary'] as Map).isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Wrap(
-                spacing: 20,
-                runSpacing: 10,
-                children: [
-                  for (final e in (r['summary'] as Map).entries)
-                    Text(
-                      '${e.key.toString().replaceAll('_', ' ')}: ${e.value}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+      ];
+      final pager = Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: start > 0
+                ? () {
+                    start -= 100;
+                    refresh(apply: false);
+                  }
+                : null,
+            child: const Text('Previous'),
+          ),
+          Text(
+            rows.isEmpty
+                ? '0 of ${r['row_count']}'
+                : '${(r['start'] as int) + 1}–${(r['start'] as int) + rows.length} of ${r['row_count']}',
+          ),
+          TextButton(
+            onPressed: r['has_more'] == true
+                ? () {
+                    start += 100;
+                    refresh(apply: false);
+                  }
+                : null,
+            child: const Text('Next'),
+          ),
+        ],
+      );
+      if (phone) {
+        return Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                key: ValueKey(future),
+                slivers: [
+                  SliverList.list(children: summary),
+                  if (rows.isEmpty)
+                    const SliverToBoxAdapter(
+                      child: MessagePanel(
+                        title: 'NO MATCHING RECORDS',
+                        message: 'Change the dates, job or report to see matching activity.',
+                      ),
+                    )
+                  else
+                    SliverList.builder(
+                      itemCount: rows.length,
+                      itemBuilder: (context, index) =>
+                          _phoneRecord(cols, rows[index], index),
                     ),
                 ],
               ),
             ),
+            pager,
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...summary,
           Expanded(
             child: rows.isEmpty
                 ? const MessagePanel(
                     title: 'NO MATCHING RECORDS',
-                    message:
-                        'Change the dates, job or report to see matching activity.',
+                    message: 'Change the dates, job or report to see matching activity.',
                   )
                 : SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -521,40 +972,77 @@ class _KnittingReportsState extends State<KnittingReports> {
                     ),
                   ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton(
-                onPressed: start > 0
-                    ? () {
-                        start -= 100;
-                        refresh();
-                      }
-                    : null,
-                child: const Text('Previous'),
-              ),
-              Text(
-                rows.isEmpty
-                    ? '0 of ${r['row_count']}'
-                    : '${(r['start'] as int) + 1}–${(r['start'] as int) + rows.length} of ${r['row_count']}',
-              ),
-              TextButton(
-                onPressed: r['has_more'] == true
-                    ? () {
-                        start += 100;
-                        refresh();
-                      }
-                    : null,
-                child: const Text('Next'),
-              ),
-            ],
-          ),
+          pager,
         ],
       );
     },
   );
 
-  Widget _cell(String key, dynamic value) {
+  Widget _phoneRecord(
+    List<Map<String, dynamic>> columns,
+    Map<String, dynamic> row,
+    int index,
+  ) {
+    Widget field(Map<String, dynamic> column) {
+      final key = column['key'] as String;
+      final numeric =
+          key.endsWith('_kg') ||
+          const {
+            'minutes',
+            'units',
+            'records',
+            'roll_count',
+            'net_amount',
+            'tax_amount',
+            'grand_total',
+            'outstanding',
+            'quantity',
+          }.contains(key);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                column['label'] as String,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(flex: 3, child: _cell(key, row[key], numeric: numeric)),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Panel(
+        border: true,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final column in columns.take(3)) field(column),
+            if (columns.length > 3)
+              ExpansionTile(
+                key: ValueKey((future, index)),
+                title: Text('More fields (${columns.length - 3})'),
+                tilePadding: EdgeInsets.zero,
+                expansionAnimationStyle: workspaceReduceMotion(context)
+                    ? AnimationStyle.noAnimation
+                    : null,
+                children: [for (final column in columns.skip(3)) field(column)],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String key, dynamic value, {bool numeric = false}) {
     final type = switch (key) {
       'job' => 'Knitting Job',
       'invoice' => 'Sales Invoice',
@@ -576,7 +1064,13 @@ class _KnittingReportsState extends State<KnittingReports> {
           )
         : SelectableText(
             value?.toString() ?? '—',
-            style: const TextStyle(fontSize: 12),
+            textAlign: numeric ? TextAlign.end : TextAlign.start,
+            style: TextStyle(
+              fontSize: 12,
+              fontFeatures: numeric
+                  ? const [FontFeature.tabularFigures()]
+                  : null,
+            ),
           );
   }
 }

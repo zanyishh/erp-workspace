@@ -1,0 +1,51 @@
+{
+  "version": "26.3",
+  "sources": [
+    "https://pypi.org/pypi/pip/26.3/json",
+    "https://pypi.org/pypi/flit-core/3.12.0/json",
+    "https://pip.pypa.io/en/stable/development/vendoring-policy/",
+    "https://docs.python.org/3.14/library/ensurepip.html"
+  ],
+  "artifacts": {
+    "pip-26.3-py3-none-any.whl": {
+      "sha256": "f3b60b20ffaadd4415ed7957212a38ac63fa4c5fa375bd0f4a797777940fad13",
+      "bytes": 1950951,
+      "url": "https://files.pythonhosted.org/packages/07/25/ee8c38ae72d66b844ce8eb9711ba905dba21ca1a8a0c960057c41cd23337/pip-26.3-py3-none-any.whl"
+    },
+    "flit_core-3.12.0-py3-none-any.whl": {
+      "sha256": "e7a0304069ea895172e3c7bb703292e992c5d1555dd1233ab7b5621b5b69e62c",
+      "bytes": 45594,
+      "url": "https://files.pythonhosted.org/packages/f2/65/b6ba90634c984a4fcc02c7e3afe523fef500c4980fec67cc27536ee50acf/flit_core-3.12.0-py3-none-any.whl"
+    }
+  },
+  "targets": [
+    {
+      "name": "global",
+      "python": "/usr/local/bin/python3.14",
+      "prefix": "/usr/local",
+      "site_packages": "/usr/local/lib/python3.14/site-packages",
+      "previous_version": "26.2.2",
+      "previous_vendor_sha256": "2b44b4bc5b7da9dcda38099dc92c52cc3dda2a714cd189b439c0668401418630"
+    },
+    {
+      "name": "bench",
+      "python": "/home/frappe/frappe-bench/env/bin/python",
+      "prefix": "/home/frappe/frappe-bench/env",
+      "site_packages": "/home/frappe/frappe-bench/env/lib/python3.14/site-packages",
+      "previous_version": "26.3",
+      "previous_vendor_sha256": "11885a895536bbc3dbf956f493d775fab0ba0bcde182b8d2549f2cbd2ed9fd76"
+    }
+  ],
+  "ensurepip": {
+    "source": "/usr/local/lib/python3.14/ensurepip/__init__.py",
+    "sha256": "095dfd9fb261f36c2ec34ae4c7014dbb5fa383f0bd9e98384bbc0d05c333677f",
+    "old_constant": "_PIP_VERSION = \"26.2.2\"",
+    "new_constant": "_PIP_VERSION = \"26.3\"",
+    "previous_wheel": "pip-26.2.2-py3-none-any.whl",
+    "previous_wheel_bytes": 1819850,
+    "previous_wheel_sha256": "fd7f4dfa8190e014013b9f08f3e973f4e4c26ffd179a204895533a7254813a70"
+  },
+  "new_vendor_sha256": "11885a895536bbc3dbf956f493d775fab0ba0bcde182b8d2549f2cbd2ed9fd76",
+  "vendored_fixes": {"msgpack": "1.2.4", "urllib3": "2.8.0"},
+  "setuptools_scope": "The unmodified official wheel vendors pkg_resources from setuptools 70.3.0; it does not ship setuptools/package_index.py. Preserve the honest vendor version and all notices. No private vendored rewrite or vulnerability suppression."
+}

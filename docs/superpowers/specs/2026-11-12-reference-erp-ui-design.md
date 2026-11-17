@@ -2,7 +2,7 @@
 
 ## User intent and confirmed direction
 
-The user wants a precise redesign based on `/Users/nithish/Downloads/IMG_3153.JPG`, including typography, colours, controls, rounded panels, and white 3D imagery. They explicitly confirmed **a general ERP overview in this style**, rather than a truck/fleet dashboard. Flutter is the previously selected client platform for macOS, Windows, iOS and Android. The running ERPNext/Frappe services and original source remain the business foundation.
+The user wants a precise redesign based on `IMG_3153.JPG`, including typography, colours, controls, rounded panels, and white 3D imagery. They explicitly confirmed **a general ERP overview in this style**, rather than a truck/fleet dashboard. Flutter is the previously selected client platform for macOS, Windows, iOS and Android. The running ERPNext/Frappe services and original source remain the business foundation.
 
 This document describes the first implementation increment: the native Flutter application shell, general ERP overview, and consistent module record browsers. Full replacements for every ERPNext document editor and AI-agent workflows are later increments. Existing ERPNext forms remain accessible from the client.
 

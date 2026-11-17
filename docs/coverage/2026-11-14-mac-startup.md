@@ -36,3 +36,36 @@ python3 scripts/profile-startup.py --cold-shaders \
 ```
 
 Add `--credentials <owner-only-test-credentials.json>` for the existing restricted mill pilot on `native-test.localhost`. The launcher supplies the synthetic credentials on standard input. Each output contains the source, actual renderer flag, record counts, window configuration, timings and individual build/raster/span data. Baseline source, binaries and raw frame logs from this rehearsal are under `.local/startup-20261114/`. The frozen and updated AOT application SHA-256 digests begin with `e4db97e2bd09` and `112d2e39a71e`.
+
+
+## Fresh release-build comparison
+
+Two release-mode instrumented Mac applications used the ordinary signup/sign-in and mill screens. The first was rebuilt from the frozen pre-fix app, including its original artwork and renderer. The updated release used the revised app and studio artwork. The fixture, mouse input, clock boundaries and native frame callbacks were the same. Both AOT builds passed strict local signature checks. Each launch at 1404 × 754 logical pixels and 2× scale used the built-in 60 Hz display. The OS and driver caches remained under their normal release behavior. One completed warm-up on the new build and an attempted pre-fix warm-up preceded the series. The pre-fix warm-up timed out before recording a timing. Six launches then completed in pre/post, post/pre, pre/post order. Raw samples are in `.local/startup-20261114/release-fixed-{pre,post}-{1,2,3}.json`.
+
+| Release measurement, 200 jobs and 500 events | Before, three runs (ms) | After, three runs (ms) | Before median → after median |
+| --- | --- | --- | --- |
+| Launch to usable sign-in | 2841 / 797 / 418 | 715 / 455 / 628 | 797 → 628 ms |
+| Sign-in click to usable mill | 338 / 84 / 92 | 84 / 74 / 71 | 92 → 74 ms |
+| Sign-in click to fully illustrated mill | 364 / 111 / 124 | 109 / 91 / 86 | 124 → 91 ms |
+| Worst mill raster in each launch | 174.9 / 11.8 / 8.4 | 11.0 / 7.8 / 10.7 | 11.8 → 10.7 ms |
+| Worst frame span through illustrated mill | 234.6 / 59.6 / 55.3 | 43.4 / 42.5 / 25.4 | 59.6 → 42.5 ms |
+| Jobs click to drawn register | 34 / 22 / 18 | 27 / 32 / 51 | 22 → 32 ms |
+
+The largest release mill raster observation fell from 174.915 to 10.972 ms. The historical 266.851 ms observation and the profile-mode comparison above remain separate experiments. The final release's 43.362 ms maximum whole-frame span exceeded one 60 Hz refresh. The updated register opened more slowly in two of the three pairs. The individual trials show how much the first baseline launch influenced the maximum. This Mac was in regular use, and CPU load, graphics caches and file caches varied across launches. There were no concurrent project builds or suites during the reported series.
+
+The final harness moved keyboard focus to the search field after the register measurement, verified a genuine filter change and confirmed that unrelated jobs disappeared. Its instructions work with `--release` in the build command and no `--cold-shaders` switch. The original and updated release AOT digests begin with `7dddb749d753` and `6ce98e2e2a03`.
+
+## Current release against the isolated ERP
+
+The restricted mill account loaded 14 jobs and 163 events from the local test service. All three timed launches signed out after opening and filtering the register. One additional launch timed out before recording a usable sign-in frame and was retried. The timeout supplied no elapsed value and is excluded from the three completed runs. The earlier comparable before/after connected profile series used 12 jobs and 137 events. These final release times describe the larger current company.
+
+| Current connected release | Three successful fresh launches (ms) | Median |
+| --- | --- | --- |
+| Launch to usable sign-in | 546 / 354 / 364 | 364 ms |
+| Sign-in click to usable mill | 892 / 691 / 639 | 691 ms |
+| Sign-in click to fully illustrated mill | 911 / 706 / 654 | 706 ms |
+| Worst mill raster in each launch | 5.23 / 5.07 / 5.07 | 5.07 ms |
+| Worst frame span through illustrated mill | 37.7 / 24.3 / 23.7 | 24.3 ms |
+| Jobs click to drawn register | 30 / 27 / 21 | 27 ms |
+
+Raw samples are in `.local/startup-20261114/release-connected-post-{1,2,3}.json`. An untimed validation run during compilation took 2.239 seconds from click to usable mill. These are local Mac timings. They do not predict deployed network response times.

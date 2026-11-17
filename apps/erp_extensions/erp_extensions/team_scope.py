@@ -15,9 +15,9 @@ from erp_extensions.knitting.install import SCHEMAS as PACK_TYPES
 REFERENCE_TYPES = frozenset({'Currency', 'Country', 'UOM', 'Item Group', 'Territory', 'Customer Group',
     'Supplier Group', 'Price List', 'Fiscal Year', 'Mode of Payment', 'Payment Term', 'Payment Terms Template',
     'Sales Partner Type', 'Salutation', 'Gender', 'Language', 'Brand', 'Incoterm', 'Warehouse Type',
-    'Stock Entry Type', 'Workstation Type', 'Asset Category', 'Project Type', 'Naming Series', 'Print Heading'})
-TEAM_MASTERS = frozenset({'Customer', 'Supplier', 'Item', 'Workstation', 'Address', 'Contact', 'Lead', 'Prospect',
-                          'Item Price', 'Sales Person', 'Sales Partner', 'Task', 'Batch', 'Serial No'})
+    'Stock Entry Type', 'Workstation Type', 'Project Type', 'Naming Series', 'Print Heading'})
+TEAM_MASTERS = frozenset({'Location', 'Asset Category', 'Customer', 'Supplier', 'Item', 'Workstation', 'Address', 'Contact', 'Lead', 'Prospect',
+                          'Item Price', 'Sales Person', 'Sales Partner', 'Task', 'Project Template', 'Batch', 'Serial No'})
 # Standard ERPNext records can follow their real Company link. Custom code, virtual
 # records and site settings require an explicit review before they are exposed.
 COMPANY_REPORTS = frozenset({'General Ledger', 'Trial Balance', 'Profit and Loss Statement', 'Balance Sheet',
@@ -33,6 +33,10 @@ READ_ACTIONS = frozenset({'read','select','report','print','export'})
 def _scope(doctype):
     if doctype in ('Company', 'User') or doctype in REFERENCE_TYPES:
         return doctype
+    if doctype == 'Role':
+        return 'own_roles'
+    if doctype == 'Asset Maintenance Log':
+        return 'maintenance_plan'
     if doctype in TEAM_MASTERS:
         return 'team'
     if not doctype:
@@ -47,7 +51,7 @@ def _scope(doctype):
 
 def native_type_allowed(doctype, permission='read'):
     scope = _scope(doctype)
-    return bool(scope and doctype != 'User' and (permission in READ_ACTIONS or scope not in REFERENCE_TYPES | {'Company'}))
+    return bool(scope and doctype != 'User' and (permission in READ_ACTIONS or scope not in REFERENCE_TYPES | {'Company','own_roles'}))
 
 
 def _team_user(name, company):
@@ -59,6 +63,10 @@ def has_permission(doc, ptype, user=None, **kwargs):
     if not member:
         return True
     scope = _scope(doc.doctype)
+    if scope == 'own_roles':
+        return ptype in READ_ACTIONS and doc.name in frappe.get_roles(user)
+    if scope == 'maintenance_plan':
+        return bool(doc.asset_maintenance and frappe.has_permission('Asset Maintenance','read',doc=doc.asset_maintenance,user=user))
     if scope == 'Company':
         return ptype in READ_ACTIONS and doc.name == member.company
     if scope == 'User':
@@ -83,6 +91,11 @@ def query_conditions(user=None, doctype=None):
     if scope in REFERENCE_TYPES:
         return ''
     company = frappe.db.escape(member.company)
+    if scope == 'own_roles':
+        return '`tabRole`.`name` in (' + ','.join(frappe.db.escape(r) for r in frappe.get_roles(user)) + ')'
+    if scope == 'maintenance_plan':
+        plans = frappe.get_list('Asset Maintenance',filters={'company':member.company},pluck='name',limit=0,user=user)
+        return '`tabAsset Maintenance Log`.`asset_maintenance` in (' + (','.join(frappe.db.escape(p) for p in plans) or 'NULL') + ')'
     if scope == 'Company':
         return f'`tabCompany`.`name` = {company}'
     if scope == 'company':
@@ -115,7 +128,7 @@ def check_links(doc):
                 frappe.throw('Choose a record from this workspace.', frappe.PermissionError)
 
 
-def search_link(doctype, query):
+def search_link(doctype, query, filters=None):
     if not _scope(doctype) or len(query) > 140:
         return []
     meta = frappe.get_meta(doctype)
@@ -123,7 +136,7 @@ def search_link(doctype, query):
     fields = ['name']
     if title and title != 'name' and title in meta.get_permitted_fieldnames():
         fields.append(title)
-    rows = frappe.get_list(doctype, fields=fields, or_filters=[[f, 'like', '%' + query + '%'] for f in fields], limit=30)
+    rows = frappe.get_list(doctype, fields=fields, filters=filters, or_filters=[[f, 'like', '%' + query + '%'] for f in fields], limit=30)
     return [{'value':r.name, 'description':r.get(title) or ''} for r in rows]
 
 
@@ -136,7 +149,22 @@ def guard_request():
     cmd = path.removeprefix('/api/method/')
     if not path.startswith('/api/method/') or frappe.form_dict.get('cmd') not in (None, '', cmd):
         frappe.throw('Use the native workspace for this account.', frappe.PermissionError)
-    if cmd in ('login','logout') or re.fullmatch(r'erp_extensions\.(api|workspace|onboarding|knitting\.api)\.[a-z_]+', cmd):
+    if cmd in {'erp_extensions.pos_checkout.' + name for name in ('register','configure','open_shift','quote','checkout','closing','close_shift','refund_review','refund')}:
+        return
+    if membership().team_role == 'cashier' and path.startswith('/api/method/erp_extensions.') and cmd not in {
+            'erp_extensions.workspace.context', 'erp_extensions.workspace.select_company', 'erp_extensions.api.search_link',
+            'erp_extensions.api.session_status'}:
+        frappe.throw('Use the register to record a cashier sale.',frappe.PermissionError)
+    if cmd in {'erp_extensions.migration.printing.record_data',
+               'erp_extensions.migration.production_reports.summary'}:
+        return
+    if cmd in {'erp_extensions.migration.api.'+name for name in
+            ('summary','records','detail','shared_cash','invoice_print_data','filter_options')}:
+        return
+    if cmd in {'erp_extensions.operations.' + name for name in
+               ('begin_operation', 'pending_operations', 'operation_status', 'close_operation', 'acknowledge_operation')}:
+        return
+    if cmd in ('login','logout','erp_extensions.invoices.register','erp_extensions.invoices.get_settings','erp_extensions.invoices.save_settings','erp_extensions.invoices.print_data','erp_extensions.invoices.set_template','erp_extensions.invoice_compose.defaults','erp_extensions.invoice_compose.preview','erp_extensions.invoice_compose.save_draft', 'erp_extensions.reconciliation.candidates', 'erp_extensions.reconciliation.allocate', 'erp_extensions.bank_matching.entries', 'erp_extensions.bank_matching.matches', 'erp_extensions.bank_matching.match', 'erp_extensions.bank_csv.statement_csv', 'erp_extensions.operational_handoffs.receipt_items', 'erp_extensions.operational_handoffs.inspect_receipt', 'erp_extensions.operational_handoffs.maintenance_logs', 'erp_extensions.operational_handoffs.asset_plan') or re.fullmatch(r'erp_extensions\.(api|workspace|onboarding|knitting\.api)\.[a-z_]+', cmd):
         return
     if cmd not in ('frappe.client.get_list','frappe.client.get_count') or frappe.form_dict.get('doctype') not in OVERVIEW_TYPES:
         frappe.throw('Use the native workspace for this account.', frappe.PermissionError)
@@ -168,7 +196,7 @@ def guard_request():
 
 def report_field_allowed(field):
     key = field['fieldname']
-    if key in {'report_template', 'show_variant_attributes', 'show_stock_ageing_data', 'group_by_dimension', 'party_type', 'party_name', 'tax_id'}:
+    if key in {'report_template', 'show_variant_attributes', 'show_stock_ageing_data', 'group_by_dimension', 'party_name', 'tax_id'}:
         return False
     if field.get('fieldtype') in ('Link', 'MultiSelectList'):
         # The pinned order-analysis adapters name these multiselect filters after the order.
@@ -186,14 +214,21 @@ def report_filters(name, values, fields, company):
         if value in ('', None, []):
             continue
         field = definitions[key]
+        if key == 'party_type' and value not in field.get('options', '').split('\n'):
+            frappe.throw('Choose a permitted party type.', frappe.PermissionError)
         if field.get('fieldtype') not in ('Link','MultiSelectList'):
             if isinstance(value, (dict, list)):
                 frappe.throw('Choose a single value for this filter.')
             continue
         target = field.get('options')
         if key == 'party':
-            target = {'Accounts Payable':'Supplier', 'Accounts Receivable':'Customer'}.get(name)
+            target = values.get('party_type') or {'Accounts Payable':'Supplier', 'Accounts Receivable':'Customer'}.get(name)
+            options = (definitions.get('party_type', {}).get('options') or '').split('\n')
+            if target not in options:
+                frappe.throw('Choose a permitted party type.', frappe.PermissionError)
         if key == 'status':
+            if not isinstance(value, list) or any(item not in field.get('options','').splitlines() for item in value):
+                frappe.throw('Choose an available order status.')
             continue
         if not target or not _scope(target):
             frappe.throw('This filter is unavailable.', frappe.PermissionError)

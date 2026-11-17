@@ -1,0 +1,15 @@
+# Dormant tools only: no service is started by installation or status commands.
+name: erp-quality
+services:
+  mobsf:
+    profiles: [mobile-analysis]
+    image: opensecurity/mobile-security-framework-mobsf@sha256:6764702ac28caa67880a3bd81f3f98f4677b0d212eefda53722fd1fbb80f8965
+    ports:
+      - "127.0.0.1:8009:8000"
+    mem_limit: 2g
+    cpus: 1
+    volumes:
+      - mobsf-data:/home/mobsf/.MobSF
+    restart: "no"
+volumes:
+  mobsf-data:

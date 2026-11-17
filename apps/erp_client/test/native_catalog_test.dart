@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erp_client/native_catalog.dart';
@@ -9,6 +11,22 @@ class _RecordApi extends ErpApi {
   _RecordApi() : super(Uri.parse('http://localhost:8081'));
   bool canCreate = true;
   bool noRows = false;
+  Completer<List<Map<String, dynamic>>>? pending;
+  final groups = <String>[];
+  @override
+  Future<int> reclassifyMasters(
+    String doctype,
+    String company,
+    List<Map<String, String>> records,
+    String group,
+  ) async {
+    expect(records, [
+      {'name': 'ITEM-1', 'modified': 'v1'},
+    ]);
+    groups.add(group);
+    return records.length;
+  }
+
   @override
   Future<NativeCatalog> nativeCatalog({String? company}) async =>
       NativeCatalog.fromJson({
@@ -24,14 +42,148 @@ class _RecordApi extends ErpApi {
     String query = '',
     int start = 0,
     String? company,
-  }) async => noRows || query.isNotEmpty
+  }) async => pending != null
+      ? pending!.future
+      : noRows || query.isNotEmpty
       ? []
       : [
-          {'name': 'ITEM-1', 'item_name': 'Cotton'},
+          {'name': 'ITEM-1', 'item_name': 'Cotton', 'modified': 'v1'},
         ];
 }
 
 void main() {
+  testWidgets(
+    'replacing the API clears query and rows even with the same company and account',
+    (t) async {
+      final first = _RecordApi();
+      final second = _RecordApi()
+        ..pending = Completer<List<Map<String, dynamic>>>();
+      addTearDown(first.close);
+      addTearDown(second.close);
+      Widget screen(ErpApi api) => MaterialApp(
+        home: NativeRecordScreen(
+          api: api,
+          company: 'Mill',
+          type: NativeType.fromJson({'name': 'Item', 'module': 'Stock'}),
+        ),
+      );
+      await t.pumpWidget(screen(first));
+      await t.pumpAndSettle();
+      await t.enterText(find.byType(TextField), 'prior query');
+      await t.pump(const Duration(milliseconds: 400));
+      await t.pumpAndSettle();
+      await t.pumpWidget(screen(second));
+      await t.pump();
+      expect(
+        t.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      expect(find.text('Cotton'), findsNothing);
+      second.pending!.complete([
+        {'name': 'ITEM-NEW', 'item_name': 'New scope cotton'},
+      ]);
+      await t.pumpAndSettle();
+      expect(find.text('New scope cotton'), findsOneWidget);
+    },
+  );
+
+  testWidgets('record refresh retains rows but permission denial clears them', (
+    t,
+  ) async {
+    final api = _RecordApi();
+    addTearDown(api.close);
+    await t.pumpWidget(
+      MaterialApp(
+        home: NativeRecordScreen(
+          api: api,
+          company: 'Mill',
+          type: NativeType.fromJson({'name': 'Item', 'module': 'Stock'}),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    api.pending = Completer<List<Map<String, dynamic>>>();
+    await t.tap(find.byTooltip('Refresh records'));
+    await t.pump();
+    expect(find.text('Cotton'), findsOneWidget);
+    api.pending!.completeError(
+      const ErpException('Access removed', permissionDenied: true),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('Cotton'), findsNothing);
+    expect(find.text('Access removed'), findsOneWidget);
+  });
+
+  testWidgets('multiple-record selection posts only after group confirmation', (
+    tester,
+  ) async {
+    final api = _RecordApi();
+    addTearDown(api.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NativeRecordScreen(
+          api: api,
+          company: 'Mill',
+          type: NativeType.fromJson({
+            'name': 'Item',
+            'module': 'Stock',
+            'can_group': true,
+          }),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Select records'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cotton'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Change group'));
+    await tester.pumpAndSettle();
+    final input = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(input, 'Fabric');
+    await tester.pumpAndSettle();
+    expect(api.groups, isEmpty);
+    await tester.tap(find.text('Apply group'));
+    await tester.pumpAndSettle();
+    expect(api.groups, ['Fabric']);
+    expect(find.byTooltip('Select records'), findsOneWidget);
+  });
+  testWidgets(
+    'plain-language task searches keep the selected module and create permissions',
+    (tester) async {
+      final catalog = NativeCatalog.fromJson({
+        'version': 1,
+        'types': [
+          {'name': 'Purchase Receipt', 'module': 'Stock', 'create': true},
+          {'name': 'Sales Invoice', 'module': 'Accounts', 'create': false},
+          {'name': 'Item', 'module': 'Stock', 'create': true},
+        ],
+        'reports': [],
+      });
+      String? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NativeCatalogView(
+              catalog: catalog,
+              create: true,
+              onType: (value) => selected = value.name,
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'receive goods');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Purchase Receipt'));
+      expect(selected, 'Purchase Receipt');
+      await tester.enterText(find.byType(TextField), 'bill customer');
+      await tester.pumpAndSettle();
+      expect(find.text('Sales Invoice'), findsNothing);
+    },
+  );
   testWidgets(
     'long custom names remain legible and distinct reports do not repeat a generic chart',
     (tester) async {
@@ -55,9 +207,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(1.5)),
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(1.5)),
             child: child!,
           ),
           home: Scaffold(

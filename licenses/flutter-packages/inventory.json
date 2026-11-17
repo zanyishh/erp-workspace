@@ -70,6 +70,18 @@
     ]
   },
   {
+    "name": "characters",
+    "version": "1.4.1",
+    "archive_sha256": "faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b",
+    "source": "https://pub.dev/packages/characters/versions/1.4.1/license",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/characters-1.4.1/LICENSE",
+        "sha256": "0371d1da6a57fb791db29d29b95333429205f51f3cb2eb3a0c12d91838a38744"
+      }
+    ]
+  },
+  {
     "name": "clock",
     "version": "1.1.2",
     "notices": [
@@ -116,6 +128,16 @@
       {
         "path": "licenses/flutter-packages/crypto-3.0.8/LICENSE",
         "sha256": "ad6a71997da90924b2cfb1fb47ec46537f70faf469efe016168794ae45ed6888"
+      }
+    ]
+  },
+  {
+    "name": "csslib",
+    "version": "1.0.2",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/csslib-1.0.2/LICENSE",
+        "sha256": "dfb09c74e29386cd3e2719f32d4995d59526179753931d31840757c77fbf2791"
       }
     ]
   },
@@ -260,6 +282,16 @@
     ]
   },
   {
+    "name": "html",
+    "version": "0.15.6",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/html-0.15.6/LICENSE",
+        "sha256": "6ed8a26ed0f30589422f86356eed53bb6dacffc3e2fd4feddc944c4331945151"
+      }
+    ]
+  },
+  {
     "name": "http",
     "version": "1.6.0",
     "notices": [
@@ -390,6 +422,18 @@
     ]
   },
   {
+    "name": "matcher",
+    "version": "0.12.20",
+    "archive_sha256": "31bd099b47c10cd1aeb55146a2d46ce0277630ecef3f7dae54ad7873f36696cd",
+    "source": "https://pub.dev/packages/matcher/versions/0.12.20/license",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/matcher-0.12.20/LICENSE",
+        "sha256": "3c32b53167c7dae9190c38dab5dd9fe1789c53623ebc7d1babcb29914c5b3f16"
+      }
+    ]
+  },
+  {
     "name": "material_color_utilities",
     "version": "0.11.1",
     "notices": [
@@ -400,11 +444,35 @@
     ]
   },
   {
+    "name": "material_color_utilities",
+    "version": "0.13.0",
+    "archive_sha256": "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b",
+    "source": "https://pub.dev/packages/material_color_utilities/versions/0.13.0/license",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/material_color_utilities-0.13.0/LICENSE",
+        "sha256": "a34b7a65e4d42859c918a88526cef4ca8aea0993d14a81bbd23c76fe3fd0534c"
+      }
+    ]
+  },
+  {
     "name": "meta",
     "version": "1.17.0",
     "notices": [
       {
         "path": "licenses/flutter-packages/meta-1.17.0/LICENSE",
+        "sha256": "b71519245009a3b8f126196a5408ec031e216e8e0d985085958c6543f82a8a2a"
+      }
+    ]
+  },
+  {
+    "name": "meta",
+    "version": "1.19.0",
+    "archive_sha256": "307249ce4ff29d58a18e97f6345f539382eb9c9c29ecda628900f31de0443dd9",
+    "source": "https://pub.dev/packages/meta/versions/1.19.0/license",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/meta-1.19.0/LICENSE",
         "sha256": "b71519245009a3b8f126196a5408ec031e216e8e0d985085958c6543f82a8a2a"
       }
     ]
@@ -691,6 +759,18 @@
   },
   {
     "name": "test_api",
+    "version": "0.7.12",
+    "archive_sha256": "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11",
+    "source": "https://pub.dev/packages/test_api/versions/0.7.12/license",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/test_api-0.7.12/LICENSE",
+        "sha256": "ff1b9f0df9036c04be424b1e3ce12789bea880ad5ffc3a48e069ae2d40a087a4"
+      }
+    ]
+  },
+  {
+    "name": "test_api",
     "version": "0.7.7",
     "notices": [
       {
@@ -806,6 +886,18 @@
       {
         "path": "licenses/flutter-packages/vector_math-2.2.0/LICENSE",
         "sha256": "b5d856a1e27e9ebea4957fc3526f1c65782a04894b113c6b3b0fb1321dbdec55"
+      }
+    ]
+  },
+  {
+    "name": "vector_math",
+    "version": "2.4.4",
+    "archive_sha256": "fa49e1674cb84acb900141714e6c6e1f9ae099827c24d141430ff6819db4e1bc",
+    "source": "https://pub.dev/packages/vector_math/versions/2.4.4/license",
+    "notices": [
+      {
+        "path": "licenses/flutter-packages/vector_math-2.4.4/LICENSE",
+        "sha256": "420f7739f169097f0aad1242045169cd643c8f1d94e62866fad265ae4c369b7d"
       }
     ]
   },

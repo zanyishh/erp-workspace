@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:erp_client/erp_api.dart';
 
 Future<void> main() async {
@@ -45,9 +46,8 @@ Future<void> main() async {
         );
         modified =
             ((lookup['rows'] as List).firstWhere(
-                      (r) => r['name'] == values['job'],
-                    )
-                    as Map)['modified']
+                  (r) => r['name'] == values['job'],
+                ) as Map)['modified']
                 as String;
       }
       return api.knittingCommand(
@@ -139,6 +139,7 @@ Future<void> main() async {
     final invoice = await post('invoice', {
       'job': job,
       'deliveries': [delivery['event']],
+      'no_tax': true,
     });
     if ((invoice['data'] as Map)['amount'] != '8800.00') {
       throw StateError('Incorrect invoice total.');
@@ -192,6 +193,7 @@ Future<void> main() async {
     final replacement = await post('invoice', {
       'job': job,
       'deliveries': [delivery['event']],
+      'no_tax': true,
     });
     if (replacement['data']['amount'] != '8800.00') {
       throw StateError('Replacement invoice mismatch.');

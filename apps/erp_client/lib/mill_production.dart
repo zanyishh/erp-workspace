@@ -7,6 +7,8 @@ class _PostedDay {
   final DateTime date;
   final entries = <_Entry>[];
   BigInt? milli = BigInt.zero;
+  int? sourceCount;
+  int get count => sourceCount ?? entries.length;
 
   void add(_Entry entry) {
     entries.add(entry);
@@ -21,9 +23,14 @@ class _PostedDay {
 }
 
 class _MillProductionChart extends StatefulWidget {
-  const _MillProductionChart({required this.snapshot, required this.api});
+  const _MillProductionChart({
+    required this.snapshot,
+    required this.api,
+    this.onOriginalProduction,
+  });
   final ErpApi api;
   final KnittingSnapshot snapshot;
+  final VoidCallback? onOriginalProduction;
   @override
   State<_MillProductionChart> createState() => _MillProductionChartState();
 }
@@ -49,6 +56,30 @@ class _MillProductionChartState extends State<_MillProductionChart> {
   void aggregate() {
     days.clear();
     missingDate = false;
+    final summary = (widget.snapshot.data['overview'] as Map?)?['production'];
+    if (summary is List) {
+      loaded = 0;
+      for (final row in summary) {
+        final date = DateTime.tryParse('${row['date']}T00:00:00Z');
+        if (date == null) {
+          missingDate = true;
+          continue;
+        }
+        final day = _PostedDay(date);
+        day.milli = _milli(row['quantity_kg']);
+        day.sourceCount = (row['count'] as num?)?.toInt() ?? 0;
+        loaded += day.count;
+        days[date] = day;
+      }
+      if (!days.containsKey(selected)) selected = days.keys.lastOrNull;
+      return;
+    }
+    if (widget.snapshot.data['overview'] is Map) {
+      // A withheld company reconciliation must never become a first-page total.
+      loaded = 0;
+      selected = null;
+      return;
+    }
     final events = widget.snapshot.rows('events');
     loaded = events.length;
     final posted = <(DateTime, _Entry)>[];
@@ -56,7 +87,11 @@ class _MillProductionChartState extends State<_MillProductionChart> {
     for (final event in events) {
       if (event['cancelled'] == 1 ||
           event['cancelled'] == true ||
-          !const {'produce', 'produce_bulk'}.contains(event['kind'])) {
+          !const {
+            'produce',
+            'produce_bulk',
+            'produce_batch',
+          }.contains(event['kind'])) {
         continue;
       }
       // Frappe posts in the site's own calendar. Preserve the date part and ignore client timezone.
@@ -87,6 +122,28 @@ class _MillProductionChartState extends State<_MillProductionChart> {
   }
 
   void sources(_PostedDay day) {
+    if (widget.snapshot.paginated) {
+      _showMillSources(
+        context,
+        widget.api,
+        (_) => KnittingSourcesDialog(
+          api: widget.api,
+          snapshot: widget.snapshot,
+          collection: 'events',
+          title: 'Production entries · ${DateFormat.yMMMd().format(day.date)}',
+          productionDate: DateFormat('yyyy-MM-dd').format(day.date),
+          row: (event) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(event['name'].toString()),
+            subtitle: Text(event['job']?.toString() ?? 'Job unavailable'),
+            trailing: Text(
+              '${(event['result'] as Map?)?['quantity_kg'] ?? '—'} kg',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     _showMillSources(
       context,
       widget.api,
@@ -128,7 +185,12 @@ class _MillProductionChartState extends State<_MillProductionChart> {
   @override
   Widget build(BuildContext context) {
     final day = days[selected];
-    final sourceAvailable = widget.snapshot.data['events'] is List;
+    final complete =
+        (widget.snapshot.data['overview'] as Map?)?['production'] is List;
+    final hasSummary = widget.snapshot.data['overview'] is Map;
+    final sourceAvailable = hasSummary
+        ? complete
+        : widget.snapshot.data['events'] is List;
     final peak = days.values
         .map((d) => d.milli?.toDouble() ?? 0.0)
         .fold<double>(0, math.max);
@@ -164,14 +226,27 @@ class _MillProductionChartState extends State<_MillProductionChart> {
                 ),
             ],
           ),
+          if (widget.onOriginalProduction != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: widget.onOriginalProduction,
+                icon: const Icon(Icons.history_outlined, size: 17),
+                label: const Text('Original production records'),
+              ),
+            ),
           if (day == null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 18),
               child: Text(
                 !sourceAvailable
-                    ? 'Production entries unavailable.'
+                    ? hasSummary
+                          ? 'Production totals are unavailable with the current source access.'
+                          : 'Production entries unavailable.'
                     : missingDate
                     ? 'Production posting dates unavailable.'
+                    : complete
+                    ? 'No in-house production recorded.'
                     : 'No in-house production in the loaded postings.',
                 style: _meta,
               ),
@@ -196,7 +271,7 @@ class _MillProductionChartState extends State<_MillProductionChart> {
                     ),
                   ),
                   Text(
-                    '${DateFormat.MMMd().format(day.date)} · ${day.entries.length} ${day.entries.length == 1 ? 'entry' : 'entries'}',
+                    '${DateFormat.MMMd().format(day.date)} · ${day.count} ${day.count == 1 ? 'entry' : 'entries'}',
                     style: _meta,
                   ),
                 ],
@@ -206,8 +281,12 @@ class _MillProductionChartState extends State<_MillProductionChart> {
           const SizedBox(height: 4),
           Text(
             !sourceAvailable
-                ? 'Recent entries unavailable'
-                : 'In-house output · ${loaded == 500 ? 'latest 500 postings' : '$loaded loaded postings'}${missingDate ? ' · some dates unavailable' : ''}',
+                ? hasSummary
+                      ? 'Production totals unavailable'
+                      : 'Recent entries unavailable'
+                : complete
+                ? 'All $loaded production entries in this period'
+                : 'In-house output · $loaded loaded postings${missingDate ? ' · some dates unavailable' : ''}',
             style: const TextStyle(fontSize: 11, color: WorkspaceTheme.muted),
           ),
         ],

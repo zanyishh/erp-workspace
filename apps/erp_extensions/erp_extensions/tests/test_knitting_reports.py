@@ -34,6 +34,68 @@ class ReportTests(fixtures.KnittingTests):
                 empty = report(gauge="22")
                 self.assertEqual((empty["row_count"], empty["summary"]["quantity_kg"]), (0, "0.000"))
 
+    def test_roll_hour_and_day_groups_use_production_time_after_splitting(self):
+        self.fixtures()
+        lot = self.receive("90.000")
+        first_day = getdate() - timedelta(days=2)
+        second_day = first_day + timedelta(days=1)
+        rolls = []
+        for stamp in [datetime.combine(first_day, time(23, 59)), datetime.combine(second_day, time(0, 1))]:
+            result = self.call("produce", {"job": self.job, "programme_line": "P1", "shift": "A",
+                "inputs": [{"lot": lot, "quantity_kg": "45.000", "units": "1"}],
+                "weights_kg": ["44.000"], "loss_kg": "1.000", "warehouse": self.warehouse})
+            roll = result["data"]["rolls"][0]
+            frappe.db.set_value("Knitting Event", result["event"], "occurred_at", stamp)
+            frappe.db.set_value("Knitting Roll", roll, "produced_at", stamp)
+            rolls.append(roll)
+        self.call("split_roll", {"job": self.job, "roll": rolls[0],
+            "weights_kg": ["20.000", "24.000"], "reason": "Synthetic split"})
+        for group, expected in (
+            ("day", [str(first_day), str(second_day)]),
+            ("hour", [f"{first_day} 23:00", f"{second_day} 00:00"]),
+        ):
+            result = self.knitting().report(fixtures.COMPANY, "rolls", {"job": self.job, "group_by": group})
+            self.assertEqual([(row[group], row["weight_kg"]) for row in result["rows"]],
+                [(key, "44.000") for key in expected])
+            self.assertEqual(result["summary"]["quantity_kg"], "88.000")
+
+    def test_stoppage_intervals_keep_shift_godown_and_actual_period(self):
+        self.fixtures()
+        machine = self.machine()
+        day = getdate() - timedelta(days=2)
+        yesterday = day - timedelta(days=1)
+        base = {"machine": machine, "job": self.job, "starts_at": f"{yesterday} 23:30",
+                "ends_at": f"{day} 00:30", "reason": "Synthetic maintenance"}
+        with self.assertRaises(frappe.ValidationError):
+            self.call("stoppage", {**base, "shift": "Unknown"})
+        self.call("stoppage", {**base, "warehouse": self.warehouse, "shift": "B"})
+        self.call("stoppage", {**base, "starts_at": f"{day} 10:00", "ends_at": f"{day} 10:15"})
+        period = {"job": self.job, "mode": "period", "from_date": str(day), "to_date": str(day)}
+        grouped = self.knitting().report(fixtures.COMPANY, "stoppage", {**period, "group_by": "shift"})
+        self.assertEqual([(r["shift"], r["minutes"]) for r in grouped["rows"]],
+                         [("B", "30.00"), ("Unspecified", "15.00")])
+        detail = self.knitting().report(fixtures.COMPANY, "stoppage", {**period, "warehouse": self.warehouse})
+        self.assertEqual(detail["summary"]["minutes"], "30.00")
+        self.assertEqual(detail["rows"][0]["shift"], "B")
+
+    def test_yarn_inward_and_return_registers_reconcile_physical_units_with_challan(self):
+        self.fixtures()
+        receipt = self.call("receive_yarn", {"job": self.job, "item": self.items["yarn"],
+            "material_owner": "Customer", "party": self.customer, "warehouse": self.warehouse,
+            "source_lot": "0031", "party_dc_number": "0049/A", "party_dc_date": "2026-03-07",
+            "quantity_kg": "10.000", "units": 3})
+        lot = receipt["data"]["lot"]
+        returned = self.call("return_yarn", {"job": self.job, "lot": lot, "quantity_kg": "4.000", "units": 1})
+        scope = {"job": self.job, "customer": self.customer, "warehouse": self.warehouse, "source_lot": "0031"}
+        for name, event, kg, units in (("yarn_inwards", receipt["event"], "10.000", "3"),
+                                      ("yarn_returns", returned["event"], "4.000", "1")):
+            register = self.knitting().report(fixtures.COMPANY, name, scope)
+            row, = register["rows"]
+            self.assertEqual((row["event"], row["lot"], row["quantity_kg"], row["units"]), (event, lot, kg, units))
+            self.assertEqual(register["summary"], {"quantity_kg": kg, "units": units})
+            if name == "yarn_inwards":
+                self.assertEqual((row["party_dc_number"], row["party_dc_date"]), ("0049/A", "2026-03-07"))
+
     def test_breakage_employee_and_gauge_filters_limit_counts_and_totals(self):
         self.fixtures()
         gender = frappe.get_doc({"doctype": "Gender", "gender": "Report fixture gender"}).insert()

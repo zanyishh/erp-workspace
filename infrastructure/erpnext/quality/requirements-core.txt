@@ -1,0 +1,6 @@
+# Development/test tooling only; do not install into Frappe's runtime.
+pytest==9.2.0
+hypothesis==6.170.15
+tox==4.67.13
+schemathesis==4.33.4
+testcontainers==4.15.0

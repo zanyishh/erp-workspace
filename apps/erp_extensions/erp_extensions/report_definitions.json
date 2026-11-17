@@ -17,9 +17,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/frappe/frappe/contacts/report/addresses_and_contacts/addresses_and_contacts.json",
       "reference": "Address",
       "type": "Script Report"
@@ -27,9 +25,7 @@
     "Database Storage Usage By Tables": {
       "fields": [],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/frappe/frappe/core/report/database_storage_usage_by_tables/database_storage_usage_by_tables.json",
       "reference": "Error Log",
       "type": "Script Report"
@@ -67,9 +63,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/frappe/frappe/core/report/permitted_documents_for_user/permitted_documents_for_user.json",
       "reference": "User",
       "type": "Script Report"
@@ -115,7 +109,7 @@
           "options": "DocType"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/frappe/frappe/core/report/user_doctype_permissions/user_doctype_permissions.json",
       "reference": "User",
@@ -173,7 +167,7 @@
           "default": "path"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/frappe/frappe/website/report/website_analytics/website_analytics.json",
       "reference": "Web Page View",
@@ -294,7 +288,7 @@
           "fieldname": "party_type",
           "label": "Party Type",
           "fieldtype": "Autocomplete",
-          "dynamic_options": true
+          "native_options": "party_types"
         },
         {
           "fieldname": "party",
@@ -351,10 +345,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "party_type.options",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/accounts_payable/accounts_payable.json",
       "reference": "Purchase Invoice",
       "type": "Script Report"
@@ -421,7 +412,7 @@
           "fieldname": "party_type",
           "label": "Party Type",
           "fieldtype": "Autocomplete",
-          "dynamic_options": true
+          "native_options": "party_types"
         },
         {
           "fieldname": "party",
@@ -458,10 +449,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "party_type.options",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/accounts_payable_summary/accounts_payable_summary.json",
       "reference": "Purchase Invoice",
       "type": "Script Report"
@@ -509,7 +497,7 @@
           "fieldname": "party_type",
           "label": "Party Type",
           "fieldtype": "Autocomplete",
-          "dynamic_options": true
+          "native_options": "party_types"
         },
         {
           "fieldname": "party",
@@ -620,10 +608,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "party_type.options",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/accounts_receivable/accounts_receivable.json",
       "reference": "Sales Invoice",
       "type": "Script Report"
@@ -690,7 +675,7 @@
           "fieldname": "party_type",
           "label": "Party Type",
           "fieldtype": "Autocomplete",
-          "dynamic_options": true
+          "native_options": "party_types"
         },
         {
           "fieldname": "party",
@@ -750,10 +735,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "party_type.options",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/accounts_receivable_summary/accounts_receivable_summary.json",
       "reference": "Sales Invoice",
       "type": "Script Report"
@@ -845,13 +827,19 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "group_by",
@@ -881,11 +869,8 @@
           "options": "Finance Book"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/asset_depreciations_and_balances/asset_depreciations_and_balances.json",
       "reference": "Asset",
       "type": "Script Report"
@@ -959,7 +944,7 @@
           "fieldname": "presentation_currency",
           "label": "Currency",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_currencies",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -978,7 +963,7 @@
           "fieldname": "group_by_dimension",
           "label": "Group by Dimension",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_accounting_dimensions",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -1024,9 +1009,7 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters",
-        "group_by_dimension.options"
+        "dynamic_filters"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/balance_sheet/balance_sheet.json",
       "reference": "GL Entry",
@@ -1037,7 +1020,10 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -1052,14 +1038,14 @@
           "label": "Bank Account",
           "fieldtype": "Link",
           "options": "Account",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "bank_account"
+          }
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "account.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/bank_clearance_summary/bank_clearance_summary.json",
       "reference": "Journal Entry",
       "type": "Script Report"
@@ -1082,7 +1068,10 @@
           "label": "Bank Account",
           "fieldtype": "Link",
           "options": "Account",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "bank_account"
+          }
         },
         {
           "fieldname": "report_date",
@@ -1100,9 +1089,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "account.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/bank_reconciliation_statement/bank_reconciliation_statement.json",
       "reference": "Journal Entry",
       "type": "Script Report"
@@ -1206,8 +1193,8 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "budget_against.options",
-        "dynamic_filters"
+        "dynamic_filters",
+        "budget_against.options"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/budget_variance_report/budget_variance_report.json",
       "reference": "Cost Center",
@@ -1215,8 +1202,10 @@
     },
     "Calculated Discount Mismatch": {
       "fields": [],
-      "requires_adapter": false,
-      "diagnostics": [],
+      "requires_adapter": true,
+      "diagnostics": [
+        "dynamic_filters"
+      ],
       "source": "upstream/erpnext/erpnext/accounts/report/calculated_discount_mismatch/calculated_discount_mismatch.json",
       "reference": "Sales Invoice",
       "type": "Script Report"
@@ -1287,13 +1276,6 @@
           "default": "Yearly"
         },
         {
-          "fieldname": "presentation_currency",
-          "label": "Currency",
-          "fieldtype": "Select",
-          "dynamic_options": true,
-          "depends_on": "eval: !doc.report_template"
-        },
-        {
           "fieldname": "cost_center",
           "label": "Cost Center",
           "fieldtype": "MultiSelectList",
@@ -1309,7 +1291,7 @@
           "fieldname": "group_by_dimension",
           "label": "Group by Dimension",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_accounting_dimensions",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -1341,9 +1323,7 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters",
-        "group_by_dimension.options"
+        "dynamic_filters"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/cash_flow/cash_flow.json",
       "reference": "GL Entry",
@@ -1367,7 +1347,10 @@
           "label": "Bank Account",
           "fieldtype": "Link",
           "options": "Account",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "bank_account"
+          }
         },
         {
           "fieldname": "report_date",
@@ -1380,9 +1363,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "account.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/cheques_and_deposits_incorrectly_cleared/cheques_and_deposits_incorrectly_cleared.json",
       "reference": "Payment Entry",
       "type": "Script Report"
@@ -1399,12 +1380,6 @@
             "native_default": "user",
             "key": "Company"
           }
-        },
-        {
-          "fieldname": "finance_book",
-          "label": "Finance Book",
-          "fieldtype": "Link",
-          "options": "Finance Book"
         },
         {
           "fieldname": "filter_based_on",
@@ -1449,34 +1424,10 @@
           }
         },
         {
-          "fieldname": "periodicity",
-          "label": "Periodicity",
-          "fieldtype": "Select",
-          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
-          "reqd": 1,
-          "default": "Yearly"
-        },
-        {
-          "fieldname": "presentation_currency",
-          "label": "Currency",
-          "fieldtype": "Select",
-          "dynamic_options": true,
-          "default": {
-            "native_default": "user",
-            "key": "Currency"
-          }
-        },
-        {
-          "fieldname": "cost_center",
-          "label": "Cost Center",
-          "fieldtype": "MultiSelectList",
-          "options": "Cost Center"
-        },
-        {
-          "fieldname": "project",
-          "label": "Project",
-          "fieldtype": "MultiSelectList",
-          "options": "Project"
+          "fieldname": "finance_book",
+          "label": "Finance Book",
+          "fieldtype": "Link",
+          "options": "Finance Book"
         },
         {
           "fieldname": "report",
@@ -1485,6 +1436,16 @@
           "options": "Profit and Loss Statement\nBalance Sheet\nCash Flow",
           "reqd": 1,
           "default": "Balance Sheet"
+        },
+        {
+          "fieldname": "presentation_currency",
+          "label": "Currency",
+          "fieldtype": "Select",
+          "native_options": "enabled_currencies",
+          "default": {
+            "native_default": "user",
+            "key": "Currency"
+          }
         },
         {
           "fieldname": "accumulated_in_group_company",
@@ -1505,10 +1466,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/consolidated_financial_statement/consolidated_financial_statement.json",
       "reference": "Account",
       "type": "Script Report"
@@ -1523,76 +1481,6 @@
           "reqd": 1
         },
         {
-          "fieldname": "finance_book",
-          "label": "Finance Book",
-          "fieldtype": "Link",
-          "options": "Finance Book"
-        },
-        {
-          "fieldname": "filter_based_on",
-          "label": "Filter Based On",
-          "fieldtype": "Select",
-          "options": "Fiscal Year\nDate Range",
-          "reqd": 1,
-          "default": "Fiscal Year"
-        },
-        {
-          "fieldname": "period_start_date",
-          "label": "Start Date",
-          "fieldtype": "Date",
-          "depends_on": "eval:doc.filter_based_on == 'Date Range'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Date Range'"
-        },
-        {
-          "fieldname": "period_end_date",
-          "label": "End Date",
-          "fieldtype": "Date",
-          "depends_on": "eval:doc.filter_based_on == 'Date Range'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Date Range'"
-        },
-        {
-          "fieldname": "from_fiscal_year",
-          "label": "Start Year",
-          "fieldtype": "Link",
-          "options": "Fiscal Year",
-          "depends_on": "eval:doc.filter_based_on == 'Fiscal Year'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Fiscal Year'"
-        },
-        {
-          "fieldname": "to_fiscal_year",
-          "label": "End Year",
-          "fieldtype": "Link",
-          "options": "Fiscal Year",
-          "depends_on": "eval:doc.filter_based_on == 'Fiscal Year'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Fiscal Year'"
-        },
-        {
-          "fieldname": "periodicity",
-          "label": "Periodicity",
-          "fieldtype": "Select",
-          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
-          "reqd": 1,
-          "default": "Yearly"
-        },
-        {
-          "fieldname": "presentation_currency",
-          "label": "Currency",
-          "fieldtype": "Select",
-          "dynamic_options": true
-        },
-        {
-          "fieldname": "cost_center",
-          "label": "Cost Center",
-          "fieldtype": "MultiSelectList",
-          "options": "Cost Center"
-        },
-        {
-          "fieldname": "project",
-          "label": "Project",
-          "fieldtype": "MultiSelectList",
-          "options": "Project"
-        },
-        {
           "fieldname": "fiscal_year",
           "label": "Fiscal Year",
           "fieldtype": "Link",
@@ -1605,12 +1493,30 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
+        },
+        {
+          "fieldname": "finance_book",
+          "label": "Finance Book",
+          "fieldtype": "Link",
+          "options": "Finance Book"
+        },
+        {
+          "fieldname": "presentation_currency",
+          "label": "Currency",
+          "fieldtype": "Select",
+          "native_options": "enabled_currencies"
         },
         {
           "fieldname": "with_period_closing_entry_for_opening",
@@ -1654,12 +1560,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters",
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/consolidated_trial_balance/consolidated_trial_balance.json",
       "reference": "GL Entry",
       "type": "Script Report"
@@ -1733,7 +1634,7 @@
           "fieldname": "presentation_currency",
           "label": "Currency",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_currencies",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -1772,7 +1673,6 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "presentation_currency.options",
         "dynamic_filters"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/custom_financial_statement/custom_financial_statement.json",
@@ -2025,77 +1925,6 @@
           }
         },
         {
-          "fieldname": "finance_book",
-          "label": "Finance Book",
-          "fieldtype": "Link",
-          "options": "Finance Book"
-        },
-        {
-          "fieldname": "filter_based_on",
-          "label": "Filter Based On",
-          "fieldtype": "Select",
-          "options": "Fiscal Year\nDate Range",
-          "reqd": 1,
-          "default": "Fiscal Year"
-        },
-        {
-          "fieldname": "period_start_date",
-          "label": "Start Date",
-          "fieldtype": "Date",
-          "depends_on": "eval:doc.filter_based_on == 'Date Range'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Date Range'"
-        },
-        {
-          "fieldname": "period_end_date",
-          "label": "End Date",
-          "fieldtype": "Date",
-          "depends_on": "eval:doc.filter_based_on == 'Date Range'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Date Range'"
-        },
-        {
-          "fieldname": "from_fiscal_year",
-          "label": "Start Year",
-          "fieldtype": "Link",
-          "options": "Fiscal Year",
-          "depends_on": "eval:doc.filter_based_on == 'Fiscal Year'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Fiscal Year'"
-        },
-        {
-          "fieldname": "to_fiscal_year",
-          "label": "End Year",
-          "fieldtype": "Link",
-          "options": "Fiscal Year",
-          "depends_on": "eval:doc.filter_based_on == 'Fiscal Year'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Fiscal Year'"
-        },
-        {
-          "fieldname": "periodicity",
-          "label": "Periodicity",
-          "fieldtype": "Select",
-          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
-          "reqd": 1,
-          "default": "Yearly"
-        },
-        {
-          "fieldname": "presentation_currency",
-          "label": "Currency",
-          "fieldtype": "Select",
-          "dynamic_options": true,
-          "depends_on": "eval: !doc.report_template"
-        },
-        {
-          "fieldname": "cost_center",
-          "label": "Cost Center",
-          "fieldtype": "MultiSelectList",
-          "options": "Cost Center"
-        },
-        {
-          "fieldname": "project",
-          "label": "Project",
-          "fieldtype": "MultiSelectList",
-          "options": "Project"
-        },
-        {
           "fieldname": "fiscal_year",
           "label": "Fiscal Year",
           "fieldtype": "Link",
@@ -2109,31 +1938,37 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
+        },
+        {
+          "fieldname": "finance_book",
+          "label": "Finance Book",
+          "fieldtype": "Link",
+          "options": "Finance Book"
         },
         {
           "fieldname": "dimension",
           "label": "Select Dimension",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "accounting_dimensions",
           "reqd": 1,
           "default": "Cost Center"
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters",
-        "from_date.default",
-        "to_date.default",
-        "dimension.options"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/dimension_wise_accounts_balance_report/dimension_wise_accounts_balance_report.json",
       "reference": "GL Entry",
       "type": "Script Report"
@@ -2183,20 +2018,23 @@
           "fieldname": "period_start_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "hidden": 1
+          "hidden": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "period_end_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "hidden": 1
+          "hidden": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "period_start_date.default",
-        "period_end_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/financial_ratios/financial_ratios.json",
       "reference": "Account",
       "type": "Script Report"
@@ -2325,7 +2163,7 @@
           "fieldname": "party_type",
           "label": "Party Type",
           "fieldtype": "Autocomplete",
-          "dynamic_options": true
+          "native_options": "party_types"
         },
         {
           "fieldname": "party",
@@ -2357,7 +2195,7 @@
           "fieldname": "presentation_currency",
           "label": "Currency",
           "fieldtype": "Select",
-          "dynamic_options": true
+          "native_options": "enabled_currencies"
         },
         {
           "fieldname": "cost_center",
@@ -2431,8 +2269,6 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "party_type.options",
-        "presentation_currency.options",
         "include_dimensions.default"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/general_ledger/general_ledger.json",
@@ -2508,7 +2344,7 @@
           "fieldname": "presentation_currency",
           "label": "Currency",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_currencies",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -2531,7 +2367,6 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "presentation_currency.options",
         "dynamic_filters"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/gross_and_net_profit_report/gross_and_net_profit_report.json",
@@ -2555,13 +2390,19 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "sales_invoice",
@@ -2614,10 +2455,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/gross_profit/gross_profit.json",
       "reference": "Sales Invoice",
       "type": "Script Report"
@@ -2659,9 +2497,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/inactive_sales_items/inactive_sales_items.json",
       "reference": "Sales Invoice",
       "type": "Script Report"
@@ -2782,7 +2618,7 @@
           "options": "\nSupplier\nItem Group\nItem\nInvoice"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/item_wise_purchase_register/item_wise_purchase_register.json",
       "reference": "Purchase Invoice",
@@ -2870,9 +2706,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/item_wise_sales_register/item_wise_sales_register.json",
       "reference": "Sales Invoice",
       "type": "Script Report"
@@ -2974,7 +2808,10 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -3004,10 +2841,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/payment_period_based_on_invoice_date/payment_period_based_on_invoice_date.json",
       "reference": "Journal Entry",
       "type": "Script Report"
@@ -3082,7 +2916,7 @@
           "fieldtype": "Check"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/pos_register/pos_register.json",
       "reference": "POS Invoice",
@@ -3157,7 +2991,7 @@
           "fieldname": "presentation_currency",
           "label": "Currency",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_currencies",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -3176,7 +3010,7 @@
           "fieldname": "group_by_dimension",
           "label": "Group by Dimension",
           "fieldtype": "Select",
-          "dynamic_options": true,
+          "native_options": "enabled_accounting_dimensions",
           "depends_on": "eval: !doc.report_template"
         },
         {
@@ -3222,9 +3056,7 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters",
-        "group_by_dimension.options"
+        "dynamic_filters"
       ],
       "source": "upstream/erpnext/erpnext/accounts/report/profit_and_loss_statement/profit_and_loss_statement.json",
       "reference": "GL Entry",
@@ -3270,12 +3102,18 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "finance_book",
@@ -3296,16 +3134,60 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/profitability_analysis/profitability_analysis.json",
       "reference": "GL Entry",
       "type": "Script Report"
     },
     "Purchase Invoice Trends": {
       "fields": [
+        {
+          "fieldname": "company",
+          "label": "Company",
+          "fieldtype": "Link",
+          "options": "Company",
+          "reqd": 1,
+          "default": {
+            "native_default": "user",
+            "key": "Company"
+          }
+        },
+        {
+          "fieldname": "period",
+          "label": "Period",
+          "fieldtype": "Select",
+          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
+          "default": "Monthly"
+        },
+        {
+          "fieldname": "fiscal_year",
+          "label": "Fiscal Year",
+          "fieldtype": "Link",
+          "options": "Fiscal Year",
+          "default": {
+            "native_default": "fiscal_year"
+          }
+        },
+        {
+          "fieldname": "based_on",
+          "label": "Based On",
+          "fieldtype": "Select",
+          "options": "Item\nItem Group\nSupplier\nSupplier Group\nProject",
+          "default": "Item"
+        },
+        {
+          "fieldname": "group_by",
+          "label": "Group By",
+          "fieldtype": "Select",
+          "options": "\nItem\nSupplier",
+          "default": ""
+        },
+        {
+          "fieldname": "item_code",
+          "label": "Item",
+          "fieldtype": "MultiSelectList",
+          "options": "Item"
+        },
         {
           "fieldname": "period_based_on",
           "label": "Period based On",
@@ -3393,7 +3275,7 @@
           "default": 0
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/purchase_register/purchase_register.json",
       "reference": "Purchase Invoice",
@@ -3658,7 +3540,7 @@
           "default": 0
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/sales_register/sales_register.json",
       "reference": "Sales Invoice",
@@ -3845,9 +3727,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/tax_withholding_details/tax_withholding_details.json",
       "reference": "Purchase Invoice",
       "type": "Script Report"
@@ -3899,9 +3779,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/tds_computation_summary/tds_computation_summary.json",
       "reference": "Purchase Invoice",
       "type": "Script Report"
@@ -3920,62 +3798,30 @@
           }
         },
         {
-          "fieldname": "finance_book",
-          "label": "Finance Book",
-          "fieldtype": "Link",
-          "options": "Finance Book"
-        },
-        {
-          "fieldname": "filter_based_on",
-          "label": "Filter Based On",
-          "fieldtype": "Select",
-          "options": "Fiscal Year\nDate Range",
-          "reqd": 1,
-          "default": "Fiscal Year"
-        },
-        {
-          "fieldname": "period_start_date",
-          "label": "Start Date",
-          "fieldtype": "Date",
-          "depends_on": "eval:doc.filter_based_on == 'Date Range'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Date Range'"
-        },
-        {
-          "fieldname": "period_end_date",
-          "label": "End Date",
-          "fieldtype": "Date",
-          "depends_on": "eval:doc.filter_based_on == 'Date Range'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Date Range'"
-        },
-        {
-          "fieldname": "from_fiscal_year",
-          "label": "Start Year",
+          "fieldname": "fiscal_year",
+          "label": "Fiscal Year",
           "fieldtype": "Link",
           "options": "Fiscal Year",
-          "depends_on": "eval:doc.filter_based_on == 'Fiscal Year'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Fiscal Year'"
-        },
-        {
-          "fieldname": "to_fiscal_year",
-          "label": "End Year",
-          "fieldtype": "Link",
-          "options": "Fiscal Year",
-          "depends_on": "eval:doc.filter_based_on == 'Fiscal Year'",
-          "mandatory_depends_on": "eval:doc.filter_based_on == 'Fiscal Year'"
-        },
-        {
-          "fieldname": "periodicity",
-          "label": "Periodicity",
-          "fieldtype": "Select",
-          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
           "reqd": 1,
-          "default": "Yearly"
+          "default": {
+            "native_default": "fiscal_year"
+          }
         },
         {
-          "fieldname": "presentation_currency",
-          "label": "Currency",
-          "fieldtype": "Select",
-          "dynamic_options": true
+          "fieldname": "from_date",
+          "label": "From Date",
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
+        },
+        {
+          "fieldname": "to_date",
+          "label": "To Date",
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "cost_center",
@@ -3990,24 +3836,16 @@
           "options": "Project"
         },
         {
-          "fieldname": "fiscal_year",
-          "label": "Fiscal Year",
+          "fieldname": "finance_book",
+          "label": "Finance Book",
           "fieldtype": "Link",
-          "options": "Fiscal Year",
-          "reqd": 1,
-          "default": {
-            "native_default": "fiscal_year"
-          }
+          "options": "Finance Book"
         },
         {
-          "fieldname": "from_date",
-          "label": "From Date",
-          "fieldtype": "Date"
-        },
-        {
-          "fieldname": "to_date",
-          "label": "To Date",
-          "fieldtype": "Date"
+          "fieldname": "presentation_currency",
+          "label": "Currency",
+          "fieldtype": "Select",
+          "native_options": "enabled_currencies"
         },
         {
           "fieldname": "with_period_closing_entry_for_opening",
@@ -4051,12 +3889,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "presentation_currency.options",
-        "dynamic_filters",
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/trial_balance/trial_balance.json",
       "reference": "GL Entry",
       "type": "Script Report"
@@ -4087,12 +3920,18 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "party_type",
@@ -4138,10 +3977,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/accounts/report/trial_balance_for_party/trial_balance_for_party.json",
       "reference": "GL Entry",
       "type": "Script Report"
@@ -4282,12 +4118,20 @@
           "fieldname": "from_date",
           "label": "Start Date",
           "fieldtype": "Date",
+          "default": {
+            "native_default": "date_offset",
+            "unit": "months",
+            "value": -12
+          },
           "depends_on": "eval: doc.filter_based_on == 'Date Range'"
         },
         {
           "fieldname": "to_date",
           "label": "End Date",
           "fieldtype": "Date",
+          "default": {
+            "native_default": "today"
+          },
           "depends_on": "eval: doc.filter_based_on == 'Date Range'"
         },
         {
@@ -4319,11 +4163,8 @@
           "depends_on": "eval: doc.filter_based_on == 'Date Range' || doc.filter_based_on == 'Fiscal Year'"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/assets/report/fixed_asset_register/fixed_asset_register.json",
       "reference": "Asset",
       "type": "Script Report"
@@ -4413,12 +4254,18 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "show_completed_orders",
@@ -4426,11 +4273,8 @@
           "fieldtype": "Check"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/buying/report/procurement_tracker/procurement_tracker.json",
       "reference": "Purchase Order",
       "type": "Script Report"
@@ -4471,13 +4315,19 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "company",
@@ -4513,10 +4363,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/buying/report/purchase_analytics/purchase_analytics.json",
       "reference": "Purchase Order",
       "type": "Script Report"
@@ -4594,6 +4441,53 @@
     "Purchase Order Trends": {
       "fields": [
         {
+          "fieldname": "company",
+          "label": "Company",
+          "fieldtype": "Link",
+          "options": "Company",
+          "reqd": 1,
+          "default": {
+            "native_default": "user",
+            "key": "Company"
+          }
+        },
+        {
+          "fieldname": "period",
+          "label": "Period",
+          "fieldtype": "Select",
+          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
+          "default": "Monthly"
+        },
+        {
+          "fieldname": "fiscal_year",
+          "label": "Fiscal Year",
+          "fieldtype": "Link",
+          "options": "Fiscal Year",
+          "default": {
+            "native_default": "fiscal_year"
+          }
+        },
+        {
+          "fieldname": "based_on",
+          "label": "Based On",
+          "fieldtype": "Select",
+          "options": "Item\nItem Group\nSupplier\nSupplier Group\nProject",
+          "default": "Item"
+        },
+        {
+          "fieldname": "group_by",
+          "label": "Group By",
+          "fieldtype": "Select",
+          "options": "\nItem\nSupplier",
+          "default": ""
+        },
+        {
+          "fieldname": "item_code",
+          "label": "Item",
+          "fieldtype": "MultiSelectList",
+          "options": "Item"
+        },
+        {
           "fieldname": "include_closed_orders",
           "label": "Include Closed Orders",
           "fieldtype": "Check",
@@ -4659,9 +4553,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/buying/report/requested_items_to_order_and_receive/requested_items_to_order_and_receive.json",
       "reference": "Material Request",
       "type": "Script Report"
@@ -4892,9 +4784,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/buying/report/supplier_quotation_comparison/supplier_quotation_comparison.json",
       "reference": "Supplier Quotation",
       "type": "Script Report"
@@ -4904,19 +4794,22 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/crm/report/campaign_efficiency/campaign_efficiency.json",
       "reference": "Lead",
       "type": "Script Report"
@@ -4937,20 +4830,25 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "date_offset",
+            "unit": "days",
+            "value": -30
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "today"
+          }
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/crm/report/first_response_time_for_opportunity/first_response_time_for_opportunity.json",
       "reference": "Opportunity",
       "type": "Script Report"
@@ -4961,20 +4859,25 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "date_offset",
+            "unit": "days",
+            "value": -30
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "today"
+          }
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/crm/report/lead_conversion_time/lead_conversion_time.json",
       "reference": "Opportunity",
       "type": "Script Report"
@@ -5036,19 +4939,22 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_end"
+          }
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/crm/report/lead_owner_efficiency/lead_owner_efficiency.json",
       "reference": "Lead",
       "type": "Script Report"
@@ -5112,9 +5018,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/crm/report/lost_opportunity/lost_opportunity.json",
       "reference": "Opportunity",
       "type": "Script Report"
@@ -5329,9 +5233,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/bom_operations_time/bom_operations_time.json",
       "reference": "BOM",
       "type": "Script Report"
@@ -5364,9 +5266,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/bom_stock_analysis/bom_stock_analysis.json",
       "reference": "BOM",
       "type": "Script Report"
@@ -5387,9 +5287,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/bom_variance_report/bom_variance_report.json",
       "reference": "Stock Entry",
       "type": "Script Report"
@@ -5420,12 +5318,19 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Datetime"
+          "fieldtype": "Datetime",
+          "default": {
+            "native_default": "system_month_offset",
+            "value": -1
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Datetime"
+          "fieldtype": "Datetime",
+          "default": {
+            "native_default": "user_datetime"
+          }
         },
         {
           "fieldname": "name",
@@ -5473,11 +5378,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/cost_of_poor_quality_report/cost_of_poor_quality_report.json",
       "reference": "Job Card",
       "type": "Script Report"
@@ -5488,13 +5389,20 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Datetime",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "system_month_offset",
+            "value": -1
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Datetime",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "user_datetime"
+          }
         },
         {
           "fieldname": "workstation",
@@ -5503,11 +5411,8 @@
           "options": "Workstation"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/downtime_analysis/downtime_analysis.json",
       "reference": "Downtime Entry",
       "type": "Script Report"
@@ -5599,9 +5504,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/exponential_smoothing_forecasting/exponential_smoothing_forecasting.json",
       "reference": "Sales Order",
       "type": "Script Report"
@@ -5643,13 +5546,19 @@
           "fieldname": "from_date",
           "label": "From Posting Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Posting Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "status",
@@ -5683,10 +5592,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/job_card_summary/job_card_summary.json",
       "reference": "Job Card",
       "type": "Script Report"
@@ -5786,9 +5692,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/material_requirements_planning_report/material_requirements_planning_report.json",
       "reference": "Master Production Schedule",
       "type": "Script Report"
@@ -5867,13 +5771,19 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         },
         {
           "fieldname": "range",
@@ -5884,11 +5794,8 @@
           "default": "Monthly"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/production_analytics/production_analytics.json",
       "reference": "Work Order",
       "type": "Script Report"
@@ -5904,9 +5811,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/production_plan_summary/production_plan_summary.json",
       "reference": "Production Plan",
       "type": "Script Report"
@@ -5961,9 +5866,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/production_planning_report/production_planning_report.json",
       "reference": "Work Order",
       "type": "Script Report"
@@ -6074,9 +5977,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/manufacturing/report/work_order_consumed_materials/work_order_consumed_materials.json",
       "reference": "Work Order",
       "type": "Script Report"
@@ -6240,7 +6141,7 @@
           "options": "\nOpen\nWorking\nPending Review\nOverdue\nCompleted"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/projects/report/delayed_tasks_summary/delayed_tasks_summary.json",
       "reference": "Task",
@@ -6317,12 +6218,24 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "date_offset",
+            "unit": "months",
+            "value": -1,
+            "base": "month_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "date_offset",
+            "unit": "days",
+            "value": -1,
+            "base": "month_start"
+          }
         },
         {
           "fieldname": "group_by",
@@ -6337,10 +6250,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/projects/report/timesheet_billing_summary/timesheet_billing_summary.json",
       "reference": "Timesheet",
       "type": "Script Report"
@@ -6472,9 +6382,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/regional/report/uae_vat_201/uae_vat_201.json",
       "reference": "GL Entry",
       "type": "Script Report"
@@ -6514,9 +6422,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/regional/report/vat_audit_report/vat_audit_report.json",
       "reference": "GL Entry",
       "type": "Script Report"
@@ -6575,20 +6481,23 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/customer_acquisition_and_loyalty/customer_acquisition_and_loyalty.json",
       "reference": "Customer",
       "type": "Script Report"
@@ -6636,9 +6545,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/customer_wise_item_price/customer_wise_item_price.json",
       "reference": "Customer",
       "type": "Script Report"
@@ -6892,9 +6799,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/pending_so_items_for_purchase_request/pending_so_items_for_purchase_request.json",
       "reference": "Sales Order",
       "type": "Script Report"
@@ -6990,13 +6895,33 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fallback",
+            "first": {
+              "native_default": "user",
+              "key": "sales_start_date"
+            },
+            "second": {
+              "native_default": "fiscal_start"
+            }
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fallback",
+            "first": {
+              "native_default": "user",
+              "key": "sales_end_date"
+            },
+            "second": {
+              "native_default": "fiscal_end"
+            }
+          }
         },
         {
           "fieldname": "company",
@@ -7032,10 +6957,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/sales_analytics/sales_analytics.json",
       "reference": "Sales Order",
       "type": "Script Report"
@@ -7277,7 +7199,7 @@
           "default": "Quantity"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/sales_partner_target_variance_based_on_item_group/sales_partner_target_variance_based_on_item_group.json",
       "reference": "Sales Order",
@@ -7382,7 +7304,10 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -7415,10 +7340,8 @@
           "options": "Territory"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/sales_person_commission_summary/sales_person_commission_summary.json",
       "reference": "Sales Order",
       "type": "Script Report"
@@ -7466,7 +7389,7 @@
           "default": "Quantity"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/sales_person_target_variance_based_on_item_group/sales_person_target_variance_based_on_item_group.json",
       "reference": "Sales Order",
@@ -7490,7 +7413,10 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -7542,10 +7468,8 @@
           "default": 0
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/sales_person_wise_transaction_summary/sales_person_wise_transaction_summary.json",
       "reference": "Sales Order",
       "type": "Script Report"
@@ -7593,7 +7517,7 @@
           "default": "Quantity"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/selling/report/territory_target_variance_based_on_item_group/territory_target_variance_based_on_item_group.json",
       "reference": "Sales Order",
@@ -7686,9 +7610,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/available_batch_report/available_batch_report.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -7752,9 +7674,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/available_serial_no/available_serial_no.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -7765,7 +7685,10 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -7786,10 +7709,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/batch_item_expiry_status/batch_item_expiry_status.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -7811,7 +7731,10 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -7848,10 +7771,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/batch_wise_balance_history/batch_wise_balance_history.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -8162,9 +8082,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/fifo_queue_vs_qty_after_transaction_comparison/fifo_queue_vs_qty_after_transaction_comparison.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -8196,9 +8114,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/incorrect_balance_qty_after_transaction/incorrect_balance_qty_after_transaction.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -8218,7 +8134,7 @@
           "options": "Warehouse"
         }
       ],
-      "requires_adapter": false,
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/incorrect_serial_and_batch_bundle/incorrect_serial_and_batch_bundle.json",
       "reference": "Serial and Batch Bundle",
@@ -8236,21 +8152,23 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "fiscal_end"
+          }
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/incorrect_serial_no_valuation/incorrect_serial_no_valuation.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -8285,9 +8203,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/incorrect_stock_value_report/incorrect_stock_value_report.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -8470,7 +8386,10 @@
         {
           "fieldname": "from_date",
           "label": "From Date",
-          "fieldtype": "Date"
+          "fieldtype": "Date",
+          "default": {
+            "native_default": "fiscal_start"
+          }
         },
         {
           "fieldname": "to_date",
@@ -8494,10 +8413,8 @@
           "options": "Brand"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/itemwise_recommended_reorder_level/itemwise_recommended_reorder_level.json",
       "reference": "Item",
       "type": "Script Report"
@@ -8548,9 +8465,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/landed_cost_report/landed_cost_report.json",
       "reference": "Landed Cost Voucher",
       "type": "Script Report"
@@ -8591,9 +8506,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/negative_batch_report/negative_batch_report.json",
       "reference": "Serial and Batch Bundle",
       "type": "Script Report"
@@ -8646,16 +8559,62 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/product_bundle_balance/product_bundle_balance.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
     },
     "Purchase Receipt Trends": {
-      "fields": [],
-      "requires_adapter": false,
+      "fields": [
+        {
+          "fieldname": "company",
+          "label": "Company",
+          "fieldtype": "Link",
+          "options": "Company",
+          "reqd": 1,
+          "default": {
+            "native_default": "user",
+            "key": "Company"
+          }
+        },
+        {
+          "fieldname": "period",
+          "label": "Period",
+          "fieldtype": "Select",
+          "options": "Monthly\nQuarterly\nHalf-Yearly\nYearly",
+          "default": "Monthly"
+        },
+        {
+          "fieldname": "fiscal_year",
+          "label": "Fiscal Year",
+          "fieldtype": "Link",
+          "options": "Fiscal Year",
+          "default": {
+            "native_default": "fiscal_year"
+          }
+        },
+        {
+          "fieldname": "based_on",
+          "label": "Based On",
+          "fieldtype": "Select",
+          "options": "Item\nItem Group\nSupplier\nSupplier Group\nProject",
+          "default": "Item"
+        },
+        {
+          "fieldname": "group_by",
+          "label": "Group By",
+          "fieldtype": "Select",
+          "options": "\nItem\nSupplier",
+          "default": ""
+        },
+        {
+          "fieldname": "item_code",
+          "label": "Item",
+          "fieldtype": "MultiSelectList",
+          "options": "Item"
+        }
+      ],
+      "requires_adapter": true,
       "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/purchase_receipt_trends/purchase_receipt_trends.json",
       "reference": "Purchase Receipt",
@@ -8767,9 +8726,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/reserved_stock/reserved_stock.json",
       "reference": "Stock Reservation Entry",
       "type": "Script Report"
@@ -8842,9 +8799,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/serial_and_batch_summary/serial_and_batch_summary.json",
       "reference": "Serial and Batch Bundle",
       "type": "Script Report"
@@ -8920,8 +8875,7 @@
       ],
       "requires_adapter": true,
       "diagnostics": [
-        "posting_time.default",
-        "dynamic_filters"
+        "posting_time.default"
       ],
       "source": "upstream/erpnext/erpnext/stock/report/serial_no_ledger/serial_no_ledger.json",
       "reference": "Stock Ledger Entry",
@@ -9017,9 +8971,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_ageing/stock_ageing.json",
       "reference": "Item",
       "type": "Script Report"
@@ -9077,13 +9029,21 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "global_date",
+            "key": "year_start_date"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "global_date",
+            "key": "year_end_date"
+          }
         },
         {
           "fieldname": "range",
@@ -9095,11 +9055,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default",
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_analytics/stock_analytics.json",
       "reference": "Stock Entry",
       "type": "Script Report"
@@ -9139,9 +9095,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_and_account_value_comparison/stock_and_account_value_comparison.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9251,9 +9205,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_balance/stock_balance.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9353,9 +9305,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_ledger/stock_ledger.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9403,9 +9353,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_ledger_entries_of_cancelled_vouchers/stock_ledger_entries_of_cancelled_vouchers.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9432,9 +9380,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_ledger_invariant_check/stock_ledger_invariant_check.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9477,9 +9423,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_ledger_variance/stock_ledger_variance.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9528,9 +9472,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_projected_qty/stock_projected_qty.json",
       "reference": "Item",
       "type": "Script Report"
@@ -9551,9 +9493,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_qty_vs_batch_qty/stock_qty_vs_batch_qty.json",
       "reference": "Item",
       "type": "Script Report"
@@ -9585,9 +9525,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_qty_vs_serial_no_count/stock_qty_vs_serial_no_count.json",
       "reference": "Item",
       "type": "Script Report"
@@ -9654,9 +9592,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/stock_valuation_comparison/stock_valuation_comparison.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9749,9 +9685,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/stock/report/warehouse_wise_item_balance_age_and_value/warehouse_wise_item_balance_age_and_value.json",
       "reference": "Stock Ledger Entry",
       "type": "Script Report"
@@ -9812,9 +9746,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "dynamic_filters"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/subcontracting/report/subcontracting_inward_order_summary/subcontracting_inward_order_summary.json",
       "reference": "Subcontracting Inward Order",
       "type": "Script Report"
@@ -9831,20 +9763,25 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "date_offset",
+            "unit": "days",
+            "value": -30
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "today"
+          }
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/support/report/first_response_time_for_issues/first_response_time_for_issues.json",
       "reference": "Issue",
       "type": "Script Report"
@@ -9874,13 +9811,21 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "global_date",
+            "key": "year_start_date"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "global_date",
+            "key": "year_end_date"
+          }
         },
         {
           "fieldname": "range",
@@ -9922,10 +9867,7 @@
         }
       ],
       "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/support/report/issue_analytics/issue_analytics.json",
       "reference": "Issue",
       "type": "Script Report"
@@ -9955,13 +9897,21 @@
           "fieldname": "from_date",
           "label": "From Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "global_date",
+            "key": "year_start_date"
+          }
         },
         {
           "fieldname": "to_date",
           "label": "To Date",
           "fieldtype": "Date",
-          "reqd": 1
+          "reqd": 1,
+          "default": {
+            "native_default": "global_date",
+            "key": "year_end_date"
+          }
         },
         {
           "fieldname": "status",
@@ -9994,11 +9944,8 @@
           "options": "User"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/support/report/issue_summary/issue_summary.json",
       "reference": "Issue",
       "type": "Script Report"
@@ -10009,12 +9956,18 @@
           "fieldname": "from_date",
           "fieldtype": "Date",
           "reqd": 1,
+          "default": {
+            "native_default": "today"
+          },
           "label": "from_date"
         },
         {
           "fieldname": "to_date",
           "fieldtype": "Date",
           "reqd": 1,
+          "default": {
+            "native_default": "today"
+          },
           "label": "to_date"
         },
         {
@@ -10024,11 +9977,8 @@
           "options": "Company"
         }
       ],
-      "requires_adapter": true,
-      "diagnostics": [
-        "from_date.default",
-        "to_date.default"
-      ],
+      "requires_adapter": false,
+      "diagnostics": [],
       "source": "upstream/erpnext/erpnext/support/report/support_hour_distribution/support_hour_distribution.json",
       "reference": "Issue",
       "type": "Script Report"

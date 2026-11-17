@@ -150,6 +150,37 @@ class OnboardingTests(unittest.TestCase):
                 self.assertNotIn('Demo Knitting Mills', frappe.as_json(result['result']))
                 with self.assertRaises(frappe.PermissionError):
                     api.run_report(report, {**settings, 'company':'ERP Native Verification'})
+        # Users can open saved reports on a permitted record type, including grouped views.
+        saved = 'Local customer counts ' + self.suffix
+        frappe.set_user('Administrator')
+        report = frappe.get_doc({'doctype':'Report', 'report_name':saved, 'report_type':'Report Builder', 'is_standard':'No',
+                                 'module':'Selling', 'ref_doctype':'Customer',
+                                 'json':frappe.as_json({'fields':[['customer_type','Customer']],
+                                          'group_by':{'group_by':'customer_type','aggregate_function':'count'}}),
+                                 'roles':[{'role':'Sales User'}]}).insert()
+        frappe.set_user(self.owner)
+        self.assertIn(saved, [r.name for r in api.catalog(self.company)['reports']])
+        self.assertEqual([(r.customer_type, r._aggregate_column) for r in api.run_report(saved, {})['result']], [('Company',1)])
+        with self.assertRaises(frappe.PermissionError):
+            api.run_report(saved, {'company':'ERP Native Verification'})
+        with self.assertRaises(frappe.PermissionError):
+            api._builder_report(frappe._dict(ref_doctype='Customer', json=frappe.as_json({'fields':[['email','User']]})), {})
+        from unittest.mock import patch
+        self.assertTrue(api._can_show_report_chart(frappe._dict(name='Sales Order Analysis', ref_doctype='Sales Order'),
+                                                 {'company':self.company}))
+        with patch('frappe.permissions.get_user_permissions', return_value={'Customer':[{'doc':customer}]}):
+            self.assertFalse(api._can_show_report_chart(frappe._dict(name='Sales Order Analysis', ref_doctype='Sales Order'),
+                                                      {'company':self.company}))
+        for name, party_type in (("Accounts Receivable", "Customer"), ("Accounts Payable", "Supplier"), ("General Ledger", "Customer")):
+            definition = api.report_definition(name, self.company)
+            fields = {f['fieldname']: f for f in definition['fields']}
+            self.assertIn(party_type, fields['party_type']['options'].split('\n'))
+            self.assertEqual(fields['party_type']['fieldtype'], 'Select')
+            if party_type == 'Customer':
+                filters = {**definition['defaults'], 'party_type':party_type, 'party':[customer]}
+                self.assertIsInstance(api.run_report(name, filters)['result'], list)
+                with self.assertRaises(frappe.PermissionError):
+                    api.run_report(name, {**filters, 'party':['Demo Knitting Mills']})
         with self.assertRaises(frappe.PermissionError):
             api.run_report('System Health Report', {})
 

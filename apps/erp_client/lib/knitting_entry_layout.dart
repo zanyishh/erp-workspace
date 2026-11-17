@@ -2,7 +2,7 @@ part of 'knitting_forms.dart';
 
 const _paper = Color(0xFFF8F8F6);
 const _sheet = Color(0xFFE9E9E6);
-const _nestedKinds = {'programme', 'entries', 'inputs'};
+const _nestedKinds = {'programme', 'entries', 'inputs', 'batch_rows'};
 
 String _entityFor(String kind) => switch (kind) {
   'Rolls' => 'ReleasedRoll',
@@ -10,17 +10,26 @@ String _entityFor(String kind) => switch (kind) {
   'UndeliveredRolls' => 'Roll',
   'DeliveredRolls' => 'DeliveredRoll',
   'Defects' => 'Defect',
-  'Deliveries' => 'Delivery',
+  'Deliveries' => 'BillingDelivery',
   _ => kind,
 };
 
 String _entityLabel(String entity) => switch (entity) {
+  'JobCustomer' => 'Customer',
+  'ProductionOperator' => 'operator',
+  'ProductionMachine' => 'machine',
   'StockKgItem' => 'stock item measured in kg',
   'ServiceItem' => 'non-stock item',
   'ClosingJob' => 'running job',
   'ReleasedRoll' => 'released roll',
   'LabelRoll' => 'roll',
   'DeliveredRoll' => 'delivered roll',
+  'Batch' => 'fabric batch',
+  'ReleasedBatch' => 'released fabric batch',
+  'BatchDelivery' => 'batch delivery',
+  'RollDelivery' => 'roll delivery',
+  'BillingDelivery' => 'delivery available for billing',
+  'SalesTaxTemplate' => 'sales tax template',
   'YarnReceipt' => 'yarn receipt',
   'InvoiceEvent' => 'invoice',
   'PurchaseOrder' => 'yarn order',
@@ -51,8 +60,15 @@ bool _isPicker(KnitField f) => !const {
 }.contains(f.kind);
 
 String _recordTitle(Map row, String entity) {
+  if ((entity == 'Job' || entity == 'ClosingJob') &&
+      ((row['source_reference_display']?.toString().trim().isNotEmpty ??
+              false) ||
+          (row['source_reference']?.toString().trim().isNotEmpty ?? false))) {
+    return knittingJobTitle(Map<String, dynamic>.from(row));
+  }
   for (final key in [
     'title',
+    'customer_name',
     'customer',
     'supplier',
     'item',
@@ -64,6 +80,7 @@ String _recordTitle(Map row, String entity) {
     if (title != null && title.isNotEmpty) return title;
   }
   if (row['weight_kg'] != null) return 'Roll · ${row['weight_kg']} kg';
+  if (entity == 'Batch' || entity == 'ReleasedBatch') return 'Fabric batch';
   if (row['kind'] != null) return row['kind'].toString().replaceAll('_', ' ');
   if (entity == 'Warehouse') return row['name'].toString();
   return _entityLabel(entity);
@@ -75,6 +92,8 @@ String _programmeName(Map row, int i) => [
   else
     'Fabric ${i + 1}',
   if ((row['colour'] as String? ?? '').isNotEmpty) row['colour'],
+  if (row.containsKey('dia_display') || row['dia'] != null)
+    '${knittingDiameterTitle(row)} dia',
   if (row['target_kg'] != null) '${row['target_kg']} kg',
 ].join(' · ');
 
@@ -89,14 +108,29 @@ const _retainedProgrammeFields = [
 
 Map<String, List<KnitField>> _entrySections(
   KnitAction action,
-  List<KnitField> fields,
-) {
+  List<KnitField> fields, {
+  required bool phone,
+}) {
+  final phoneReceipt = phone && action.id == 'receive_yarn';
   final sections = <String, List<KnitField>>{};
   for (final field in fields) {
     final section = switch (field.key) {
+      'job' ||
+      'item' ||
+      'quantity_kg' ||
+      'units' when phoneReceipt => 'Yarn received',
+      'material_owner' ||
+      'party' ||
+      'warehouse' ||
+      'source_lot' ||
+      'party_dc_number' ||
+      'party_dc_date' ||
+      'purchase_order' when phoneReceipt => 'Ownership & source',
       'programme' || 'entries' || 'inputs' => field.label,
       'reason' || 'notes' || 'remarks' => 'Notes & instructions',
       'customer' ||
+      'billing_customer' ||
+      'job_date' ||
       'kind' ||
       'due_date' ||
       'material_mode' ||
@@ -108,6 +142,8 @@ Map<String, List<KnitField>> _entrySections(
       'party' ||
       'item' ||
       'purchase_order' ||
+      'party_dc_number' ||
+      'party_dc_date' ||
       'source_lot' when action.id == 'receive_yarn' => 'Yarn & ownership',
       'starts_at' ||
       'ends_at' ||
@@ -116,11 +152,13 @@ Map<String, List<KnitField>> _entrySections(
       'due_date' ||
       'effective_from' => 'Timing',
       'rate' || 'charge_item' || 'charge_rate' || 'valuation_rate' => 'Pricing',
+      'tax_template' || 'no_tax' => 'Invoice tax',
       'material_owner' || 'material_mode' || 'party' => 'Material ownership',
       'weights_kg' ||
       'loss_kg' ||
       'quantity_kg' ||
       'quantity' ||
+      'rolls' ||
       'target_kg' ||
       'required_yarn_kg' ||
       'units' ||
@@ -147,6 +185,7 @@ Map<String, List<KnitField>> _entrySections(
       'target_programme_line' ||
       'invoice_event' ||
       'delivery' ||
+      'batch' ||
       'deliveries' ||
       'roll' ||
       'rolls' ||
@@ -196,121 +235,201 @@ class _EntryPage extends StatelessWidget {
   final String? error;
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.sizeOf(context).width < 850;
+    final width = MediaQuery.sizeOf(context).width;
+    final phone = workspaceUsesPhoneNavigation(context);
+    final narrow = phone || width < 850;
 
     return Scaffold(
       backgroundColor: _sheet,
       appBar: AppBar(
-        toolbarHeight: 48,
+        toolbarHeight: phone ? null : 48,
         backgroundColor: _sheet,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(action.icon, size: 20),
-            const SizedBox(width: 9),
-            Flexible(
-              child: Text(
-                'Knitting  /  ${action.group}',
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 13,
-                  color: WorkspaceTheme.ink,
-                  fontWeight: FontWeight.w600,
-                ),
+        title: phone
+            ? Text(action.title, maxLines: 1, overflow: TextOverflow.ellipsis)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(action.icon, size: 20),
+                  const SizedBox(width: 9),
+                  Flexible(
+                    child: Text(
+                      'Knitting  /  ${action.group}',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        color: WorkspaceTheme.ink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1),
         ),
       ),
       body: WorkspaceBackdrop(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                controller: scroll,
-                padding: EdgeInsets.all(narrow ? 14 : 32),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1250),
-                    child: narrow
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _cover(context, true),
-                              const SizedBox(height: 14),
-                              child,
-                            ],
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Flexible(flex: 3, child: _cover(context, false)),
-                              const SizedBox(width: 24),
-                              Expanded(flex: 7, child: child),
-                            ],
-                          ),
-                  ),
-                ),
-              ),
-            ),
-            if (error != null)
-              Material(
-                color: const Color(0xFFFBE9DB),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    error!,
-                    style: const TextStyle(color: Color(0xFF842E20)),
-                    semanticsLabel: error,
-                  ),
-                ),
-              ),
-            if (footer != null)
-              DecoratedBox(
-                decoration: const BoxDecoration(
-                  color: _paper,
-                  border: Border(top: BorderSide(color: WorkspaceTheme.border)),
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: narrow ? 16 : 32,
-                      vertical: 9,
+        child: SafeArea(
+          top: false,
+          bottom: footer == null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior: phone
+                      ? ScrollViewKeyboardDismissBehavior.onDrag
+                      : ScrollViewKeyboardDismissBehavior.manual,
+                  controller: scroll,
+                  padding: EdgeInsets.all(narrow ? 14 : 32),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1250),
+                      child: narrow
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _cover(context, true, phone: phone),
+                                const SizedBox(height: 14),
+                                child,
+                              ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  flex: 3,
+                                  child: _cover(context, false),
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(flex: 7, child: child),
+                              ],
+                            ),
                     ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1250),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: footer,
+                  ),
+                ),
+              ),
+              if (error != null)
+                Material(
+                  color: const Color(0xFFFBE9DB),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error!,
+                        style: const TextStyle(color: Color(0xFF842E20)),
+                        semanticsLabel: error,
+                      ),
+                    ),
+                  ),
+                ),
+              if (footer != null)
+                DecoratedBox(
+                  decoration: const BoxDecoration(
+                    color: _paper,
+                    border: Border(
+                      top: BorderSide(color: WorkspaceTheme.border),
+                    ),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: narrow ? 16 : 32,
+                        vertical: 9,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1250),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: footer,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _cover(BuildContext context, bool compact) {
+  Widget _stageProgress(BuildContext context, int stage, {bool dark = false}) =>
+      TweenAnimationBuilder<double>(
+        tween: Tween(end: (stage + 1) / 3),
+        curve: Curves.easeOutCubic,
+        duration: workspaceMotion(context),
+        builder: (_, value, _) => LinearProgressIndicator(
+          key: const ValueKey('entry-stage-progress'),
+          value: value,
+          color: confirmed
+              ? (dark ? const Color(0xFFB7DFC2) : const Color(0xFF3E6B54))
+              : (dark ? WorkspaceTheme.peach : WorkspaceTheme.charcoal),
+          backgroundColor: dark
+              ? const Color(0xFF565959)
+              : WorkspaceTheme.border,
+          minHeight: 4,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      );
+
+  Widget _cover(BuildContext context, bool compact, {bool phone = false}) {
     final detail = [
       company,
-      if (job?['customer'] != null) job!['customer'],
-      if (job?['name'] != null) job!['name'],
+      if (job?['customer'] != null || job?['customer_name'] != null)
+        knittingCustomerTitle(job!),
+      if (job?['name'] != null) knittingJobTitle(job!),
     ].join('  ·  ');
+    final stage = confirmed
+        ? 2
+        : review
+        ? 1
+        : 0;
+    if (phone) {
+      final step = ['Entry', 'Review', 'Posted'][stage];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text(
+                '$detail · ${action.group}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  '$step · ${stage + 1} of 3',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ExcludeSemantics(child: _stageProgress(context, stage)),
+          if (action.id == 'revise_rate')
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text(
+                'Existing programme and earlier delivery prices stay unchanged.',
+              ),
+            ),
+        ],
+      );
+    }
     final object = switch (action.group) {
       'Yarn' => ArtObject.yarn,
       'Factory' || 'Planning' || 'Production' => ArtObject.machine,
@@ -334,11 +453,6 @@ class _EntryPage extends StatelessWidget {
         ),
       ],
     );
-    final stage = confirmed
-        ? 2
-        : review
-        ? 1
-        : 0;
     return Panel(
       dark: true,
       radius: 17,
@@ -372,6 +486,13 @@ class _EntryPage extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
+          if (action.id == 'revise_rate') ...[
+            const Text(
+              'Existing programme and earlier delivery prices stay unchanged.',
+              style: TextStyle(color: Color(0xFFE7E6E3), height: 1.4),
+            ),
+            const SizedBox(height: 12),
+          ],
           Semantics(
             liveRegion: true,
             label: [
@@ -424,21 +545,7 @@ class _EntryPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(end: (stage + 1) / 3),
-                    curve: Curves.easeOutCubic,
-                    duration: workspaceMotion(context),
-                    builder: (_, value, _) => LinearProgressIndicator(
-                      key: const ValueKey('entry-stage-progress'),
-                      value: value,
-                      color: confirmed
-                          ? const Color(0xFFB7DFC2)
-                          : WorkspaceTheme.peach,
-                      backgroundColor: const Color(0xFF565959),
-                      minHeight: 4,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
+                  _stageProgress(context, stage, dark: true),
                 ],
               ),
             ),
@@ -506,11 +613,12 @@ class _EntrySection extends StatelessWidget {
                   switch (title) {
                     'Fabric programme' ||
                     'Production entries' => Icons.layers_outlined,
-                    'Quantities' => Icons.scale_outlined,
+                    'Quantities' || 'Yarn received' => Icons.scale_outlined,
                     'Source & destination' => Icons.alt_route_rounded,
                     'Dispatch details' => Icons.local_shipping_outlined,
                     'Material ownership' ||
-                    'Yarn & ownership' => Icons.person_outline,
+                    'Yarn & ownership' ||
+                    'Ownership & source' => Icons.person_outline,
                     'Yarn inputs' => Icons.move_to_inbox_outlined,
                     'Machine & programme' ||
                     'Factory details' => Icons.precision_manufacturing_outlined,
@@ -576,7 +684,9 @@ class _LineSheet extends StatelessWidget {
 List<KnitField> _childFields(String kind, bool finance) => kind == 'entries'
     ? const [
         lineField,
-        machineField,
+        originalProductionOperatorField,
+        configuredProductionMachineField,
+        originalProductionMachineField,
         KnitField('shift', 'Shift'),
         weightsField,
         inputField,

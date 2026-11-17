@@ -10,13 +10,13 @@ const reports={};const errors=[];
 for(const report of inventory.reports){
   const path=resolve(root,report.source.replace(/\.json$/,'.js'));
   let source='';try{source=await readFile(path,'utf8');}catch{}
-  for(const shared of ['financial_statements','sales_trends_filters']){
+  for(const shared of ['financial_statements','sales_trends_filters','purchase_trends_filters']){
     if(source.includes(`erpnext.${shared}`)){
       source=(await readFile(resolve(root,`upstream/erpnext/erpnext/public/js/${shared}.js`),'utf8'))+'\n'+source;
     }
   }
   try{
-    const definition=source?extractReportFilters(source):{fields:[],requires_adapter:true,diagnostics:['no_script_filter_schema']};
+    const definition=source?extractReportFilters(source,report.name):{fields:[],requires_adapter:true,diagnostics:['no_script_filter_schema']};
     reports[report.name]={...definition,source:report.source,reference:report.reference,type:report.type};
   }catch(error){errors.push({report:report.name,error:error.message});reports[report.name]={fields:[],requires_adapter:true,diagnostics:['parse_error'],source:report.source};}
 }
