@@ -50,7 +50,7 @@ docker --context desktop-linux compose --project-name erp-windows-test -f infras
 
 ## Rebuild or develop
 
-Install the exact Flutter version from `infrastructure/erpnext/quality/flutter-toolchain.json`, Git, and Visual Studio with **Desktop development with C++** and a Windows SDK. Then:
+Install the exact Flutter version from `infrastructure/erpnext/quality/flutter-toolchain.json`, Git, and Visual Studio with **Desktop development with C++** and a Windows SDK. The PDF regression tests also require Poppler's `pdfinfo` and `pdftotext` on `PATH` (CI installs Chocolatey's `poppler` 26.7.0; Linux uses `poppler-utils`). End users running the packaged app do not need Poppler. Then:
 
 ```powershell
 cd apps\erp_client
