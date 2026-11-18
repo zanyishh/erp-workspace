@@ -48,7 +48,9 @@ jobs:
         run: flutter pub get --enforce-lockfile
       - name: Formatting
         working-directory: apps/erp_client
-        run: dart format --output=none --set-exit-if-changed lib test tool
+        run: |
+          dart format lib test tool
+          git diff --exit-code -- lib test tool
       - name: Analysis
         working-directory: apps/erp_client
         run: flutter analyze --no-pub

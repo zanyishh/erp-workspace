@@ -360,14 +360,10 @@ void main() {
     },
   );
 
-  test(
-    'private launcher credentials are unavailable outside macOS',
-    () async {
-      expect(LocalWorkspace.enabled, isFalse);
-      await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
-    },
-    skip: Platform.isMacOS,
-  );
+  test('private launcher credentials are unavailable outside macOS', () async {
+    expect(LocalWorkspace.enabled, isFalse);
+    await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
+  }, skip: Platform.isMacOS);
 
   bool requireMacLauncher() {
     if (Platform.isMacOS) return true;
