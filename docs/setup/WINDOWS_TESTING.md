@@ -40,7 +40,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-test.ps1 -
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-test.ps1
 ```
 
-The dedicated Docker Compose project is `erp-windows-test`. Stopping never removes volumes. Do not use `down -v` or delete its volumes. The default Docker context is `desktop-linux`; if Docker Desktop uses a different existing Linux context, pass `-DockerContext NAME`. Ports 8080/8081 must be free. All evaluation listeners remain on `127.0.0.1`.
+The dedicated Docker Compose project is `erp-windows-test`. Stopping never removes volumes. Do not use `down -v` or delete its volumes. The default Docker context is `desktop-linux`; if Docker Desktop uses a different existing Linux context, pass `-DockerContext NAME`. Port 8081 must be free. All evaluation listeners remain on `127.0.0.1`.
 
 If setup fails, inspect:
 
