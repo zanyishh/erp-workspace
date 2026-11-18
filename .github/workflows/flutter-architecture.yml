@@ -54,7 +54,10 @@ jobs:
         run: flutter analyze --no-pub
       - name: Unit and widget suite
         working-directory: apps/erp_client
-        run: flutter test --no-pub --concurrency=4
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes poppler-utils
+          flutter test --no-pub --concurrency=4
       - name: Local-launch opt-out variant
         working-directory: apps/erp_client
         run: flutter test --no-pub --dart-define=ERP_LOCAL_WORKSPACE=false test/local_workspace_test.dart
