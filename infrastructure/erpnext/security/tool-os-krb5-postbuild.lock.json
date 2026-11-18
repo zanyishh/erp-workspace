@@ -1,0 +1,201 @@
+{
+  "scope": "only the exact N7 complete ordinary-tested packages; postbuild GSS assertion correction only; original failure retained",
+  "checkpoint_receipt_sha256": "63e4622e941cd27ccd23c6a005f1b03a84be50008dcc2f8986d16dc6677ee59a",
+  "checkpoint_files": {
+    "abi-comparison.json": {
+      "bytes": 12264,
+      "sha256": "8e872a5a948164a1f299f250572b5dbf370e162216fe6054e00e8da92c13417a"
+    },
+    "abi-exception-evidence.json": {
+      "bytes": 3356,
+      "sha256": "8a3253302529c222171ed4f411c11c29910291a4fe61fcd15359a817f6fde14a"
+    },
+    "abi-review/baseline-consumers.json": {
+      "bytes": 64445,
+      "sha256": "0e159bfe11a4ea18d43d1709b130c22b9b070af841496031e797901a1a25b534"
+    },
+    "abi-review/baseline-inspection.json": {
+      "bytes": 2294,
+      "sha256": "d6c847cc5826796c13491b36b923d8007c738a22676eb565c4e0fb940d9d8d8c"
+    },
+    "abi-review/decision-evidence.json": {
+      "bytes": 9857,
+      "sha256": "4e8f6313aa0b6caa6fcf86a8795a1d4d5cee9402582a0494c2a5f017fccfd7a7"
+    },
+    "build-package-versions.txt": {
+      "bytes": 10331,
+      "sha256": "b444f029db9be50792df1beb01604170fda3c37e24777fec2d1da801bbca3f90"
+    },
+    "build.log": {
+      "bytes": 994126,
+      "sha256": "555888aab6b17d62b1d4c38b169e7363bdaec86f72a51688b71022a25cdd0e46"
+    },
+    "compatibility.json": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "dpkg-audit.txt": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "keyring-build-request.json": {
+      "bytes": 247,
+      "sha256": "f7bdc8e1bd3a0b3e0d2ba2e011435a9063aa4ba470e157956ccf36895afbfb59"
+    },
+    "keyring-cleanup-approval.json": {
+      "bytes": 547,
+      "sha256": "67e585090a1b17ddced486120c2160844742ad9ba66c32a53aa4e14745062c3c"
+    },
+    "keyring-prerequisite.json": {
+      "bytes": 17752,
+      "sha256": "3dacdbafef279c90d8122a638045ae73a981db2a5d84ff00cfd1065dbb44e5fb"
+    },
+    "keyring-start-approval.json": {
+      "bytes": 457,
+      "sha256": "b515bb758e751f3d447629483fc16e5284cdff64bfbac6216e33ac0951a52031"
+    },
+    "keyring-t_ccache-verbose.log": {
+      "bytes": 39768,
+      "sha256": "9792748f9fb2a58a4cc6f915cfb9ef7b4139ec1fc3d28f37ba998e429c9dfe34"
+    },
+    "keyring-t_cccol-verbose.log": {
+      "bytes": 11265,
+      "sha256": "4692f082b07e2095628f1a0638887ec20110f9110de5964f95763d0ec931c924"
+    },
+    "keyring-test-ready": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "keyring-test-session.json": {
+      "bytes": 3399,
+      "sha256": "35c39626432bb9d58b7a80f91b0262ecebac1c00e694cb9dac8139f893f0e253"
+    },
+    "keyring-tests/session.json": {
+      "bytes": 3399,
+      "sha256": "35c39626432bb9d58b7a80f91b0262ecebac1c00e694cb9dac8139f893f0e253"
+    },
+    "keyring-tests/t_ccache-verbose.log": {
+      "bytes": 39768,
+      "sha256": "9792748f9fb2a58a4cc6f915cfb9ef7b4139ec1fc3d28f37ba998e429c9dfe34"
+    },
+    "keyring-tests/t_cccol-verbose.log": {
+      "bytes": 11265,
+      "sha256": "4692f082b07e2095628f1a0638887ec20110f9110de5964f95763d0ec931c924"
+    },
+    "keyring-tests-finished": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "libgssapi-krb5-2_1.22.3-0+erp1_arm64.deb": {
+      "bytes": 121268,
+      "sha256": "0c517843459f9142f08f131e1e69b55364f63654109112e5a425fdbd4ee6d0f6"
+    },
+    "libk5crypto3_1.22.3-0+erp1_arm64.deb": {
+      "bytes": 75844,
+      "sha256": "935548f94820aefcf3744bf32c89ed0c97450248d4b563ec392b4759cf1bd655"
+    },
+    "libkrb5-3_1.22.3-0+erp1_arm64.deb": {
+      "bytes": 300688,
+      "sha256": "9ff46d33507dc683667d128e82932fb226e3973b460f42fc9a3564a13cacbc9c"
+    },
+    "libkrb5support0_1.22.3-0+erp1_arm64.deb": {
+      "bytes": 27100,
+      "sha256": "532018008d9387504ae410632fc0aa250a7a76939689ac31fc149c0ca082cba6"
+    },
+    "original-package-contracts.json": {
+      "bytes": 9311,
+      "sha256": "e5b6257fadf7c9352e116e7befd9b05c512d5342301e1c0112b50ff0053a8233"
+    },
+    "receipt.json": {
+      "bytes": 23697,
+      "sha256": "63e4622e941cd27ccd23c6a005f1b03a84be50008dcc2f8986d16dc6677ee59a"
+    },
+    "source_builder_mounts.py": {
+      "bytes": 3648,
+      "sha256": "498558e0c09b4decace283661139bbe6055bba5993e39300a8c90260b5192f50"
+    },
+    "tool-os-build-krb5.py": {
+      "bytes": 18583,
+      "sha256": "8b0e10d527a3eef41601dbd0548002bdb3301cdb4615acfe235a3cb5b8bc8004"
+    },
+    "tool-os-build-krb5.sh": {
+      "bytes": 3067,
+      "sha256": "628a8a221b6d4cfe47bf5d0a17c763fc4fabafb0374d73526d840cee61cd4268"
+    },
+    "tool-os-krb5-0003-debian-osconf.hin-path-changes.patch": {
+      "bytes": 1277,
+      "sha256": "0e922fd9230dfa2467cf606336ab7b6a9ec1277f2c9116a708ee6fe673ca6cb2"
+    },
+    "tool-os-krb5-0005-gssapi-never-unload-mechanisms.patch": {
+      "bytes": 1295,
+      "sha256": "9f72cb6e1a5bd4f9867e00f49707e441b897b3ed70f771b0aee2be4faa0d8194"
+    },
+    "tool-os-krb5-0011-Allow-kpropd-to-bind-even-if-only-loopback-is-config.patch": {
+      "bytes": 1106,
+      "sha256": "dda2b7df77a48381192124e191ca894257bfccffbd226fbe9593f1b78fefdf92"
+    },
+    "tool-os-krb5-0012-Skip-keyring-tests-if-keyring-blocked-by-seccomp.patch": {
+      "bytes": 3231,
+      "sha256": "1564cab6d72fc49c6bf792e74bc520f76826c3627d4813c399d65c52eab825a1"
+    },
+    "tool-os-krb5-0013-Report-keyctl-error-as-text.patch": {
+      "bytes": 717,
+      "sha256": "41e6b9be9035c17f54093e7703d71d4f298649dca49a0a92c4bdcbd19d651bef"
+    },
+    "tool-os-krb5-abi-exception.json": {
+      "bytes": 2201,
+      "sha256": "4fd91f19c42adab555b42b8f194b08cbbe6eac5071ceed79c9eb5adc3868e2ee"
+    },
+    "tool-os-krb5-consumers.py": {
+      "bytes": 3721,
+      "sha256": "e62949f81cc9f03bd81e9bad618b5804563cf42f09d8bc28bcc987630e04f6bf"
+    },
+    "tool-os-krb5-seccomp-default.json": {
+      "bytes": 13470,
+      "sha256": "536529b665dd0972c37bfb569f5d4ac8a53592e7b00752bc39ff063ca9864c74"
+    },
+    "tool-os-krb5-seccomp.LICENSE": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "tool-os-krb5-seccomp.NOTICE": {
+      "bytes": 1071,
+      "sha256": "b3280b383757777bcb838d1d5acd1f2dd3242ba707ea54bc1b353b9238c19e5e"
+    },
+    "tool-os-krb5-seccomp.json": {
+      "bytes": 16774,
+      "sha256": "2260ea56fb0651494f22338652221f95f888ffc15c9c6b54ecd24c973630d807"
+    },
+    "tool-os-krb5-test-environment.lock.json": {
+      "bytes": 3166,
+      "sha256": "23e53e89e60203797f3615a9bac40cf4936018004d200062ce190586cc5c9093"
+    },
+    "tool-os-krb5-test-environment.py": {
+      "bytes": 20858,
+      "sha256": "5ad62300d63c98d3a71ca1d28d577f2a3c33774cce6d0d5c77a6ef06d87fc91c"
+    },
+    "tool-os-krb5.lock.json": {
+      "bytes": 3118,
+      "sha256": "7ae4c4820075bbfad77555696937cf9364f3f990fa0ff10989e4d21035cd2421"
+    },
+    "tool-os-package-krb5.py": {
+      "bytes": 17174,
+      "sha256": "600a1f358a9e1216c8e54c2c3ac3fac56247fbc0cce6f2abd9b0e0882141d9b7"
+    },
+    "upstream-tests.log": {
+      "bytes": 283652,
+      "sha256": "05d35c8e5788a8a77577de6e775de6b91166a49509994dd3ada37f16c5b26c8e"
+    }
+  },
+  "packages": {
+    "libgssapi-krb5-2_1.22.3-0+erp1_arm64.deb": "0c517843459f9142f08f131e1e69b55364f63654109112e5a425fdbd4ee6d0f6",
+    "libk5crypto3_1.22.3-0+erp1_arm64.deb": "935548f94820aefcf3744bf32c89ed0c97450248d4b563ec392b4759cf1bd655",
+    "libkrb5-3_1.22.3-0+erp1_arm64.deb": "9ff46d33507dc683667d128e82932fb226e3973b460f42fc9a3564a13cacbc9c",
+    "libkrb5support0_1.22.3-0+erp1_arm64.deb": "532018008d9387504ae410632fc0aa250a7a76939689ac31fc149c0ca082cba6"
+  },
+  "original_checker_sha256": "600a1f358a9e1216c8e54c2c3ac3fac56247fbc0cce6f2abd9b0e0882141d9b7",
+  "postbuild_checker_sha256": "9cba12aaa0ad01375dde93310ad64adf6d6d7abd1fd763cf90e68cb20f3bf92e",
+  "postbuild_source_lock_sha256": "bbd6a8ded796ed336165694c885bcdfefbf45328f6d2fe33b268618b3b2d10dd",
+  "upstream_tests_repeated": false,
+  "compiled_bytes_changed": false
+}

@@ -1,0 +1,14 @@
+appId: ${APP_ID}
+---
+- runFlow: flows/enter_test_mill.yaml
+- tapOn: "Invoices"
+- scrollUntilVisible:
+    element: "Create your first invoice"
+- tapOn: "Create your first invoice"
+- scrollUntilVisible:
+    element: "Item or service"
+- tapOn: "Item or service"
+- inputText: "YARN-30"
+- assertVisible: ".*YARN-30.*"
+- assertVisible: "Review invoice"
+- takeScreenshot: invoice-entry-with-keyboard

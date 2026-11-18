@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "version": {
+    "frameworkVersion": "3.47.9",
+    "frameworkRevision": "c197ca5199e9ee5661e865596c9c07294dfab51c",
+    "engineRevision": "89c39edfdfae2949f6806e4a315c0c08522238b7",
+    "dartSdkVersion": "3.13.7",
+    "channel": "stable"
+  },
+  "archive": {
+    "platform": "macos-arm64",
+    "url": "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_3.47.9-stable.zip",
+    "bytes": 2268740583,
+    "sha256": "6545b85938745dc5070e9faf2adf70233c1811009d87fe6d27bfcda5a04b7698"
+  },
+  "release_metadata": "https://storage.googleapis.com/flutter_infra_release/releases/releases_macos.json",
+  "fixed_advisories": [
+    "https://github.com/dart-lang/sdk/security/advisories/GHSA-q739-79rh-vmvp",
+    "https://github.com/dart-lang/sdk/security/advisories/GHSA-frr6-h895-5pxp"
+  ],
+  "selection": ".local/quality/flutter-sdk.json",
+  "scope": "Project quality checks and named launchers only; original global SDK preserved. Android and Windows binaries require rebuilding. Windows compilation requires a Windows host."
+}

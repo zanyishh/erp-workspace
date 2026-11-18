@@ -1,0 +1,30 @@
+{
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "ncurses": {
+    "upstream_version": "6.5+20250216",
+    "package_version": "6.5+20250216-2+erp1",
+    "advisories": [
+      "CVE-2025-69720"
+    ],
+    "sources": {
+      "ncurses_6.5+20250216.orig.tar.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/n/ncurses/ncurses_6.5+20250216.orig.tar.gz",
+        "sha256": "b37baafa436e7133bb12a185cb8f60e1599b1947e9f0181c76f3190acf28b6eb",
+        "bytes": 3774714
+      },
+      "ncurses_6.5+20250216-2.debian.tar.xz": {
+        "url": "https://deb.debian.org/debian/pool/main/n/ncurses/ncurses_6.5+20250216-2.debian.tar.xz",
+        "sha256": "546930a8992ae3325d8c38378f290265d969cf6333cfae9648ac6d69e1e8a8a6",
+        "bytes": 50420
+      }
+    },
+    "helpers": [
+      "ncurses-CVE-2025-69720.patch"
+    ],
+    "patch_sha256": "9815f15507a4b2a71172eb7d27a383c51cb8ceb146d665de7bc2b5e98086be96",
+    "full_upstream_patch_sha256": "2f5ddabe050a92d33b1351cb71c3c7cf12e2b6bd495dde0389aae89064412ece",
+    "full_upstream_patch_url": "https://invisible-island.net/archives/ncurses/6.5/ncurses-6.5-20251213.patch.gz",
+    "integrity": "Source archive digests matched the HTTPS-published Debian signed source descriptor; OpenPGP signature not independently verified",
+    "validation": "Debian complete same-source build with declared profile dependencies enforced; three maintained superficial autopkgtests with exit/stderr gates; all ten shared libraries checked for original exports/SONAME and runtime bytes; normal infocmp analysis/roundtrip/terminal API compatibility. The unmodified terminfocheck is diagnostic and its exit status does not establish database equality. Interactive visual ncurses examples are not automated."
+  }
+}

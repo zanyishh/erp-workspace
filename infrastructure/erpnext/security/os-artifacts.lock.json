@@ -1,0 +1,177 @@
+{
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "git": {
+    "upstream_version": "2.50.2",
+    "package_version": "1:2.50.2-0+erp1",
+    "advisories": [
+      "CVE-2026-105437",
+      "CVE-2026-111760",
+      "CVE-2026-114466"
+    ],
+    "release_evidence": "https://github.blog/open-source/git/git-security-vulnerabilities-announced-7/",
+    "checksum_evidence": "https://www.kernel.org/pub/software/scm/git/sha256sums.asc",
+    "integrity": "HTTPS-published SHA-256 matched; OpenPGP signature not independently verified",
+    "sources": {
+      "git-2.50.2.tar.xz": {
+        "url": "https://www.kernel.org/pub/software/scm/git/git-2.50.2.tar.xz",
+        "bytes": 7886764,
+        "sha256": "b9d6be0e286803466f998ced664566de3368534eca7eda6d5d9358e40f55c151"
+      },
+      "git-manpages-2.50.2.tar.xz": {
+        "url": "https://www.kernel.org/pub/software/scm/git/git-manpages-2.50.2.tar.xz",
+        "bytes": 598652,
+        "sha256": "e4fc14ce39dbe3ade967d30311b84f9a79c2d4f6d48c3f12c1c050a255e2802a"
+      }
+    }
+  },
+  "sqlite": {
+    "upstream_version": "3.54.1",
+    "package_version": "3.54.1-0+erp1",
+    "advisories": [
+      "CVE-2026-119373",
+      "CVE-2026-119374",
+      "CVE-2026-119379"
+    ],
+    "release_evidence": "https://sqlite.org/releaselog/3_54_1.html",
+    "fix_evidence": "https://security-tracker.debian.org/tracker/source-package/sqlite3",
+    "checksum_evidence": "https://sqlite.org/download.html",
+    "integrity": "HTTPS-published SHA3-256 matched; SHA-256 recorded for build input verification",
+    "sources": {
+      "sqlite-src-3540100.zip": {
+        "url": "https://www.sqlite.org/2026/sqlite-src-3540100.zip",
+        "bytes": 14899528,
+        "sha256": "387e7f6cad4797b17848c07d453dc6606917bb356a6cfe5a3abafd38c240c71b",
+        "sha3_256": "877c6f4996ce7adb368686bce21638de9e3d91534832ad3d9d119037d1bc22ad"
+      },
+      "sqlite-private-symbol-imports.json": {
+        "provenance": "Read-only pinned-base ELF import audit and official upstream header classification; see sqlite-abi-contract.json",
+        "bytes": 10868,
+        "sha256": "b9b3d4e6a09e76bf8d7a4a77621a01fff767184905379f5989e2590c7c7df969"
+      },
+      "sqlite-removed-symbol-classification.json": {
+        "provenance": "Read-only pinned-base ELF import audit and official upstream header classification; see sqlite-abi-contract.json",
+        "bytes": 3053,
+        "sha256": "a72e3f8d166db924e2e3d78ec51de8c01c17ba2dd7197b71514592078d270f68"
+      }
+    },
+    "helpers": [
+      "sqlite-abi-check.py",
+      "sqlite-abi-contract.json"
+    ]
+  },
+  "x11": {
+    "upstream_versions": {
+      "libx11": "1.8.14",
+      "libxi": "1.8.4",
+      "libxrender": "0.9.13",
+      "libxtst": "1.2.6"
+    },
+    "local_revision": "+erp1",
+    "advisories": [
+      "CVE-2026-88806",
+      "CVE-2026-109089",
+      "CVE-2026-109090",
+      "CVE-2026-88807",
+      "CVE-2026-94286"
+    ],
+    "release_evidence": "https://lists.x.org/archives/xorg-announce/2026-October/003752.html",
+    "integrity": "Debian HTTPS-published source manifests; exact sizes and SHA-256 matched. OpenPGP signatures not independently verified.",
+    "sources": {
+      "libx11_1.8.14-1.dsc": {
+        "sha256": "caf77758cf76511d937b4f876d254f28ea05fd83a35f09fa09e597942094bbcc",
+        "bytes": 2243,
+        "url": "https://deb.debian.org/debian/pool/main/libx/libx11/libx11_1.8.14-1.dsc"
+      },
+      "libx11_1.8.14.orig.tar.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libx11/libx11_1.8.14.orig.tar.gz",
+        "bytes": 3223041,
+        "sha256": "ebb8a58549ddde50aa2e742b3b256557f451053d173be8dbfc2e8ac078eee1d6"
+      },
+      "libx11_1.8.14-1.diff.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libx11/libx11_1.8.14-1.diff.gz",
+        "bytes": 77209,
+        "sha256": "d8a820cabaceedcdf0d74318133eab8d3f4bc69d1f7b08f8a8af1eab94cb77c2"
+      },
+      "libxi_1.8.4-1.dsc": {
+        "sha256": "82025749283a2231866439499d86655c82f8154ae26d8b20ce1c18fe034f596f",
+        "bytes": 2068,
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxi/libxi_1.8.4-1.dsc"
+      },
+      "libxi_1.8.4.orig.tar.xz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxi/libxi_1.8.4.orig.tar.xz",
+        "bytes": 422212,
+        "sha256": "ddd6057b89a91903bc2f884d55c8467440906945e482c36547260dff28661afc"
+      },
+      "libxi_1.8.4-1.debian.tar.xz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxi/libxi_1.8.4-1.debian.tar.xz",
+        "bytes": 23348,
+        "sha256": "9720c170c270c313be1c4422cc2ac8a1eb5872dbf943603a7f012a64f2bf1bff"
+      },
+      "libxrender_0.9.13-1.dsc": {
+        "sha256": "d1e0fa2d03ac3402e449e73bdee3a75be391634ab3cb0e5a44dd69701b8fdf0a",
+        "bytes": 2002,
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxrender/libxrender_0.9.13-1.dsc"
+      },
+      "libxrender_0.9.13.orig.tar.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxrender/libxrender_0.9.13.orig.tar.gz",
+        "bytes": 460608,
+        "sha256": "bf264b683d1e49ff9a6bc03af13baa430a556d943731a2b1ac2439dae4fea205"
+      },
+      "libxrender_0.9.13-1.diff.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxrender/libxrender_0.9.13-1.diff.gz",
+        "bytes": 26505,
+        "sha256": "8272e0d966bb7c7c9d8d0a0dd70e9258bded5833ea675b2783d5c698d9b4eb8d"
+      },
+      "libxtst_1.2.6-1.dsc": {
+        "sha256": "b64d8bf301c32091c8a34ef2d8c6c42b133948d892efa66567d66003ca6da807",
+        "bytes": 2089,
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxtst/libxtst_1.2.6-1.dsc"
+      },
+      "libxtst_1.2.6.orig.tar.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxtst/libxtst_1.2.6.orig.tar.gz",
+        "bytes": 456527,
+        "sha256": "f30f2d4f8370077de9f35220a539bf34c042ca02a55669a4d8f345c661ce7839"
+      },
+      "libxtst_1.2.6-1.diff.gz": {
+        "url": "https://deb.debian.org/debian/pool/main/libx/libxtst/libxtst_1.2.6-1.diff.gz",
+        "bytes": 21594,
+        "sha256": "e9e503da30bb53c5f533e697a6bbfed2d0e9f2226f503e37e21ffdb5de099f99"
+      },
+      "git-2.50.2.tar.xz": {
+        "url": "https://www.kernel.org/pub/software/scm/git/git-2.50.2.tar.xz",
+        "bytes": 7886764,
+        "sha256": "b9d6be0e286803466f998ced664566de3368534eca7eda6d5d9358e40f55c151"
+      },
+      "git-man_2.50.2-0+erp1_all.deb": {
+        "origin": "Locally built from the official locked Git 2.50.2 manpage archive; os-git-build-20261116-1 receipt",
+        "bytes": 1215612,
+        "sha256": "abb6a2a0fdf29390796fb8d64ad49f45d3375b0b3a788069f6640a59b3408792"
+      }
+    },
+    "helpers": [
+      "os-x11-symbol-metadata.py",
+      "os-x11-abi-check.py",
+      "os-x11-abi-contract.json",
+      "os-x11-retain-build.py"
+    ],
+    "local_packaging_adjustments": {
+      "symbols": "Exactly five baseline _XimXTransSocket*Funcs exports added to libx11-6 metadata with minimum2:1.8.14-1+erp1; strict -c4 remains enabled",
+      "source_or_ABI_change": false
+    },
+    "abi_contract_sha256": "92722d819e440d80de89336ba65b36fa8fbae134da1b3863190992ded2dfc7e8",
+    "abi_contract": "All original exports required, except exactly seven audited libXi linker markers internal to dpkg; all 88 original Debian API symbols retained."
+  },
+  "zlib": {
+    "upstream_version": "1.4",
+    "package_version": "1:1.4-0+erp1",
+    "release_evidence": "https://zlib.net/",
+    "applicability": "Installed upstream1.3.1 falls within affected1.2.8\u20131.3.2 range for inflateGetDictionary overflow. No criticality invented for advisories absent from original scan.",
+    "sources": {
+      "zlib-1.4.tar.gz": {
+        "url": "https://zlib.net/zlib-1.4.tar.gz",
+        "bytes": 1507140,
+        "sha256": "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584"
+      }
+    }
+  }
+}

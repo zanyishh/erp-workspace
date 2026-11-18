@@ -1,0 +1,41 @@
+{
+  "scope": "exact-tested-ERP-image-only; no generic full ABI parity claim",
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "baseline_package_version": "1.21.3-5+deb13u1",
+  "candidate_package_version": "1.22.3-0+erp1",
+  "upstream_version": "1.22.3",
+  "source_archive": "tool-os-krb5-1.22.3.tar.gz",
+  "source_sha256": "fe90af8441ad9fa9b064b8e53077cefb782a96f8a68276b031dc54af1789ff0b",
+  "soname": "libgssapi_krb5.so.2",
+  "baseline_provider": {
+    "path": "/usr/lib/aarch64-linux-gnu/libgssapi_krb5.so.2.2",
+    "sha256": "967b9c108b49481f6cc1358d675a6c1b16754254c84c421c43a5814010e2a215"
+  },
+  "removed_symbol": "gss_krb5int_unseal_token_v3@@gssapi_krb5_2_MIT",
+  "upstream_removal_commit": "7ae0adcdf16687810f747e284c9fb571a561c5bd",
+  "Debian_same_soname_disposition": "https://sources.debian.org/src/krb5/1.22.1-3/debian/libgssapi-krb5-2.symbols/",
+  "unmodified_bundled_provider": {
+    "path": "/home/frappe/frappe-bench/env/lib/python3.14/site-packages/psycopg2_binary.libs/libgssapi_krb5-42536122.so.2.2",
+    "sha256": "7b5ec5b48e4991e4226b95f438b3d9a2a74e53855e7f18335f393394d7d81d13"
+  },
+  "review_evidence": {
+    "decision-evidence.json": {
+      "source": ".local/quality/security-remediation/krb5-abi-review/decision-evidence.json",
+      "bytes": 9857,
+      "sha256": "4e8f6313aa0b6caa6fcf86a8795a1d4d5cee9402582a0494c2a5f017fccfd7a7"
+    },
+    "baseline-consumers.json": {
+      "source": ".local/quality/security-remediation/krb5-abi-review/baseline-inventory-1/stdout.json",
+      "bytes": 64445,
+      "sha256": "0e159bfe11a4ea18d43d1709b130c22b9b070af841496031e797901a1a25b534"
+    },
+    "baseline-inspection.json": {
+      "source": ".local/quality/security-remediation/krb5-abi-review/baseline-inventory-1/receipt.json",
+      "bytes": 2294,
+      "sha256": "d6c847cc5826796c13491b36b923d8007c738a22676eb565c4e0fb940d9d8d8c"
+    }
+  },
+  "consumer_inventory_sha256": "e62949f81cc9f03bd81e9bad618b5804563cf42f09d8bc28bcc987630e04f6bf",
+  "bundled_psycopg2_kerberos_source_fixed": false,
+  "bundled_advisory_applicability": "open; unchanged provider hash is compatibility provenance only, not remediation"
+}

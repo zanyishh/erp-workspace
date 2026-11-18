@@ -1,0 +1,32 @@
+{
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "archive-tar": {
+    "version": "3.14",
+    "source_url": "https://cpan.metacpan.org/authors/id/B/BI/BINGOS/Archive-Tar-3.14.tar.gz",
+    "sources": {
+      "Archive-Tar-3.14.tar.gz": {
+        "bytes": 68347,
+        "sha256": "177ce0506124afbe3ef95836761fb0799c941b87b79bac489bddc6cda860d904"
+      }
+    },
+    "helpers": [
+      "package-archive-tar.py",
+      "install-runtime-perl.py"
+    ],
+    "outputs": [
+      "archive-tar-runtime.tar.gz",
+      "archive-tar-receipt.json"
+    ],
+    "preimages": {
+      "usr/share/perl/5.40.1/Archive/Tar.pm": "b46ebbba5898fa4d050d610aaf79e6a90e90b4f8d44689c3d9e361145d14a704",
+      "usr/share/perl/5.40.1/Archive/Tar/Constant.pm": "daf4ee248e2b72d2f3b7dafe97bf2107461707e31d2bd8bffa67c92079411b05",
+      "usr/share/perl/5.40.1/Archive/Tar/File.pm": "a65acb350797e1eb90f545486f8873ff6a229dc6d192ba84c3db1ece540660d2",
+      "usr/bin/ptar": "126fc379885309b476100e1150430256ab892c5b5650741af17478984a389758",
+      "usr/bin/ptardiff": "1d7d45bd4f48409a479886e6cfb6e3e8093fea89b10ce906d399484d92a86cc0",
+      "usr/bin/ptargrep": "0bca747354107929ecefbab2a8128923763bfa622124e20a1194c7f8a914a20f"
+    },
+    "baseline_perl": "5.40.1-6+deb13u1",
+    "interpreter": "unchanged; Archive::Tar3.14 component overlay only",
+    "ordinary_suite": "make test TEST_VERBOSE=1, with Text::Diff, Test::Pod and XZ support available; no test selection or exclusions"
+  }
+}

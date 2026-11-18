@@ -1,0 +1,23 @@
+.DS_Store
+.local/
+.superpowers/
+.env
+*.log
+upstream/
+__pycache__/
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# Customer research, account-specific verification and private delivery reviews.
+/docs/research/fashionsuite/
+/docs/coverage/2026-11-14-migration-readiness.md
+/docs/coverage/2026-11-14-launch-readiness.md
+/docs/coverage/2026-11-15-knitpack-verification.json
+/docs/superpowers/plans/2026-11-15-customer-visible-parity-repair.md
+/docs/superpowers/plans/2026-11-15-knitpack-functional-coverage.md
+/docs/superpowers/specs/2026-11-15-customer-visible-parity-repair.md

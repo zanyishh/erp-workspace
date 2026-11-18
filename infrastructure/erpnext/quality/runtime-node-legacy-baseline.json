@@ -1,0 +1,218 @@
+{
+  "passed": true,
+  "checks": 28,
+  "results": [
+    {
+      "kind": "vue-style",
+      "case": 0,
+      "scoped": false,
+      "css": ".order { color: red; margin: 0 2px;\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 0,
+      "scoped": true,
+      "css": ".order[data-v-erp] { color: red; margin: 0 2px;\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 0,
+      "css": ".fixture-0__order__1leio { color: red; margin: 0 2px; }",
+      "tokens": {
+        "order": "fixture-0__order__1leio"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 1,
+      "scoped": false,
+      "css": ".order:hover, .order.active { color: blue;\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 1,
+      "scoped": true,
+      "css": ".order[data-v-erp]:hover, .order.active[data-v-erp] { color: blue;\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 1,
+      "css": ".fixture-1__order__eqtu9:hover, .fixture-1__order__eqtu9.fixture-1__active__3454S { color: blue; }",
+      "tokens": {
+        "order": "fixture-1__order__eqtu9",
+        "active": "fixture-1__active__3454S"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 2,
+      "scoped": false,
+      "css": "@media (max-width: 700px) {\n.order { display: block;\n}\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 2,
+      "scoped": true,
+      "css": "@media (max-width: 700px) {\n.order[data-v-erp] { display: block;\n}\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 2,
+      "css": "@media (max-width: 700px) { .fixture-2__order__N5RmJ { display: block; } }",
+      "tokens": {
+        "order": "fixture-2__order__N5RmJ"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 3,
+      "scoped": false,
+      "css": ".order > .item + .label { padding: calc(1em + 2px);\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 3,
+      "scoped": true,
+      "css": ".order > .item + .label[data-v-erp] { padding: calc(1em + 2px);\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 3,
+      "css": ".fixture-3__order__3tsYC > .fixture-3__item__2Dyl3 + .fixture-3__label__2_98N { padding: calc(1em + 2px); }",
+      "tokens": {
+        "order": "fixture-3__order__3tsYC",
+        "item": "fixture-3__item__2Dyl3",
+        "label": "fixture-3__label__2_98N"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 4,
+      "scoped": false,
+      "css": "@keyframes pulse {\nfrom { opacity: 0;\n}\nto { opacity: 1;\n}\n}\n.order { animation: pulse 1s;\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 4,
+      "scoped": true,
+      "css": "@keyframes pulse-data-v-erp {\nfrom { opacity: 0;\n}\nto { opacity: 1;\n}\n}\n.order[data-v-erp] { animation: pulse-data-v-erp 1s;\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 4,
+      "css": "@keyframes fixture-4__pulse__2w5IP { from { opacity: 0; } to { opacity: 1; } } .fixture-4__order__30DcY { animation: fixture-4__pulse__2w5IP 1s; }",
+      "tokens": {
+        "order": "fixture-4__order__30DcY",
+        "pulse": "fixture-4__pulse__2w5IP"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 5,
+      "scoped": false,
+      "css": ".order { --erp-color: red; color: var(--erp-color);\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 5,
+      "scoped": true,
+      "css": ".order[data-v-erp] { --erp-color: red; color: var(--erp-color);\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 5,
+      "css": ".fixture-5__order__21YvN { --erp-color: red; color: var(--erp-color); }",
+      "tokens": {
+        "order": "fixture-5__order__21YvN"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 6,
+      "scoped": false,
+      "css": ":global(.external) .local { color: #fff;\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 6,
+      "scoped": true,
+      "css": ":global(.external) .local[data-v-erp] { color: #fff;\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 6,
+      "css": ".external .fixture-6__local__2mCup { color: #fff; }",
+      "tokens": {
+        "local": "fixture-6__local__2mCup"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 7,
+      "scoped": false,
+      "css": ".base { color: red;\n}\n.derived { composes: base; display: flex;\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 7,
+      "scoped": true,
+      "css": ".base[data-v-erp] { color: red;\n}\n.derived[data-v-erp] { composes: base; display: flex;\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 7,
+      "css": ".fixture-7__base__1D42z { color: red; } .fixture-7__derived__3dVtC { display: flex; }",
+      "tokens": {
+        "base": "fixture-7__base__1D42z",
+        "derived": "fixture-7__derived__3dVtC fixture-7__base__1D42z"
+      }
+    },
+    {
+      "kind": "vue-style",
+      "case": 8,
+      "scoped": false,
+      "css": "/* fixture */\n.order[data-state=\"open\"]::before { content: \"ERP\";\n}"
+    },
+    {
+      "kind": "vue-style",
+      "case": 8,
+      "scoped": true,
+      "css": "/* fixture */\n.order[data-state=\"open\"][data-v-erp]::before { content: \"ERP\";\n}"
+    },
+    {
+      "kind": "css-modules",
+      "case": 8,
+      "css": "/* fixture */\n.fixture-8__order__wPFQQ[data-state=\"open\"]::before { content: \"ERP\"; }",
+      "tokens": {
+        "order": "fixture-8__order__wPFQQ"
+      }
+    },
+    {
+      "kind": "source-map-resolve",
+      "resolved": {
+        "sourceMappingURL": "bundle%20file.js.map",
+        "url": "/fixtures/bundle%20file.js.map",
+        "sourcesRelativeTo": "/fixtures/bundle%20file.js.map",
+        "map": {
+          "version": 3,
+          "file": "bundle.js",
+          "sources": [
+            "file%20name.js"
+          ],
+          "names": [],
+          "mappings": "AAAA"
+        },
+        "sourcesResolved": [
+          "/fixtures/file%20name.js"
+        ],
+        "sourcesContent": [
+          "export const quantity=2;"
+        ]
+      },
+      "reads": [
+        "/fixtures/bundle file.js.map",
+        "/fixtures/file name.js"
+      ]
+    }
+  ]
+}

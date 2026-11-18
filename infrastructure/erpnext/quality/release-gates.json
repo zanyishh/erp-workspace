@@ -1,0 +1,23 @@
+{
+  "release_approved": false,
+  "rule": "Every required gate needs reviewed evidence for the exact release revision. Missing, skipped, blocked and stale evidence fail closed.",
+  "gates": {
+    "critical_vulnerabilities_zero": "pending",
+    "high_vulnerabilities_resolved_or_reviewed_exception": "pending",
+    "cross_company_isolation": "pending",
+    "authentication_and_permissions": "pending",
+    "defined_critical_business_workflows": "pending",
+    "financial_calculations_and_payment_idempotency": "pending",
+    "no_production_secrets": "pending",
+    "licenses_assets_notices_and_corresponding_source": "pending",
+    "encrypted_backup_restore": "pending",
+    "deployment_and_rollback": "pending",
+    "performance_targets_agreed_and_met": "pending",
+    "asvs_level_2_review": "pending",
+    "masvs_review": "pending",
+    "nist_ssdf_process_review": "pending",
+    "terms_privacy_and_qualified_legal_review": "pending",
+    "windows_build_on_windows_host": "pending"
+  },
+  "ai_security": "deferred; no AI feature is in the current increment"
+}

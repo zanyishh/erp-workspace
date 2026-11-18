@@ -1,0 +1,130 @@
+[
+  {
+    "file": "apps/erp_client/assets/images/warehouse.png",
+    "tool": "built-in image_gen",
+    "purpose": "original UI 3D illustration",
+    "sha256": "56be958f788fed32a84e872de34e40fe2fb0e3cece95d3216a41896c642b5604",
+    "size": [
+      1774,
+      887
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/images/sales.png",
+    "tool": "built-in image_gen",
+    "purpose": "original UI 3D illustration",
+    "sha256": "42c6553541d5cac3de7f5574c243aa57fb1545cfb1666ca2d4a8eef7017cc299",
+    "size": [
+      1536,
+      1024
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/images/purchasing.png",
+    "tool": "built-in image_gen",
+    "purpose": "original UI 3D illustration",
+    "sha256": "76801998cd3a774bc3cbf602b55c5aa5def8fe7f164356a226ab3012eef9d9ba",
+    "size": [
+      1536,
+      1024
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/images/knitting-studio.jpg",
+    "tool": "built-in image_gen",
+    "purpose": "Original cotton yarn, jersey fabric and circular knitting cylinder studio still life for the knitting workspace and forms",
+    "sha256": "5f5a890b0c4974a4aa58b85897f862af1fbe98f1f890a9b93e63533cd12d3d29",
+    "size": [
+      2172,
+      724
+    ],
+    "transparency": false
+  },
+  {
+    "file": "apps/erp_client/assets/studio/yarn-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original yarn product render matched to the original purchasing artwork",
+    "source_sha256": "a22c622a3d411ce52dfdd47cf50a1d8bf46ea6a19b56426f709cdf46b117505f",
+    "sha256": "de0df25bb63bd0c4924410bfe5b6eb3ba98f3d4ba4b67ce26e97aeecaf359c01",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/machine-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original machine product render matched to the original purchasing artwork",
+    "source_sha256": "cafffeaf13b0156ba7a9add19d8d478a919912a09e23e2ab850cf825b03c7eec",
+    "sha256": "2dd6af16124b1806ac53b5a9ea9f8126001f6c48db342c6c708208d99e658930",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/fabric-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original fabric product render matched to the original purchasing artwork",
+    "source_sha256": "eb5a70098b71d0f4747c48f61570a9761142474f42373b38c7d9d70d7c7ad2d6",
+    "sha256": "8a576d9ffaa42b6b6e73634e0760620b7fadc012c035e6f68ab2dc0678707833",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/inspection-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original inspection product render matched to the original purchasing artwork",
+    "source_sha256": "2d1f9447243a31b4e350cbe4f84f04d87516a654cfe5933ee92dcaad08e065e3",
+    "sha256": "87d012e8618e1c4108bd31198721a3e3c62ee15dd18d1fce04a465a60d8b89bb",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/dispatch-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original dispatch product render matched to the original purchasing artwork",
+    "source_sha256": "a59d8b36d372cf3e5fde79a83467de606d82ab66d8046ffd45edae6e5fb1bc38",
+    "sha256": "f2fe6326e7f3846ae6483131289492a29165c92cba454c7371767e25fa376166",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/invoice-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original invoice product render matched to the original purchasing artwork",
+    "source_sha256": "fa9b70b0dd87fc9ac723abd00e2b76bb384d3f35e3fb8dc90ca2133f60e03943",
+    "sha256": "d4a491cdd3d9b7682b760c2c6c4dfd29d9931ffbfdf413c2bc6e133558d04e64",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  },
+  {
+    "file": "apps/erp_client/assets/studio/assembly-960.webp",
+    "tool": "built-in image_gen",
+    "purpose": "Original general manufacturing assembly robot matched to the purchasing trolley",
+    "source_sha256": "14fa6b2ed8b6716acfa5e014b772087d58f4482da427b86ccb776dc8bf60bfa6",
+    "sha256": "d6b4d48d9da5111908468d1428d2eb983f97f5c095214449c0db5a54e2da9f29",
+    "size": [
+      960,
+      640
+    ],
+    "transparency": true
+  }
+]

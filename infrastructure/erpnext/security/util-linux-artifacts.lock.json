@@ -1,0 +1,52 @@
+{
+  "version": "2.41.6",
+  "package_version": "2.41.6-0+erp1",
+  "base_image": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+  "sources": {
+    "util-linux-2.41.6.tar.xz": {
+      "url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.41/util-linux-2.41.6.tar.xz",
+      "bytes": 9470680,
+      "sha256": "e596083744e746be7d2823b62b43f4418dd7bf56303b4dc09e6fe8112fe3d7ed",
+      "root": "util-linux-2.41.6"
+    },
+    "util-linux-debian.tar.xz": {
+      "url": "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5-0+deb13u1.debian.tar.xz",
+      "bytes": 107604,
+      "sha256": "5b327ccd22f0f4ed28a389870aa51d04ecedb8693e52a1d122850f2b3188cbf6",
+      "root": "debian"
+    }
+  },
+  "integrity": "HTTPS-published upstream SHA-256 and Debian signed-source descriptor SHA-256 matched; signatures not independently verified",
+  "checksum_sources": [
+    "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/v2.41/sha256sums.asc",
+    "https://deb.debian.org/debian/pool/main/u/util-linux/util-linux_2.41.5-0+deb13u1.dsc"
+  ],
+  "fixed_advisories": [
+    "CVE-2026-76642",
+    "CVE-2026-78408",
+    "CVE-2026-78410"
+  ],
+  "release": "https://github.com/util-linux/util-linux/releases/tag/v2.41.6",
+  "CVE-2026-78409": {
+    "status": "source-applicability-verification-required",
+    "upstream_affected": ">=2.42; upstream lists 2.41.6 and 2.42.3 as patched",
+    "debian_disagreement": "trixie 2.41.5 is marked vulnerable; retain the raw finding and verify the compiled source lacks the detached-tree restricted-user branch",
+    "advisory": "https://github.com/util-linux/util-linux/security/advisories/GHSA-8f2p-47x3-43mv"
+  },
+  "maintenance_patches": {
+    "util-linux-idmap-include.patch": {
+      "url": "https://github.com/util-linux/util-linux/commit/79c2881c27a0b40889cd5433d9f125689826d1d2.patch",
+      "commit": "79c2881c27a0b40889cd5433d9f125689826d1d2",
+      "branch": "stable/v2.41",
+      "bytes": 1271,
+      "sha256": "ad095c0456e71636c2b9fd9c41fb24031ad5ab66dfac9e3fd6a9f40cfcecf0ab"
+    },
+    "util-linux-idmap-config.patch": {
+      "url": "https://github.com/util-linux/util-linux/commit/233cf7321e9d0fd2cea901d0a97e565c725640ad.patch",
+      "commit": "233cf7321e9d0fd2cea901d0a97e565c725640ad",
+      "branch": "stable/v2.41",
+      "bytes": 4383,
+      "sha256": "6f98c72584bbc602869f663b4e1f1394cd45f8c086199241c3e2a4293f401b4e"
+    }
+  }
+}

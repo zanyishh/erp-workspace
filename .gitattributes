@@ -1,0 +1,4 @@
+# Preserve upstream legal notices byte-for-byte, including original line endings.
+licenses/** -text -whitespace
+# Vendor patch context and checksum receipts depend on these exact bytes.
+infrastructure/erpnext/security/*.patch -text -whitespace

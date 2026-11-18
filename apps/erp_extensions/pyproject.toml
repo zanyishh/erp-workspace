@@ -1,0 +1,17 @@
+[project]
+name = "erp_extensions"
+version = "0.1.0"
+description = "Permission-preserving native Flutter interface for ERPNext"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["erp_extensions*"]
+
+[tool.setuptools.package-data]
+erp_extensions = ["modules.txt", "report_definitions.json", "condition_definitions.json"]
+"erp_extensions.tests" = ["golden/gst-review.json", "golden/tally-review.xml"]

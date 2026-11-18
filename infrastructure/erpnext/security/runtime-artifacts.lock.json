@@ -1,0 +1,343 @@
+{
+  "status": "staged-components-not-image-validated",
+  "base_images": {
+    "erpnext": "frappe/erpnext@sha256:32145acc7f699dc598ca141018a95ebf8e56f516d4a0e76beb7287ae68b303b8",
+    "mariadb": "mariadb@sha256:d36f18d65a0459510b8b0f643b226a6d299e3206486e2b64ff20754a6d291707"
+  },
+  "libxml2": {
+    "debian_version": "2.12.7+dfsg+really2.9.14-2.1+deb13u3",
+    "local_version": "2.12.7+dfsg+really2.9.14-2.1+deb13u3+erp1",
+    "canonical_patch_sha256": "6c2b8a7b6fa470efcb1854e5c73bd7e1ae1663d8b111e27ce9232bbc1fe44f54",
+    "canonical_source_archive_url": "https://archive.ubuntu.com/ubuntu/pool/main/libx/libxml2/libxml2_2.9.14+dfsg-1.3ubuntu3.10.debian.tar.xz",
+    "canonical_source_archive_sha256": "d2d821830eb60edbcfcbe30e2827420e9e439e98c85c812352969cdda764d60b",
+    "advisory": "https://ubuntu.com/security/CVE-2026-6653",
+    "input_files": {
+      "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.dsc": "04b1da890535b11e3db231f39114ee09e643badceff79441d749d0ca78efaaa5",
+      "poc.tar.gz": "2b1c8ff7bcb2e2583d0ee8d5e02dc59521d5788426857796033d18a2fd18c4d2",
+      "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3.debian.tar.xz": "3b6d265f482d6a8fbe3c056d2006fb3b563b4a838f7258b388ac5f0b29206921",
+      "CVE-2026-6653.patch": "6c2b8a7b6fa470efcb1854e5c73bd7e1ae1663d8b111e27ce9232bbc1fe44f54",
+      "libxml2_2.12.7+dfsg+really2.9.14.orig.tar.xz": "4fe913dec8b1ab89d13b489b419a8203176ea39e931eaa0d25b17eafb9c279e9"
+    },
+    "additional_patch_hashes": {
+      "CVE-2026-74860.patch": "546cc59a213567f925437c46ba85e60cb5fc92fd6337c83ccd074e91cc64cc1e",
+      "CVE-2026-86138.patch": "05e5da494f3e7b5ea9500ffe6c0ef0ebac762aae956c9b8808826dc24871f003",
+      "CVE-2026-86140.patch": "6f3e6bd911a1b0d58ebad1ff752e2302f9e8b92ec32c7461774aa998c1a2b3c0",
+      "CVE-2026-86142.patch": "ee0b790809fb0fa3b0af19ef8dd61c10707c9e2f9bbfae52b63d735a15bfafd8",
+      "CVE-2026-86143.patch": "e809e00ceeb0c4b12997bf46cc411970f4a269ef7e3548acba9973bb5535cea8",
+      "CVE-2026-86144.patch": "85809cce7c841d76de73d133fc681614850123dcf27f93b179e2e9ac5426c8f7"
+    },
+    "additional_patch_status": "all six apply to the fully Debian-patched source with zero fuzz; runtime validation pending",
+    "built_package_sha256": "f221aa71169204c1351114caa042785bd094aa3a674c45c4341703d5dcec2dd5",
+    "built_package_file": "libxml2_2.12.7+dfsg+really2.9.14-2.1+deb13u3+erp1_arm64.deb",
+    "build_evidence_directory": "quality-home/security-remediation/runtime/libxml2-build-20261116-retry3",
+    "build_validation": "Upstream 3360 parser and 9 recursive checks passed; focused regressions and exported symbols passed; final dependent runtime validation remains pending"
+  },
+  "go_build": {
+    "started_at": "2026-11-15T19:47:50.461077+00:00",
+    "artifacts": {
+      "go1.27.4.darwin-arm64.tar.gz": {
+        "url": "https://go.dev/dl/go1.27.4.darwin-arm64.tar.gz",
+        "sha256": "91a44a2b8a716600ad94a4f143e156116620db8828086a6e3602291be9bd0bb4",
+        "bytes": 68231011,
+        "verified_cache_reused": true
+      },
+      "gosu-1.20.tar.gz": {
+        "url": "https://codeload.github.com/tianon/gosu/tar.gz/29b939aa5bd4dc588af765b8248f6e39150d2565",
+        "sha256": "2b70da8a5480fafedc16bb1fc91b572f064d03df736cbd91a616af2f1b66ab51",
+        "bytes": 18160,
+        "verified_cache_reused": true
+      },
+      "esbuild-0.14.54.tar.gz": {
+        "url": "https://codeload.github.com/evanw/esbuild/tar.gz/04ef75fd7ff534a636962f14e11d224c84aa2020",
+        "sha256": "2809b284fc6e79e7b000a1f711e4c07d05cffa357e780d962398e278d7e89678",
+        "bytes": 1665664,
+        "verified_cache_reused": true
+      },
+      "gosu-linux-arm64": {
+        "path": "quality-home/security-remediation/runtime/artifacts/gosu-linux-arm64",
+        "bytes": 1769632,
+        "sha256": "6c99a7b32e0ebe0ef4ed0277bbb2749460b54cff34ea44cc5b8b49017fc3f7d3"
+      },
+      "esbuild-linux-arm64": {
+        "path": "quality-home/security-remediation/runtime/artifacts/esbuild-linux-arm64",
+        "bytes": 8913056,
+        "sha256": "5f725a6de242c0d251e173f66231c9ee5dd46190052d4e1eb759c36dcc321ca3"
+      }
+    },
+    "steps": [
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "version"
+        ],
+        "log": "quality-home/security-remediation/runtime/go-version.log",
+        "exit_code": 0
+      },
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "build",
+          "-trimpath",
+          "-ldflags=-s -w",
+          "-o",
+          "quality-home/security-remediation/runtime/artifacts/gosu-linux-arm64",
+          "."
+        ],
+        "log": "quality-home/security-remediation/runtime/gosu-build.log",
+        "exit_code": 0
+      },
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "mod",
+          "verify"
+        ],
+        "log": "quality-home/security-remediation/runtime/gosu-mod-verify.log",
+        "exit_code": 0
+      },
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "version",
+          "-m",
+          "quality-home/security-remediation/runtime/artifacts/gosu-linux-arm64"
+        ],
+        "log": "quality-home/security-remediation/runtime/gosu-buildinfo.log",
+        "exit_code": 0
+      },
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "build",
+          "-trimpath",
+          "-ldflags=-s -w",
+          "-o",
+          "quality-home/security-remediation/runtime/artifacts/esbuild-linux-arm64",
+          "./cmd/esbuild"
+        ],
+        "log": "quality-home/security-remediation/runtime/esbuild-build.log",
+        "exit_code": 0
+      },
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "mod",
+          "verify"
+        ],
+        "log": "quality-home/security-remediation/runtime/esbuild-mod-verify.log",
+        "exit_code": 0
+      },
+      {
+        "command": [
+          "/private/tmp/erp-quality-go-yo8skg43/toolchain/go/bin/go",
+          "version",
+          "-m",
+          "quality-home/security-remediation/runtime/artifacts/esbuild-linux-arm64"
+        ],
+        "log": "quality-home/security-remediation/runtime/esbuild-buildinfo.log",
+        "exit_code": 0
+      }
+    ],
+    "status": "staged-not-runtime-validated",
+    "go_only": true,
+    "internal_peak_mib": 481.94,
+    "owned_internal_temporary_removed": true,
+    "finished_at": "2026-11-15T19:49:34.735454+00:00"
+  },
+  "mariadb_client": {
+    "status": "verified-staged-not-applied",
+    "packages": [
+      {
+        "name": "libmariadb3",
+        "version": "1:11.8.9+maria~deb13",
+        "url": "https://archive.mariadb.org/mariadb-11.8.9/repo/debian/pool/main/m/mariadb/libmariadb3_11.8.9+maria~deb13_arm64.deb",
+        "sha256": "0f863789c4c8df050d8be98a4fd84e31a9c240bd70fe87d4a5027da13e4af86c",
+        "bytes": 148380,
+        "installed_kib": 861
+      },
+      {
+        "name": "mariadb-client",
+        "version": "1:11.8.9+maria~deb13",
+        "url": "https://archive.mariadb.org/mariadb-11.8.9/repo/debian/pool/main/m/mariadb/mariadb-client_11.8.9+maria~deb13_arm64.deb",
+        "sha256": "a65d041a247d26454af356ed2f867f2052c02a5e4931b30b48f6d8959ff6eed2",
+        "bytes": 2968724,
+        "installed_kib": 64069
+      },
+      {
+        "name": "mariadb-client-core",
+        "version": "1:11.8.9+maria~deb13",
+        "url": "https://archive.mariadb.org/mariadb-11.8.9/repo/debian/pool/main/m/mariadb/mariadb-client-core_11.8.9+maria~deb13_arm64.deb",
+        "sha256": "fd8d3a3e3dcd38bf9f8e71cab44fe52b38dfa6b06b0203c77605418c27a21631",
+        "bytes": 926592,
+        "installed_kib": 19765
+      },
+      {
+        "name": "mariadb-common",
+        "version": "1:11.8.9+maria~deb13",
+        "url": "https://archive.mariadb.org/mariadb-11.8.9/repo/debian/pool/main/m/mariadb/mariadb-common_11.8.9+maria~deb13_all.deb",
+        "sha256": "40b1f1df61bdd351d89da0bed14a13ac46cf8d3a80c5e69d741a622d8a091b6b",
+        "bytes": 4180,
+        "installed_kib": 22
+      }
+    ]
+  },
+  "node_critical": {
+    "created_at": "2026-11-15T19:48:56.764183+00:00",
+    "packages": [
+      {
+        "name": "loader-utils",
+        "version": "0.2.17",
+        "url": "https://registry.npmjs.org/loader-utils/-/loader-utils-0.2.17.tgz",
+        "integrity": "sha512-tiv66G0SmiOx+pLWMtGEkfSEejxvb6N6uRrQjfWJIT79W9GMpgKeCAmm9aVBKtd4WEgntciI8CsGqjpDoCWJug==",
+        "sha256": "8cf201e34312fe64704da3619a07dd6deb6da8dab490f8b050187df86c16683c",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/loader-utils",
+        "dependencies": {
+          "json5": "^0.5.0",
+          "big.js": "^3.1.3",
+          "emojis-list": "^2.0.0",
+          "object-assign": "^4.0.1"
+        }
+      },
+      {
+        "name": "shell-quote",
+        "version": "1.8.1",
+        "url": "https://registry.npmjs.org/shell-quote/-/shell-quote-1.8.1.tgz",
+        "integrity": "sha512-6j1W9l1iAs/4xYBI1SYOVZyFcCis9b4KCLQ8fgAGG07QvzaRLVVRQvAy85yNmmZSjYjg4MWh4gNvlPujU/5LpA==",
+        "sha256": "556ccc57c32983fe4c1c593817b86ef8aa66ab5d11e3bd43bd8b9750cb18bf0d",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/shell-quote",
+        "dependencies": {}
+      },
+      {
+        "name": "generic-names",
+        "version": "1.0.3",
+        "url": "https://registry.npmjs.org/generic-names/-/generic-names-1.0.3.tgz",
+        "integrity": "sha512-b6OHfQuKasIKM9b6YPkX+KUj/TLBTx3B/1aT1T5F12FEuEqyFMdr59OMS53aoaSw8eVtapdqieX6lbg5opaOhA==",
+        "sha256": "903b55b0a2ac91d59007cf1e14e637f1338556c295c403a41c606b61564e197e",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/generic-names",
+        "dependencies": {
+          "loader-utils": "^0.2.16"
+        }
+      },
+      {
+        "name": "big.js",
+        "version": "3.2.0",
+        "url": "https://registry.npmjs.org/big.js/-/big.js-3.2.0.tgz",
+        "integrity": "sha512-+hN/Zh2D08Mx65pZ/4g5bsmNiZUuChDiQfTUQ7qJr4/kuopCr88xZsAXv6mBoZEsUI4OuGHlX59qE94K2mMW8Q==",
+        "sha256": "cae37bac595b4f31a9812de8d19d82460004e1f3269ca666125cc388af8e6dce",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/loader-utils/node_modules/big.js",
+        "dependencies": {}
+      },
+      {
+        "name": "emojis-list",
+        "version": "2.1.0",
+        "url": "https://registry.npmjs.org/emojis-list/-/emojis-list-2.1.0.tgz",
+        "integrity": "sha512-knHEZMgs8BB+MInokmNTg/OyPlAddghe1YBgNwJBc5zsJi/uyIcXoSDsL/W9ymOsBoBGdPIHXYJ9+qKFwRwDng==",
+        "sha256": "de3f19c4feaa0098508bc96c8a3c9332c330fad611e48e8f8d8eb4c9515a5577",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/loader-utils/node_modules/emojis-list",
+        "dependencies": {}
+      },
+      {
+        "name": "json5",
+        "version": "0.5.1",
+        "url": "https://registry.npmjs.org/json5/-/json5-0.5.1.tgz",
+        "integrity": "sha512-4xrs1aW+6N5DalkqSVA8fxh458CXvR99WU8WLKmq4v8eWAL86Xo3BVqyd3SkA9wEVjCMqyvvRRkshAdOnBp5rw==",
+        "sha256": "5ea33801efe139c4303996569bcf62e37dcc100cc0575c6e7b22554133fbe61e",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/loader-utils/node_modules/json5",
+        "dependencies": {}
+      },
+      {
+        "name": "object-assign",
+        "version": "4.1.1",
+        "url": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
+        "integrity": "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==",
+        "sha256": "782d726a263ba7b26cced612af97b80035516df4b0cd788524e7b2cebc4e29ed",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/baseline/node_modules/loader-utils/node_modules/object-assign",
+        "dependencies": {}
+      },
+      {
+        "name": "loader-utils",
+        "version": "1.4.2",
+        "url": "https://registry.npmjs.org/loader-utils/-/loader-utils-1.4.2.tgz",
+        "integrity": "sha512-I5d00Pd/jwMD2QCduo657+YM/6L3KZu++pmX9VFncxaxvHcru9jx1lBaFft+r4Mt2jK0Yhp41XlRAihzPxHNCg==",
+        "sha256": "f614770a57ca5c94462f8957cc71c2f3fc43244e7f0924dfdb6db785a3094034",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/loader-utils",
+        "dependencies": {
+          "json5": "^1.0.1",
+          "big.js": "^5.2.2",
+          "emojis-list": "^3.0.0"
+        }
+      },
+      {
+        "name": "shell-quote",
+        "version": "1.12.0",
+        "url": "https://registry.npmjs.org/shell-quote/-/shell-quote-1.12.0.tgz",
+        "integrity": "sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q==",
+        "sha256": "3cdb295c8aa0565ff782e8e3e482a83caba67110857ac3b74aad4312407898a6",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/shell-quote",
+        "dependencies": {}
+      },
+      {
+        "name": "generic-names",
+        "version": "1.0.3",
+        "url": "https://registry.npmjs.org/generic-names/-/generic-names-1.0.3.tgz",
+        "integrity": "sha512-b6OHfQuKasIKM9b6YPkX+KUj/TLBTx3B/1aT1T5F12FEuEqyFMdr59OMS53aoaSw8eVtapdqieX6lbg5opaOhA==",
+        "sha256": "903b55b0a2ac91d59007cf1e14e637f1338556c295c403a41c606b61564e197e",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/generic-names",
+        "dependencies": {
+          "loader-utils": "^0.2.16"
+        }
+      },
+      {
+        "name": "big.js",
+        "version": "5.2.2",
+        "url": "https://registry.npmjs.org/big.js/-/big.js-5.2.2.tgz",
+        "integrity": "sha512-vyL2OymJxmarO8gxMr0mhChsO9QGwhynfuu4+MHTAW6czfq9humCB7rKpUjDd9YUiDPU4mzpyupFSvOClAwbmQ==",
+        "sha256": "17b8a6ae8e66f67d8119006721fbd4ccd5c5df3beed2af94e802a655203d6427",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/loader-utils/node_modules/big.js",
+        "dependencies": {}
+      },
+      {
+        "name": "emojis-list",
+        "version": "3.0.0",
+        "url": "https://registry.npmjs.org/emojis-list/-/emojis-list-3.0.0.tgz",
+        "integrity": "sha512-/kyM18EfinwXZbno9FyUGeFh87KC8HRQBQGildHZbEuRyWFOmv1U10o9BBp8XVZDVNNuQKyIGIu5ZYAAXJ0V2Q==",
+        "sha256": "9383cec5b6fdc8a14c9fc3eeb8cef70f4ec06d0954da360d69d9270ee2c6dae8",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/loader-utils/node_modules/emojis-list",
+        "dependencies": {}
+      },
+      {
+        "name": "json5",
+        "version": "1.0.2",
+        "url": "https://registry.npmjs.org/json5/-/json5-1.0.2.tgz",
+        "integrity": "sha512-g1MWMLBiz8FKi1e4w0UyVL3w+iJceWAFBAaBnnGKOpNa5f8TLktkbre1+s6oICydWAm+HRUGTmI+//xv2hvXYA==",
+        "sha256": "90b2f676282469d5beb40943003a815e30e80cf84ea3d72b812a7e13b0b7d80b",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/loader-utils/node_modules/json5",
+        "dependencies": {
+          "minimist": "^1.2.0"
+        }
+      },
+      {
+        "name": "minimist",
+        "version": "1.2.8",
+        "url": "https://registry.npmjs.org/minimist/-/minimist-1.2.8.tgz",
+        "integrity": "sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==",
+        "sha256": "350a76c115b393c19d24654834261e5dc9f0e8cc5e08f3937fa80140f3e4ce83",
+        "destination": "repository/.local/quality/security-remediation/runtime-node-critical/candidate/node_modules/loader-utils/node_modules/json5/node_modules/minimist",
+        "dependencies": {}
+      }
+    ],
+    "status": "staged-not-image-applied"
+  },
+  "node_critical_overlay": {
+    "file": "node-critical.tar.gz",
+    "bytes": 84429,
+    "sha256": "d7b8e415bb2275cb84f82e3ca2a3ae6be339c3c920fa678138dc99c8ed11e129",
+    "validated": {
+      "status": "passed",
+      "cssNameCompatibilityCases": 32,
+      "operatorInjectionCases": 6,
+      "shellArgumentRoundTripCases": 8
+    },
+    "scope": "loader-utils and shell-quote; original generic-names source retained, dependency contract patched"
+  }
+}

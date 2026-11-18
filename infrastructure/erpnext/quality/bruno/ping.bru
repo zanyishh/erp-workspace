@@ -1,0 +1,21 @@
+meta {
+  name: Synthetic site responds
+  type: http
+  seq: 1
+}
+get {
+  url: http://127.0.0.1:8081/api/method/ping
+  body: none
+  auth: none
+}
+settings {
+  encodeUrl: true
+  followRedirects: false
+  timeout: 10000
+}
+tests {
+  test("Returns the native ping contract", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.message).to.equal("pong");
+  });
+}

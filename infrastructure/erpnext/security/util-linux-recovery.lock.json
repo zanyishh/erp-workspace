@@ -1,0 +1,28 @@
+{
+  "source_lock_sha256": "5d031a7bff35cd14f2fe0e99675ab2b3830446827b64957b77da81d58240fc82",
+  "retained_phase": "upstream-tests-and-install-completed-packaging-pending",
+  "prior_outer_status": "failed",
+  "prior_outer_error": "util-linux build/tests failed; inspect retained logs",
+  "files": {
+    "validated-build-inputs.tar.gz": {
+      "bytes": 12326276,
+      "sha256": "fdf75054b33b11251efc5f6c4ac0a5712c246075dc38985ee390bf07a59e17a2"
+    },
+    "upstream-tests.log": {
+      "bytes": 407459,
+      "sha256": "82b34cf24d87f6c3d38768b4aed4680e43e4c6df1e97df7fce1d073f7d3bf41c"
+    },
+    "source-applicability.json": {
+      "bytes": 886,
+      "sha256": "88b7610aa3c5b0d4f9f7e8220eeb09fea0268ab550bcc8ae7328b8c870ba5064"
+    },
+    "validated-build-inputs.json": {
+      "bytes": 3102,
+      "sha256": "8c99586477c8895aaaeb8384f7753c55b26784d25b2de13083b2781188025b74"
+    },
+    "receipt.json": {
+      "bytes": 4162,
+      "sha256": "cbe8623e5f79fc5c349cb4980c4cc0daeda176af6ee307e87d74665be1cbf9d8"
+    }
+  }
+}

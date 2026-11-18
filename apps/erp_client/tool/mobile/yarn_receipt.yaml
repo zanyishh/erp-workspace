@@ -1,0 +1,13 @@
+appId: ${APP_ID}
+---
+- runFlow: flows/enter_test_mill.yaml
+- tapOn: "Yarn"
+- scrollUntilVisible:
+    element: "Receive general yarn"
+- tapOn: "Receive general yarn"
+- scrollUntilVisible:
+    element: "Quantity · kg"
+- tapOn: "Quantity · kg"
+- inputText: "12.5"
+- assertVisible: ".*12.5.*"
+- takeScreenshot: yarn-entry-with-keyboard

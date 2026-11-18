@@ -1,0 +1,126 @@
+{
+  "date": "2026-11-13",
+  "status": "native_foundation_verified_full_conversion_in_progress",
+  "base_commit": "3b9cae8",
+  "scope": "Evidence for the implemented foundation, not complete ERPNext parity",
+  "tests": {
+    "flutter": 71,
+    "backend_real_database": 38,
+    "metadata_extractor": 4,
+    "analyzer": "clean"
+  },
+  "versions": {
+    "flutter": "3.38.7",
+    "dart": "3.10.7",
+    "erpnext": "16.54.0",
+    "frappe": "16.55.2"
+  },
+  "builds": {
+    "macos": {
+      "mode": "release",
+      "architectures": [
+        "arm64"
+      ],
+      "signature_check": "passed",
+      "live_latest_release": "passed_2026-11-13; hierarchy, native child draft, General Ledger and full-screen overview observed",
+      "incremental_signature_check": "passed after changed Dart source; embed output dependency declared"
+    },
+    "ios": {
+      "mode": "debug_simulator",
+      "architecture": "arm64",
+      "build": "passed",
+      "physical_device": "not_verified"
+    },
+    "android": {
+      "mode": "debug_apk",
+      "architectures": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86_64"
+      ],
+      "build": "passed",
+      "physical_device": "not_verified"
+    },
+    "windows": {
+      "build": "requires_windows_host"
+    }
+  },
+  "sites": {
+    "original": "frontend at localhost:8080; no extension installed; data preserved",
+    "verification": "native-test.localhost at localhost:8081; company ERP Native Verification"
+  },
+  "verified_scenarios": [
+    "native master create/edit/reopen",
+    "child ownership/order/defaults",
+    "read-only field and permission protection",
+    "concurrent write and workflow protection",
+    "submit/cancel",
+    "journal and General Ledger",
+    "sales invoice and balanced ledger",
+    "sales order to invoice source references; restricted submit denied",
+    "invoice to credit note references",
+    "duplicate clears fulfilment fields",
+    "stale source/foreign derived rows rejected",
+    "mapping previews avoid automatic price writes",
+    "lead quotation preview does not create customer",
+    "stock receipt and warehouse transfer ledger",
+    "comments/assignments/private attachments/exact bytes/PDF",
+    "same-account reauthentication retains draft without automatic retry",
+    "row dialog dirty/back/pending-operation safety",
+    "datetime time preservation",
+    "immediate same-frame parent Back protection",
+    "numeric record ID list/read/copy compatibility",
+    "company-scoped tree roots/children/paging and permission checks",
+    "tree child creation, nested-set move and self-parent rejection",
+    "Department shared root with selected-company child creation",
+    "Employee manager/report hierarchy and empty reporting branches",
+    "allowed and denied hierarchy parents with real type access and scoped User Permission"
+  ],
+  "source_inventory": {
+    "doctypes": 835,
+    "child_tables": 364,
+    "single_settings": 63,
+    "report_definitions": 198
+  },
+  "metadata": {
+    "report_filters": 171,
+    "report_adapters_outstanding": 138,
+    "distinct_conditions": 1112,
+    "compiled_conditions": 1105
+  },
+  "live_mac_observed": [
+    "release app launch and full-screen overview handoff",
+    "native saved document and child row reopened",
+    "post-fix comment creation/refresh",
+    "Mac file picker upload and save; downloaded 80 bytes match source exactly",
+    "native PDF preview",
+    "expired sign-in prompts same-account recovery and returns to form; unsaved-change retention covered by automated tests",
+    "warehouse hierarchy root and four children displayed in latest release",
+    "new child draft shows ERP Native Verification company and All Warehouses - NTEST parent",
+    "General Ledger native filters run; opening/total/closing rows display zero balances",
+    "latest hierarchy release left full screen on connected overview"
+  ],
+  "live_mac_pending": [],
+  "upstream_source_changes": false,
+  "preserved_flutter_package_notices": 87,
+  "known_limits": [
+    "full ERP parity unfinished; see NATIVE_WORKFLOWS.md",
+    "seven source conditions and custom expressions need adapters",
+    "grouped Builder/custom report behavior pending",
+    "field-specific scripts/widgets/specialised pages pending",
+    "private upload 5 MB/download 10 MB; remote file storage pending",
+    "account/device/signing/installer verification pending"
+  ],
+  "deferred_by_user": [
+    "AI integration",
+    "further UI/UX enhancement"
+  ],
+  "hierarchy": {
+    "installed_types_root_pages_checked": 14,
+    "specialised_actions_outstanding": [
+      "rename",
+      "delete",
+      "custom tree actions"
+    ]
+  }
+}

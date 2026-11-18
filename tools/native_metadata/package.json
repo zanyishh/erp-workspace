@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@babel/parser": "7.28.5"
+  },
+  "name": "erp-native-metadata-tools",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "test": "node --test extract.test.mjs conditions.test.mjs",
+    "generate": "node generate.mjs && node generate_conditions.mjs"
+  }
+}

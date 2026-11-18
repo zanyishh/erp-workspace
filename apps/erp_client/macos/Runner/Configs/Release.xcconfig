@@ -1,0 +1,5 @@
+#include "../../Flutter/Flutter-Release.xcconfig"
+#include "Warnings.xcconfig"
+
+// Flutter 3.38/Xcode 27 cannot verify two architectures together; build for this host.
+ARCHS = $(NATIVE_ARCH_ACTUAL)

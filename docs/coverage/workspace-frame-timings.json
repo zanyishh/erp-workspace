@@ -1,0 +1,339 @@
+{
+  "date": "2026-11-13",
+  "hardware": {
+    "platform": "macOS arm64",
+    "machine": "MacBook Air",
+    "os": "26.6.2 (25G83)",
+    "flutter": "3.38.7",
+    "dart": "3.10.7",
+    "mode": "profile",
+    "logical_width": 1404,
+    "logical_height": 754,
+    "device_pixel_ratio": 2,
+    "display_hz": 60
+  },
+  "fixture": {
+    "source": "In-memory synthetic ERP reads",
+    "jobs": 200,
+    "production_postings": 500,
+    "rolls": 500,
+    "plans": 200,
+    "sales_days": 30,
+    "invoice_rows": 4
+  },
+  "method": {
+    "collection": "Flutter SchedulerBinding.addTimingsCallback. Match FrameTiming.frameNumber to the scenario interval. Nearest-rank p50 and p95 and maximum are milliseconds. Either-stage over-budget count uses build or raster greater than 16,667 microseconds.",
+    "mounts": "First page open after sign-in or navigation in a fresh process. OS and GPU caches were retained. These intervals capture frames as the page mounts. Process launch and network latency are outside the measured intervals.",
+    "production": "Three warm-up selections followed by 18 selection changes. The current harness invokes the live InkWell.onTap and validates the selected calendar day for each action. The earlier baseline used pointer taps and checked the final date, so the production timings are not directly comparable.",
+    "scroll": "Two short warm-up scrolls followed by 2.5-second linear travel from the top to the end of the 200-job register, verification that the final job rendered, and 2.5 seconds back. Uses the production ScrollPosition.",
+    "sales": "Three warm-up selections then 16 pointer taps at distinct positions on a 30-day plot. The current harness checks the displayed accessible value changed after every tap.",
+    "limits": "Stage timing covers Flutter build and raster work. Display presentation, input latency, dropped vsyncs and other platforms were not measured. Small first-open samples have substantial variance. Repeated run order can warm caches across versions. The data do not isolate shader compilation or asset decode costs."
+  },
+  "baseline": {
+    "source_revision": "ff961bd5443a092627cd9d70ed00ed969287769e",
+    "complete_launch": [
+      {
+        "scenario": "mill_first_open",
+        "frames": 4,
+        "build_ms": {
+          "p50": 0.319,
+          "p95": 17.216,
+          "max": 17.216
+        },
+        "raster_ms": {
+          "p50": 4.716,
+          "p95": 568.326,
+          "max": 568.326
+        },
+        "either_stage_over_16_67_ms": 1
+      },
+      {
+        "scenario": "production_day_selection",
+        "frames": 251,
+        "build_ms": {
+          "p50": 0.598,
+          "p95": 1.636,
+          "max": 3.735
+        },
+        "raster_ms": {
+          "p50": 1.996,
+          "p95": 3.562,
+          "max": 4.275
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "scenario": "jobs_first_open",
+        "frames": 17,
+        "build_ms": {
+          "p50": 0.327,
+          "p95": 109.383,
+          "max": 109.383
+        },
+        "raster_ms": {
+          "p50": 1.479,
+          "p95": 7.889,
+          "max": 7.889
+        },
+        "either_stage_over_16_67_ms": 1
+      },
+      {
+        "scenario": "job_register_scroll",
+        "frames": 302,
+        "build_ms": {
+          "p50": 0.333,
+          "p95": 0.659,
+          "max": 3.655
+        },
+        "raster_ms": {
+          "p50": 1.92,
+          "p95": 3.22,
+          "max": 3.417
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "scenario": "general_first_open",
+        "frames": 6,
+        "build_ms": {
+          "p50": 0.361,
+          "p95": 23.663,
+          "max": 23.663
+        },
+        "raster_ms": {
+          "p50": 7.989,
+          "p95": 209.723,
+          "max": 209.723
+        },
+        "either_stage_over_16_67_ms": 4
+      },
+      {
+        "scenario": "sales_day_selection",
+        "frames": 192,
+        "build_ms": {
+          "p50": 0.813,
+          "p95": 3.168,
+          "max": 4.517
+        },
+        "raster_ms": {
+          "p50": 3.313,
+          "p95": 4.263,
+          "max": 5.011
+        },
+        "either_stage_over_16_67_ms": 0
+      }
+    ],
+    "repeat_first_mill_open": {
+      "scenario": "mill_first_open",
+      "frames": 13,
+      "build_ms": {
+        "p50": 0.263,
+        "p95": 23.156,
+        "max": 23.156
+      },
+      "raster_ms": {
+        "p50": 4.469,
+        "p95": 278.807,
+        "max": 278.807
+      },
+      "either_stage_over_16_67_ms": 4
+    },
+    "repeat_note": "The second launch passed the mill-open window, then failed production selection validation. All later timing records from that run were excluded."
+  },
+  "redesign": {
+    "complete_launch_1": [
+      {
+        "scenario": "mill_first_open",
+        "frames": 5,
+        "build_ms": {
+          "p50": 0.452,
+          "p95": 10.884,
+          "max": 10.884
+        },
+        "raster_ms": {
+          "p50": 7.281,
+          "p95": 18.182,
+          "max": 18.182
+        },
+        "either_stage_over_16_67_ms": 1
+      },
+      {
+        "scenario": "production_day_selection_callback",
+        "frames": 216,
+        "build_ms": {
+          "p50": 0.517,
+          "p95": 1.132,
+          "max": 1.295
+        },
+        "raster_ms": {
+          "p50": 0.708,
+          "p95": 0.838,
+          "max": 1.497
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "scenario": "jobs_first_open",
+        "frames": 24,
+        "build_ms": {
+          "p50": 0.464,
+          "p95": 0.897,
+          "max": 6.061
+        },
+        "raster_ms": {
+          "p50": 0.55,
+          "p95": 2.517,
+          "max": 4.614
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "mounted_jobs_on_open": 12
+      },
+      {
+        "scenario": "job_register_scroll",
+        "frames": 302,
+        "build_ms": {
+          "p50": 0.78,
+          "p95": 1.08,
+          "max": 1.311
+        },
+        "raster_ms": {
+          "p50": 0.575,
+          "p95": 0.69,
+          "max": 1.805
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "scenario": "general_first_open",
+        "frames": 15,
+        "build_ms": {
+          "p50": 0.204,
+          "p95": 21.614,
+          "max": 21.614
+        },
+        "raster_ms": {
+          "p50": 1.187,
+          "p95": 9.471,
+          "max": 9.471
+        },
+        "either_stage_over_16_67_ms": 1
+      },
+      {
+        "scenario": "sales_day_selection",
+        "frames": 192,
+        "build_ms": {
+          "p50": 0.447,
+          "p95": 0.954,
+          "max": 3.173
+        },
+        "raster_ms": {
+          "p50": 1.35,
+          "p95": 1.568,
+          "max": 5.06
+        },
+        "either_stage_over_16_67_ms": 0
+      }
+    ],
+    "complete_launch_2": [
+      {
+        "scenario": "mill_first_open",
+        "frames": 4,
+        "build_ms": {
+          "p50": 0.651,
+          "p95": 23.428,
+          "max": 23.428
+        },
+        "raster_ms": {
+          "p50": 3.033,
+          "p95": 26.441,
+          "max": 26.441
+        },
+        "either_stage_over_16_67_ms": 2
+      },
+      {
+        "scenario": "production_day_selection_callback",
+        "frames": 216,
+        "build_ms": {
+          "p50": 0.546,
+          "p95": 1.962,
+          "max": 4.316
+        },
+        "raster_ms": {
+          "p50": 0.7,
+          "p95": 1.746,
+          "max": 2.212
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "scenario": "jobs_first_open",
+        "frames": 24,
+        "build_ms": {
+          "p50": 0.433,
+          "p95": 0.949,
+          "max": 6.407
+        },
+        "raster_ms": {
+          "p50": 0.536,
+          "p95": 3.65,
+          "max": 4.246
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "mounted_jobs_on_open": 12
+      },
+      {
+        "scenario": "job_register_scroll",
+        "frames": 302,
+        "build_ms": {
+          "p50": 0.751,
+          "p95": 1.103,
+          "max": 1.434
+        },
+        "raster_ms": {
+          "p50": 0.56,
+          "p95": 0.751,
+          "max": 1.426
+        },
+        "either_stage_over_16_67_ms": 0
+      },
+      {
+        "scenario": "general_first_open",
+        "frames": 15,
+        "build_ms": {
+          "p50": 0.211,
+          "p95": 23.819,
+          "max": 23.819
+        },
+        "raster_ms": {
+          "p50": 1.26,
+          "p95": 9.072,
+          "max": 9.072
+        },
+        "either_stage_over_16_67_ms": 1
+      },
+      {
+        "scenario": "sales_day_selection",
+        "frames": 191,
+        "build_ms": {
+          "p50": 0.75,
+          "p95": 1.686,
+          "max": 3.863
+        },
+        "raster_ms": {
+          "p50": 2.226,
+          "p95": 3.228,
+          "max": 3.917
+        },
+        "either_stage_over_16_67_ms": 0
+      }
+    ],
+    "warm_frames": 1419,
+    "warm_frames_either_stage_over_budget": 0
+  },
+  "first_open_variability": "An exploratory redesigned launch preceding the final harness recorded a first-mill raster time of 436.962 ms and subsequently failed chart validation. This is an observed first-open outlier outside the two complete runs. The two complete redesigned launches also had over-budget mill and general first-open frames. No cold-frame guarantee follows from the warm measurements.",
+  "command": "cd apps/erp_client && flutter run -d macos --profile --no-pub -t tool/profile_workspace.dart"
+}

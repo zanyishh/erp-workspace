@@ -1,0 +1,45 @@
+name: erp_client
+description: A reference-led open source ERP workspace powered by ERPNext.
+publish_to: none
+version: 0.2.0+2
+environment:
+  sdk: ^3.13.7
+  flutter: '>=3.47.9'
+dependencies:
+  barcode: 2.2.9
+  xml: 6.6.1
+  html: 0.15.6
+  file_selector: 1.1.0
+  flutter:
+    sdk: flutter
+  intl: 0.20.2
+  pdf: 3.12.0
+  printing: 5.14.2
+  share_plus: 12.0.1
+  url_launcher: 6.3.2
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/studio/
+    - assets/invoice_templates/
+    - assets/invoice_art/
+    - assets/licenses/
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Manrope-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-SemiBold.ttf
+          weight: 600
+    - family: BarlowCondensed
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600

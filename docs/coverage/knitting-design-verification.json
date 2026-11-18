@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-13",
+  "scope": "design_prototype_only_not_flutter_or_backend_verification",
+  "product_implementation": "not_started_pending_full_design_approval",
+  "builder_review": "nothing important left after resolved design questions",
+  "source_routes_mapped": 232,
+  "acceptance_cases_planned": 28,
+  "responsive_browser_checks": 18,
+  "widths": [
+    390,
+    834,
+    1440
+  ],
+  "page_overflows": 0,
+  "javascript_syntax": "passed",
+  "browser_console_errors": 0,
+  "observed_preview_interactions": [
+    "company and role navigation",
+    "job detail and tabs",
+    "search empty state and reset",
+    "review and apply machine queue",
+    "production exceeding programme blocked",
+    "QC reinspection and release",
+    "invoice blocked until delivery",
+    "44.000 kg partial delivery",
+    "INR 4400.00 sample invoice",
+    "job delivered and billed balances reflect sample invoice",
+    "general-only company footer and navigation",
+    "reduced motion control"
+  ],
+  "real_job_to_invoice_cycle": "planned_not_executed",
+  "customer_live_access": "none",
+  "new_product_dependencies": 0,
+  "portable_preview_sha256": "c2077367ab4f2f195fc5ac4c5ddb3a7e7beb46a0dccafc3e39e5a3eb9c200503",
+  "known_limits": [
+    "prototype uses synthetic presentation state only",
+    "customer formulas/export samples/providers require authorised test material",
+    "unspecified device automation excluded from proposed v1",
+    "Windows and physical device execution require host/devices"
+  ]
+}
