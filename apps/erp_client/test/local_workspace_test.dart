@@ -419,81 +419,90 @@ void main() {
       file.writeAsStringSync(jsonEncode(data));
     }
 
-    test('opens a separate configured local profile without trusting file company choices', () async {
-      if (!requireMacLauncher()) return;
-      writeAccess({
-        'version': 2,
-        'selected_workspace': 'history-test',
-        'workspaces': [
-          {
-            'id': 'history-test',
-            'label': 'Imported test workspace',
-            'origin': 'http://127.0.0.1:8082',
-            'site': 'history-test.localhost',
-            'company': 'Archive Company One',
-            'account': 'history-owner@example.invalid',
-            'key': 'history-test-key',
-            'secret': 'history-test-secret',
-            'companies': [
-              {'name': 'Untrusted company'},
-            ],
-          },
-        ],
-      });
-      final local = await LocalWorkspace.open();
-      addTearDown(local.api.close);
-      expect(local.api.baseUri, Uri.parse('http://127.0.0.1:8082'));
-      expect(local.api.account, 'history-owner@example.invalid');
-      expect(local.company, 'Archive Company One');
-      expect(local.companies, isEmpty);
-      expect(local.profiles, [
-        {'id': 'history-test', 'label': 'Imported test workspace'},
-      ]);
-    });
+    test(
+      'opens a separate configured local profile without trusting file company choices',
+      () async {
+        if (!requireMacLauncher()) return;
+        writeAccess({
+          'version': 2,
+          'selected_workspace': 'history-test',
+          'workspaces': [
+            {
+              'id': 'history-test',
+              'label': 'Imported test workspace',
+              'origin': 'http://127.0.0.1:8082',
+              'site': 'history-test.localhost',
+              'company': 'Archive Company One',
+              'account': 'history-owner@example.invalid',
+              'key': 'history-test-key',
+              'secret': 'history-test-secret',
+              'companies': [
+                {'name': 'Untrusted company'},
+              ],
+            },
+          ],
+        });
+        final local = await LocalWorkspace.open();
+        addTearDown(local.api.close);
+        expect(local.api.baseUri, Uri.parse('http://127.0.0.1:8082'));
+        expect(local.api.account, 'history-owner@example.invalid');
+        expect(local.company, 'Archive Company One');
+        expect(local.companies, isEmpty);
+        expect(local.profiles, [
+          {'id': 'history-test', 'label': 'Imported test workspace'},
+        ]);
+      },
+    );
 
-    test('configured credentials reject remote origins and duplicate workspace ids', () async {
-      Map<String, dynamic> profile() => {
-        'id': 'history-test',
-        'label': 'Imported test workspace',
-        'origin': 'https://example.invalid',
-        'site': 'history-test.localhost',
-        'company': 'Archive One',
-        'account': 'history-owner@example.invalid',
-        'key': 'history-test-key',
-        'secret': 'history-test-secret',
-      };
-      writeAccess({
-        'version': 2,
-        'selected_workspace': 'history-test',
-        'workspaces': [profile()],
-      });
-      await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
-      final local = profile()..['origin'] = 'http://127.0.0.1:8082';
-      writeAccess({
-        'version': 2,
-        'selected_workspace': 'history-test',
-        'workspaces': [local, local],
-      });
-      await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
-    });
+    test(
+      'configured credentials reject remote origins and duplicate workspace ids',
+      () async {
+        Map<String, dynamic> profile() => {
+          'id': 'history-test',
+          'label': 'Imported test workspace',
+          'origin': 'https://example.invalid',
+          'site': 'history-test.localhost',
+          'company': 'Archive One',
+          'account': 'history-owner@example.invalid',
+          'key': 'history-test-key',
+          'secret': 'history-test-secret',
+        };
+        writeAccess({
+          'version': 2,
+          'selected_workspace': 'history-test',
+          'workspaces': [profile()],
+        });
+        await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
+        final local = profile()..['origin'] = 'http://127.0.0.1:8082';
+        writeAccess({
+          'version': 2,
+          'selected_workspace': 'history-test',
+          'workspaces': [local, local],
+        });
+        await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
+      },
+    );
 
-    test('opens the selected company with its own account and no secrets in picker data', () async {
-      if (!requireMacLauncher()) return;
-      writeAccess(saved);
-      final general = await LocalWorkspace.open();
-      addTearDown(general.api.close);
-      expect(general.company, 'Meridian Trading');
-      expect(
-        general.api.account,
-        'local-general-owner@workspace.example.invalid',
-      );
-      expect(general.companies, _companies);
-      final knitting = await LocalWorkspace.open(company: 'Kaveri Loomworks');
-      addTearDown(knitting.api.close);
-      expect(knitting.company, 'Kaveri Loomworks');
-      expect(knitting.api.account, 'local-owner@workspace.example.invalid');
-      expect(knitting.companies, _companies);
-    });
+    test(
+      'opens the selected company with its own account and no secrets in picker data',
+      () async {
+        if (!requireMacLauncher()) return;
+        writeAccess(saved);
+        final general = await LocalWorkspace.open();
+        addTearDown(general.api.close);
+        expect(general.company, 'Meridian Trading');
+        expect(
+          general.api.account,
+          'local-general-owner@workspace.example.invalid',
+        );
+        expect(general.companies, _companies);
+        final knitting = await LocalWorkspace.open(company: 'Kaveri Loomworks');
+        addTearDown(knitting.api.close);
+        expect(knitting.company, 'Kaveri Loomworks');
+        expect(knitting.api.account, 'local-owner@workspace.example.invalid');
+        expect(knitting.companies, _companies);
+      },
+    );
 
     test('rejects an account belonging to a different company', () async {
       (saved['workspaces'] as List).first['account'] =
