@@ -63,6 +63,14 @@ jobs:
               throw "Flutter SDK differs from the project pin at $key."
             }
           }
+      - name: Install PDF inspection tools used by regression tests
+        shell: pwsh
+        run: |
+          choco install poppler --version=26.7.0 --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tools = Get-ChildItem "$env:ChocolateyInstall/lib/poppler" -Filter pdfinfo.exe -Recurse
+          if ($tools.Count -ne 1) { throw 'Expected one pinned Poppler pdfinfo executable.' }
+          $tools[0].DirectoryName >> $env:GITHUB_PATH
       - name: Windows analysis and regression suite
         working-directory: apps/erp_client
         shell: pwsh

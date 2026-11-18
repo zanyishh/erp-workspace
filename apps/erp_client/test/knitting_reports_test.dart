@@ -263,6 +263,21 @@ void main() {
           selected.complete(file.path);
           await Future<void>.delayed(const Duration(milliseconds: 100));
         });
+        if (replacement == 'current') {
+          // File existence can precede the writer closing its Windows handle.
+          // The export action returns to idle only after saveTo has completed.
+          for (
+            var attempt = 0;
+            attempt < 200 && find.text('Preparing file…').evaluate().isNotEmpty;
+            attempt++
+          ) {
+            await t.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 10)),
+            );
+            await t.pump();
+          }
+          expect(find.text('Preparing file…'), findsNothing);
+        }
         await t.pumpAndSettle();
         expect(file.existsSync(), replacement == 'current');
         if (replacement == 'current') {
