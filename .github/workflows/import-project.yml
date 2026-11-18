@@ -1,0 +1,9 @@
+name: Initialize project
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Preparing reviewed ERP source and tester builds"
