@@ -2,7 +2,6 @@
 """Prepare an owner-only local launch profile without exposing credentials."""
 import json,os,re,subprocess,tempfile
 from pathlib import Path
-from local_launch_profiles import merge
 
 root=Path(__file__).resolve().parents[1]
 command=['docker','--context','colima-erp','compose','-f',str(root/'infrastructure/erpnext/compose.yaml'),
@@ -14,13 +13,13 @@ try:
     if (profile['id'],profile['site'],profile['origin'])!=('customer','customer-migration.localhost','http://127.0.0.1:8082'):raise ValueError()
     if not all(isinstance(profile[k],str) and re.fullmatch(r'[A-Za-z0-9_-]{12,128}',profile[k]) for k in ('key','secret')):raise ValueError()
 except (KeyError,IndexError,ValueError,TypeError):raise SystemExit('Customer profile identity did not pass verification.') from None
-folder=Path.home()/'Library/Containers/org.localerp.erpClient/Data/Library/Application Support/ERP Workspace'
+folder=Path.home()/'Library/Containers/org.localerp.mill.customer/Data/Library/Application Support/ERP Workspace'
 target=folder/'local-launch.json'
-if not target.exists():raise SystemExit('Prepare the existing local demo profiles before adding the customer workspace.')
-result=merge(json.loads(target.read_text()),[profile],select='customer')
+folder.mkdir(parents=True,exist_ok=True,mode=0o700)
+result={'version':2,'selected_workspace':'customer','workspaces':[profile]}
 with tempfile.NamedTemporaryFile(mode='w',dir=folder,delete=False) as stream:
     try:
         os.fchmod(stream.fileno(),0o600);json.dump(result,stream);stream.flush();os.fsync(stream.fileno())
         os.replace(stream.name,target)
     finally:Path(stream.name).unlink(missing_ok=True)
-print('Prepared the customer workspace and retained both separate demos.')
+print('Prepared the separate knitting customer profile.')

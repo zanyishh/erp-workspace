@@ -1,3 +1,4 @@
+import '../core/models/workspace_edition.dart';
 import '../features/overview/data/erp_overview_repository.dart';
 import '../features/overview/presentation/overview_view_model.dart';
 import '../features/workspace/data/erp_workspace_repository.dart';
@@ -57,7 +58,7 @@ class ErpWorkspaceApp extends StatelessWidget {
   const ErpWorkspaceApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'ERP Workspace',
+    title: knittingCustomerBuild ? 'Knitting Workspace' : 'ERP Workspace',
     debugShowCheckedModeBanner: false,
     theme: WorkspaceTheme.theme,
     builder: (_, child) =>
@@ -486,7 +487,11 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                         widget.openLocalCompany != null &&
                         _localCompanies.isNotEmpty
                     ? _localCompanies
-                    : fresh.companies)
+                    : fresh.companies.where(
+                        (row) =>
+                            !knittingCustomerBuild ||
+                            row['name'] == fresh.company,
+                      ))
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(c, row['name'] as String),
                 child: Semantics(
@@ -1052,7 +1057,7 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
                 ),
               ),
             )
-          : _workspace!.cashierHome
+          : !knittingCustomerBuild && _workspace!.cashierHome
           ? PosCheckoutScreen(
               api: api,
               company: _workspace!.company!,

@@ -1,5 +1,6 @@
 import '../../../core/models/erp_exception.dart';
 import '../../../core/models/workspace_context.dart';
+import '../../../core/models/workspace_edition.dart';
 import '../../../core/services/local_workspace.dart';
 import '../../../erp_api.dart' show ErpApi;
 import 'workspace_repository.dart';
@@ -10,6 +11,7 @@ class ErpWorkspaceRepository implements WorkspaceRepository {
   final LocalWorkspace? _local;
   final String? _requestedCompany;
   Object? _localValidatedFor;
+  String? _knittingCompany;
   @override
   Object get identity => (_api, _api.baseUri, _api.account);
   @override
@@ -24,6 +26,16 @@ class ErpWorkspaceRepository implements WorkspaceRepository {
     if (owner != identity) {
       throw const ErpException(
         'The workspace account changed. Reconnect and try again.',
+        permissionDenied: true,
+      );
+    }
+    if (knittingCustomerBuild &&
+        (!value.knittingOnly ||
+            !value.enabled ||
+            value.company == null ||
+            (_knittingCompany != null && value.company != _knittingCompany))) {
+      throw const ErpException(
+        'This account has no active knitting workspace for this customer. Contact the mill administrator.',
         permissionDenied: true,
       );
     }
@@ -50,6 +62,7 @@ class ErpWorkspaceRepository implements WorkspaceRepository {
     if (local != null) {
       _localValidatedFor = owner;
     }
+    if (knittingCustomerBuild) _knittingCompany ??= value.company;
     return value;
   }
 
@@ -68,6 +81,13 @@ class ErpWorkspaceRepository implements WorkspaceRepository {
   }
 
   @override
-  Future<WorkspaceContext> select(String company) =>
-      _scoped(() => _api.selectCompany(company), company);
+  Future<WorkspaceContext> select(String company) async {
+    if (knittingCustomerBuild && company != _knittingCompany) {
+      throw const ErpException(
+        'This customer app is assigned to one knitting workspace.',
+        permissionDenied: true,
+      );
+    }
+    return _scoped(() => _api.selectCompany(company), company);
+  }
 }

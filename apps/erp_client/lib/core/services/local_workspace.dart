@@ -60,8 +60,25 @@ class LocalWorkspace {
       if (support == null || !support.startsWith('/')) {
         throw const FormatException();
       }
-      final file = File('$support/ERP Workspace/local-launch.json');
+      const generalOnly = bool.fromEnvironment('ERP_GENERAL_LOCAL_PROFILE');
+      final file = File(
+        '$support/ERP Workspace/${generalOnly ? 'general-launch.json' : 'local-launch.json'}',
+      );
       final saved = jsonDecode(await file.readAsString());
+      if (generalOnly) {
+        final profiles = saved is Map ? saved['workspaces'] : null;
+        if (profiles is! List ||
+            profiles.length != 1 ||
+            profiles.first is! Map ||
+            profiles.first['id'] != 'demo-general' ||
+            profiles.first['site'] != 'native-test.localhost' ||
+            profiles.first['origin'] != 'http://127.0.0.1:8081' ||
+            (company != null && company != profiles.first['company']) ||
+            profiles.first['account'] !=
+                'local-general-owner@workspace.example.invalid') {
+          throw const FormatException();
+        }
+      }
       if (saved is Map && saved['version'] == 2) {
         return _configured(saved, company: company, workspaceId: workspaceId);
       }

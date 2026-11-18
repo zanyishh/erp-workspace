@@ -11,7 +11,6 @@ if [[ ! -f .local/customer-workspace/target-bindings.json ]]; then
   print -u2 'Prepare and verify the separate customer workspace before opening this app.'
   exit 1
 fi
-scripts/setup-native-test.command
 scripts/setup-customer-workspace.command
 mkdir -p .local/runtime "$HOME/Applications"
 launcher_fingerprint="$(shasum -a 256 scripts/erp-customer.command | cut -d ' ' -f 1)"
@@ -24,11 +23,14 @@ if [[ -e "$installed" && "$(xattr -p "$marker" "$installed" 2>/dev/null || true)
   exit 1
 fi
 if [[ ! -d "$installed" || ! -f .local/runtime/customer-client-fingerprint || "$(cat .local/runtime/customer-client-fingerprint)" != "$fingerprint" ]] || ! codesign --verify --deep --strict "$installed" 2>/dev/null; then
-  (cd apps/erp_client && python3 ../../scripts/flutter_toolchain.py --suppress-analytics build macos --release --dart-define=ERP_LOCAL_WORKSPACE=false --dart-define=ERP_SERVER=http://127.0.0.1:8082)
+  (cd apps/erp_client && python3 ../../scripts/flutter_toolchain.py --suppress-analytics build macos --release --dart-define=ERP_LOCAL_WORKSPACE=false --dart-define=ERP_KNITTING_CUSTOMER=true --dart-define=ERP_SERVER=http://127.0.0.1:8082)
   codesign --verify --deep --strict "$built"
   staging="$(mktemp -d "$HOME/Applications/.erp-customer.XXXXXX")"
   trap 'if [[ -d "$staging/old.app" && ! -e "$installed" ]]; then mv "$staging/old.app" "$installed"; fi; /bin/rm -rf "$staging"' EXIT
   ditto "$built" "$staging/new.app"
+  plutil -replace CFBundleIdentifier -string org.localerp.mill.customer "$staging/new.app/Contents/Info.plist"
+  plutil -replace CFBundleName -string 'Knitting Workspace' "$staging/new.app/Contents/Info.plist"
+  codesign --force --sign - --entitlements apps/erp_client/macos/Runner/Release.entitlements "$staging/new.app"
   xattr -w "$marker" "$PWD" "$staging/new.app"
   codesign --verify --deep --strict "$staging/new.app"
   if [[ -d "$installed" ]]; then mv "$installed" "$staging/old.app"; fi

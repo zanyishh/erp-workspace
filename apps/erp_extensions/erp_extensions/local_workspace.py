@@ -13,12 +13,23 @@ GENERAL_ACCOUNT = "local-general-owner@workspace.example.invalid"
 
 def provision():
     """Return independent demo credentials through the private provisioning pipe."""
-    if frappe.local.site != SITE or frappe.session.user != "Administrator" or getattr(frappe.local, "request", None):
-        raise RuntimeError("Run local workspace provisioning from the isolated site's console.")
+    _require_console()
     general = _provision_company(GENERAL_COMPANY, GENERAL_ACCOUNT, "general")
     knitting = _provision_company(COMPANY, ACCOUNT, "knitting")
     frappe.db.commit()
     return {**general, "workspaces": [general, knitting]}
+
+
+def _require_console():
+    if frappe.local.site != SITE or frappe.session.user != "Administrator" or getattr(frappe.local, "request", None):
+        raise RuntimeError("Run local workspace provisioning from the isolated site's console.")
+
+
+def provision_general():
+    _require_console()
+    general = _provision_company(GENERAL_COMPANY, GENERAL_ACCOUNT, "general")
+    frappe.db.commit()
+    return general
 
 
 def _provision_company(company, account, industry):

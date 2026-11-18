@@ -9,10 +9,6 @@ case "${1:-}" in
 esac
 scripts/setup-native-test.command
 python3 scripts/provision-local-workspace.py
-if [[ -f .local/customer-workspace/target-bindings.json ]]; then
-  scripts/setup-customer-workspace.command
-  python3 scripts/provision-customer-profile.py
-fi
 mkdir -p .local/runtime "$HOME/Applications"
 fingerprint="$(python3 scripts/app-fingerprint.py client)"
 built="$PWD/apps/erp_client/build/macos/Build/Products/Release/ERP Workspace.app"
@@ -23,7 +19,7 @@ if [[ -e "$installed" && "$(xattr -p "$marker" "$installed" 2>/dev/null || true)
   exit 1
 fi
 if [[ ! -d "$installed" || ! -f .local/runtime/local-client-fingerprint || "$(cat .local/runtime/local-client-fingerprint)" != "$fingerprint" ]] || ! codesign --verify --deep --strict "$installed" 2>/dev/null; then
-  (cd apps/erp_client && python3 ../../scripts/flutter_toolchain.py --suppress-analytics build macos --release --dart-define=ERP_LOCAL_WORKSPACE=true --dart-define=ERP_SERVER=http://127.0.0.1:8081)
+  (cd apps/erp_client && python3 ../../scripts/flutter_toolchain.py --suppress-analytics build macos --release --dart-define=ERP_LOCAL_WORKSPACE=true --dart-define=ERP_GENERAL_LOCAL_PROFILE=true --dart-define=ERP_SERVER=http://127.0.0.1:8081)
   codesign --verify --deep --strict "$built"
   staging="$(mktemp -d "$HOME/Applications/.erp-local.XXXXXX")"
   trap 'if [[ -d "$staging/old.app" && ! -e "$installed" ]]; then mv "$staging/old.app" "$installed"; fi; /bin/rm -rf "$staging"' EXIT

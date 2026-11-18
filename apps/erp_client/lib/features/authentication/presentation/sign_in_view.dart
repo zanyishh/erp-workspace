@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/models/workspace_edition.dart';
 import '../../../core/ui/design.dart';
 import '../../../core/ui/workspace_art.dart';
 import '../../../core/ui/workspace_ui.dart';
@@ -91,7 +92,9 @@ class _SignInViewState extends State<SignInView> {
   }
 
   Widget _workspacePreview(BuildContext context, {required bool wide}) {
-    final object = _entry == SignInEntry.owner && _industry == 'knitting'
+    final object =
+        knittingCustomerBuild ||
+            (_entry == SignInEntry.owner && _industry == 'knitting')
         ? ArtObject.machine
         : ArtObject.warehouse;
     return AnimatedSwitcher(
@@ -146,7 +149,12 @@ class _SignInViewState extends State<SignInView> {
                                 _workspacePreview(context, wide: false),
                               const SizedBox(width: 9),
                               const Expanded(
-                                child: Display('ERP Workspace', size: 27),
+                                child: Display(
+                                  knittingCustomerBuild
+                                      ? 'Knitting Workspace'
+                                      : 'ERP Workspace',
+                                  size: 27,
+                                ),
                               ),
                               TextButton(
                                 onPressed: widget.onLicenses,
@@ -226,7 +234,9 @@ class _SignInViewState extends State<SignInView> {
               const SizedBox(height: 8),
               Text(
                 signIn
-                    ? 'Sign in to your company workspace.'
+                    ? (knittingCustomerBuild
+                          ? 'Sign in to your mill workspace.'
+                          : 'Sign in to your company workspace.')
                     : owner
                     ? 'Set up your workspace and invite your staff.'
                     : 'Enter the code your workspace manager shared with you.',
@@ -291,13 +301,14 @@ class _SignInViewState extends State<SignInView> {
                 Wrap(
                   alignment: WrapAlignment.center,
                   children: [
-                    TextButton(
-                      style: _lightLink,
-                      onPressed: _busy
-                          ? null
-                          : () => _switch(SignInEntry.owner),
-                      child: const Text('Create a company'),
-                    ),
+                    if (!knittingCustomerBuild)
+                      TextButton(
+                        style: _lightLink,
+                        onPressed: _busy
+                            ? null
+                            : () => _switch(SignInEntry.owner),
+                        child: const Text('Create a company'),
+                      ),
                     TextButton(
                       style: _lightLink,
                       onPressed: _busy ? null : () => _switch(SignInEntry.join),

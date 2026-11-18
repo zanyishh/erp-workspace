@@ -426,8 +426,18 @@ class ErpApi with _InvoiceApi, _ImportedHistoryApi implements AccessSource {
         'A secure connection to ERPNext could not be verified. Check the server certificate.',
       );
     } on SocketException {
+      if (const {
+        'localhost',
+        '127.0.0.1',
+        '::1',
+        '10.0.2.2',
+      }.contains(baseUri.host)) {
+        throw ErpException(
+          'The local ERPNext service at ${baseUri.authority} is unavailable. Start the local workspace service and try again.',
+        );
+      }
       throw const ErpException(
-        'Cannot reach your workspace. Check your internet connection and try again.',
+        'Cannot reach your ERPNext server. Check the server address and network connection, then try again.',
       );
     } on TimeoutException {
       throw const ErpException(
