@@ -360,6 +360,21 @@ void main() {
     },
   );
 
+  test(
+    'private launcher credentials are unavailable outside macOS',
+    () async {
+      expect(LocalWorkspace.enabled, isFalse);
+      await expectLater(LocalWorkspace.open(), throwsA(isA<ErpException>()));
+    },
+    skip: Platform.isMacOS,
+  );
+
+  bool requireMacLauncher() {
+    if (Platform.isMacOS) return true;
+    markTestSkipped('Private launcher credentials require macOS.');
+    return false;
+  }
+
   group('private local company access', () {
     const channel = MethodChannel('org.localerp.workspace/local');
     late Directory support;
@@ -405,6 +420,7 @@ void main() {
     }
 
     test('opens a separate configured local profile without trusting file company choices', () async {
+      if (!requireMacLauncher()) return;
       writeAccess({
         'version': 2,
         'selected_workspace': 'history-test',
@@ -462,6 +478,7 @@ void main() {
     });
 
     test('opens the selected company with its own account and no secrets in picker data', () async {
+      if (!requireMacLauncher()) return;
       writeAccess(saved);
       final general = await LocalWorkspace.open();
       addTearDown(general.api.close);
@@ -507,6 +524,7 @@ void main() {
     });
 
     test('keeps an existing single company credential usable', () async {
+      if (!requireMacLauncher()) return;
       writeAccess(
         Map<String, dynamic>.from((saved['workspaces'] as List).last as Map),
       );
