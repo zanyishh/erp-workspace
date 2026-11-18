@@ -65,6 +65,16 @@ class InvoiceRegisterRow extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         );
+    final job = (row['knitting_job_reference'] ?? row['knitting_job'])
+        ?.toString();
+    final jobLabel = job == null || job.isEmpty
+        ? null
+        : Text(
+            'Job $job',
+            style: Theme.of(context).textTheme.bodySmall,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          );
     if (compact) {
       return InkWell(
         focusNode: focusNode,
@@ -79,6 +89,7 @@ class InvoiceRegisterRow extends StatelessWidget {
                   children: [
                     title,
                     Text(customer),
+                    ?jobLabel,
                     Text(date, style: Theme.of(context).textTheme.bodySmall),
                   ],
                 ),
@@ -112,6 +123,7 @@ class InvoiceRegisterRow extends StatelessWidget {
           children: [
             title,
             Text(customer, style: Theme.of(context).textTheme.bodySmall),
+            ?jobLabel,
           ],
         ),
         issued: Text(date),

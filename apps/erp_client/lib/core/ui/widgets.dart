@@ -279,25 +279,31 @@ class MetricTile extends StatelessWidget {
     required this.footer,
     this.icon,
     this.art,
+    this.accented = true,
   });
   final String label, value, footer;
   final IconData? icon;
   final Widget? art;
+  final bool accented;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(18),
-      gradient: const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          WorkspaceTheme.surface,
-          WorkspaceTheme.surface,
-          WorkspaceTheme.palePeach,
-        ],
-        stops: [0, .50, 1],
-      ),
+      color: accented ? null : WorkspaceTheme.surface,
+      border: accented ? null : Border.all(color: WorkspaceTheme.border),
+      gradient: !accented
+          ? null
+          : const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                WorkspaceTheme.surface,
+                WorkspaceTheme.surface,
+                WorkspaceTheme.palePeach,
+              ],
+              stops: [0, .50, 1],
+            ),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,6 +330,7 @@ class MetricTile extends StatelessWidget {
             fontWeight: FontWeight.w600,
             color: WorkspaceTheme.ink,
             letterSpacing: -1,
+            fontFeatures: [ui.FontFeature.tabularFigures()],
           ),
         ),
         const SizedBox(height: 8),
@@ -341,9 +348,14 @@ class MetricTile extends StatelessWidget {
 }
 
 class StatusChip extends StatelessWidget {
-  const StatusChip(this.label, {super.key, this.dark = false});
+  const StatusChip(
+    this.label, {
+    super.key,
+    this.dark = false,
+    this.monochrome = false,
+  });
   final String label;
-  final bool dark;
+  final bool dark, monochrome;
 
   @override
   Widget build(BuildContext context) {
@@ -372,13 +384,32 @@ class StatusChip extends StatelessWidget {
       'active' => (Icons.play_circle_outline, const Color(0xFF35685F)),
       _ => (Icons.label_outline_rounded, WorkspaceTheme.muted),
     };
-    final color = dark ? WorkspaceTheme.light : tone;
+    final emphasized = const {
+      'running',
+      'in process',
+      'active',
+    }.contains(label.toLowerCase());
+    final color = dark
+        ? WorkspaceTheme.light
+        : monochrome
+        ? WorkspaceTheme.ink
+        : tone;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: dark ? Colors.transparent : tone.withValues(alpha: .07),
+        color: dark
+            ? Colors.transparent
+            : monochrome
+            ? emphasized
+                  ? WorkspaceTheme.palePeach
+                  : WorkspaceTheme.canvas
+            : tone.withValues(alpha: .07),
         border: Border.all(
-          color: dark ? const Color(0xFF666B64) : tone.withValues(alpha: .25),
+          color: dark
+              ? const Color(0xFF666B64)
+              : monochrome
+              ? WorkspaceTheme.border
+              : tone.withValues(alpha: .25),
         ),
         borderRadius: BorderRadius.circular(30),
       ),

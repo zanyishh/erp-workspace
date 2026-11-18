@@ -22,11 +22,17 @@ class InvoiceHub extends StatefulWidget {
     required this.company,
     required this.canCreate,
     this.onImportedHistory,
+    this.jobBilling,
+    this.onBillFromDelivery,
+    this.onRefreshJobBilling,
   });
   final ErpApi api;
   final String company;
   final bool canCreate;
   final VoidCallback? onImportedHistory;
+  final Widget? jobBilling;
+  final Future<void> Function()? onBillFromDelivery;
+  final VoidCallback? onRefreshJobBilling;
   @override
   State<InvoiceHub> createState() => _InvoiceHubState();
 }
@@ -128,6 +134,7 @@ class _InvoiceHubState extends State<InvoiceHub> {
             api: api,
             company: company,
             templateId: template?.id,
+            continueToEditor: widget.jobBilling != null,
           ),
         ),
       );
@@ -238,6 +245,9 @@ class _InvoiceHubState extends State<InvoiceHub> {
     model: _model,
     company: widget.company,
     canCreate: widget.canCreate,
+    jobBilling: widget.jobBilling,
+    onBillFromDelivery: widget.onBillFromDelivery,
+    onRefreshJobBilling: widget.onRefreshJobBilling,
     onImportedHistory:
         widget.onImportedHistory ??
         (widget.api.contextFor(widget.company)?.canReadImportedHistory == true

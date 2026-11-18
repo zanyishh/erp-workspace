@@ -151,7 +151,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                     if (onRecords != null)
                       entry(
                         workspace.knittingOnly
-                            ? 'Masters & accounts'
+                            ? 'Company records'
                             : 'Business records',
                         Icons.library_books_outlined,
                         onRecords!,
@@ -244,14 +244,68 @@ class KnittingWorkspaceLayout extends StatelessWidget {
     );
   }
 
+  Widget _phoneDock(BuildContext context, List<String> tabs) {
+    return Panel(
+      frosted: true,
+      radius: 24,
+      padding: const EdgeInsets.all(4),
+      child: Material(
+        type: MaterialType.transparency,
+        child: Row(
+          children: [
+            for (final name in tabs)
+              Expanded(
+                child: _MillDockButton(
+                  icon: _destinations[name]!.$1,
+                  label: name == 'Overview' ? 'Mill' : name,
+                  tooltip: _destinations[name]!.$2,
+                  selected: name == page,
+                  onPressed: () => onDestination(name),
+                ),
+              ),
+            Expanded(
+              child: _MillDockButton(
+                icon: Icons.more_horiz_rounded,
+                label: 'More',
+                tooltip: 'Open navigation menu',
+                selected: !tabs.contains(page),
+                onPressed: Scaffold.of(context).openDrawer,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
+    final size = MediaQuery.sizeOf(context);
+    final width = size.width;
 
     final title = jobDetail ? 'Job details' : _destinations[page]!.$2;
     final wide =
         width >= 1140 && MediaQuery.textScalerOf(context).scale(14) < 19;
     final compact = !wide;
+    final tabs = const [
+      'Overview',
+      'Jobs',
+      'Production',
+      'Yarn',
+      'Delivery',
+      'Quality',
+      'Billing',
+      'Planning',
+    ].where(workspace.destinations.contains).take(3).toList();
+    final dock =
+        workspaceUsesPhoneNavigation(context) &&
+        tabs.length >= 2 &&
+        size.height >= 570 &&
+        width >= 320 &&
+        width < 600 &&
+        MediaQuery.textScalerOf(context).scale(14) < 19 &&
+        MediaQuery.viewInsetsOf(context).bottom == 0 &&
+        !jobDetail;
     final content = Padding(
       padding: EdgeInsets.fromLTRB(
         wide ? 22 : 14,
@@ -349,7 +403,8 @@ class KnittingWorkspaceLayout extends StatelessWidget {
       appBar: wide
           ? null
           : AppBar(
-              leading: compact && onBack != null
+              automaticallyImplyLeading: !dock,
+              leading: onBack != null
                   ? IconButton(
                       tooltip: backLabel ?? 'Back',
                       icon: const BackButtonIcon(),
@@ -366,7 +421,7 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                 ),
               ),
               actions: [
-                if (compact && onBack != null)
+                if (!dock && onBack != null)
                   Builder(
                     builder: (context) => IconButton(
                       tooltip: 'Open navigation menu',
@@ -396,8 +451,67 @@ class KnittingWorkspaceLayout extends StatelessWidget {
                   Expanded(child: SafeArea(child: content)),
                 ],
               )
-            : SafeArea(child: content),
+            : SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(child: content),
+                    if (dock)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
+                        child: Builder(
+                          builder: (context) => _phoneDock(context, tabs),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
       ),
     );
   }
+}
+
+class _MillDockButton extends StatelessWidget {
+  const _MillDockButton({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label, tooltip;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: Tooltip(
+      message: tooltip,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          minimumSize: const Size(48, 52),
+          backgroundColor: selected ? WorkspaceTheme.palePeach : null,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

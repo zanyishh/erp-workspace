@@ -219,6 +219,8 @@ class _EntryPage extends StatelessWidget {
     required this.child,
     required this.footer,
     this.error,
+    this.entrySteps = const [],
+    this.entryStep = 0,
   });
   final String company;
   final KnitAction action;
@@ -228,6 +230,8 @@ class _EntryPage extends StatelessWidget {
   final Widget child;
   final Widget? footer;
   final String? error;
+  final List<String> entrySteps;
+  final int entryStep;
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
@@ -360,24 +364,26 @@ class _EntryPage extends StatelessWidget {
     );
   }
 
-  Widget _stageProgress(BuildContext context, int stage, {bool dark = false}) =>
-      TweenAnimationBuilder<double>(
-        tween: Tween(end: (stage + 1) / 3),
-        curve: Curves.easeOutCubic,
-        duration: workspaceMotion(context),
-        builder: (_, value, _) => LinearProgressIndicator(
-          key: const ValueKey('entry-stage-progress'),
-          value: value,
-          color: confirmed
-              ? (dark ? const Color(0xFFB7DFC2) : const Color(0xFF3E6B54))
-              : (dark ? WorkspaceTheme.peach : WorkspaceTheme.charcoal),
-          backgroundColor: dark
-              ? const Color(0xFF565959)
-              : WorkspaceTheme.border,
-          minHeight: 4,
-          borderRadius: BorderRadius.circular(4),
-        ),
-      );
+  Widget _stageProgress(
+    BuildContext context,
+    int stage, {
+    bool dark = false,
+    int total = 3,
+  }) => TweenAnimationBuilder<double>(
+    tween: Tween(end: (stage + 1) / total),
+    curve: Curves.easeOutCubic,
+    duration: workspaceMotion(context),
+    builder: (_, value, _) => LinearProgressIndicator(
+      key: const ValueKey('entry-stage-progress'),
+      value: value,
+      color: confirmed
+          ? (dark ? const Color(0xFFB7DFC2) : const Color(0xFF3E6B54))
+          : (dark ? WorkspaceTheme.peach : WorkspaceTheme.charcoal),
+      backgroundColor: dark ? const Color(0xFF565959) : WorkspaceTheme.border,
+      minHeight: 4,
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
 
   Widget _cover(BuildContext context, bool compact, {bool phone = false}) {
     final detail = [
@@ -392,7 +398,14 @@ class _EntryPage extends StatelessWidget {
         ? 1
         : 0;
     if (phone) {
-      final step = ['Entry', 'Review', 'Posted'][stage];
+      final stages = [
+        if (entrySteps.isEmpty) 'Entry' else ...entrySteps,
+        'Review',
+        'Posted',
+      ];
+      final index = stage == 0
+          ? entryStep
+          : stages.length - (stage == 2 ? 1 : 2);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -409,14 +422,16 @@ class _EntryPage extends StatelessWidget {
               Semantics(
                 liveRegion: true,
                 child: Text(
-                  '$step · ${stage + 1} of 3',
+                  '${stages[index]} · ${index + 1} of ${stages.length}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          ExcludeSemantics(child: _stageProgress(context, stage)),
+          ExcludeSemantics(
+            child: _stageProgress(context, index, total: stages.length),
+          ),
           if (action.id == 'revise_rate')
             const Padding(
               padding: EdgeInsets.only(top: 6),

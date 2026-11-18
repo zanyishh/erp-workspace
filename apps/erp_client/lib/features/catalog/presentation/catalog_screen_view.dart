@@ -57,7 +57,7 @@ class _CatalogScreenViewState extends State<CatalogScreenView> {
             widget.create
                 ? 'New document'
                 : widget.knittingOnly
-                ? 'Masters & accounts'
+                ? 'Company records'
                 : 'All modules & settings',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

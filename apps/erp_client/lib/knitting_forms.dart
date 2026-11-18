@@ -704,7 +704,7 @@ const knitActions = <KnitAction>[
     KnitField('transport', 'Transport / vehicle', optional: true),
     KnitField('transport_reference', 'Transport reference', optional: true),
   ]),
-  KnitAction('invoice', 'Create invoice', 'Billing', 'billing', [
+  KnitAction('invoice', 'Bill delivered fabric', 'Billing', 'billing', [
     KnitField('deliveries', 'Confirmed deliveries', kind: 'Deliveries'),
     KnitField(
       'tax_template',
@@ -1322,11 +1322,13 @@ class KnittingCommandForm extends StatefulWidget {
     this.initial = const {},
     this.initialReferences = const {},
     this.prepareOnly = false,
+    this.onInvoicePreview,
   });
   final ErpApi api;
   final WorkspaceContext workspace;
   final KnitAction action;
   final bool prepareOnly;
+  final Future<void> Function(String name)? onInvoicePreview;
   final Map<String, dynamic>? job;
   final Map<String, dynamic> initial;
   final Map<String, Map<String, dynamic>> initialReferences;
@@ -1336,6 +1338,8 @@ class KnittingCommandForm extends StatefulWidget {
 
 class _KnittingCommandFormState extends State<KnittingCommandForm> {
   var formKey = GlobalKey<FormState>();
+  var _guidedForms = List.generate(2, (_) => GlobalKey<FormState>());
+  int _entryStep = 0;
   final values = <String, dynamic>{};
   final references = <String, Map<String, dynamic>>{};
   final recordLabels = <(String, String), String>{};
@@ -1409,7 +1413,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         oldWidget.action.id != widget.action.id ||
         oldWidget.job?['name'] != widget.job?['name']) {
       final previous = draft;
-      formKey = GlobalKey<FormState>();
+      _resetEntryForms();
       values.clear();
       references.clear();
       recordLabels.clear();
@@ -1438,7 +1442,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     if (!mounted || account == widget.api.account) return;
     account = widget.api.account;
     setState(() {
-      formKey = GlobalKey<FormState>();
+      _resetEntryForms();
       values.clear();
       references.clear();
       recordLabels.clear();
@@ -1464,6 +1468,12 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
 
   void _markDirty() => changed = true;
   void _updateProductionRows(VoidCallback update) => setState(update);
+
+  void _resetEntryForms() {
+    formKey = GlobalKey<FormState>();
+    _guidedForms = List.generate(2, (_) => GlobalKey<FormState>());
+    _entryStep = 0;
+  }
 
   void _scrollToStart() {
     if (scroll.hasClients) scroll.jumpTo(0);
@@ -1597,23 +1607,36 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     if (discard == true && mounted) Navigator.pop(context);
   }
 
-  Future<void> _review() async {
-    if (importedProgrammeBlocked ||
-        !widget.action.availableIn(workspace) ||
-        !widget.api.accessReady ||
-        draft?.state == CommandState.uncertain) {
-      return;
-    }
-    FocusManager.instance.primaryFocus?.unfocus();
-    final invalid = formKey.currentState!.validateGranularly();
-    if (invalid.isNotEmpty) {
+  bool get _guidedEntry =>
+      const {'create_job', 'create_estimate'}.contains(widget.action.id) &&
+      workspaceUsesPhoneNavigation(context);
+
+  List<String> get _entrySteps => [
+    widget.action.id == 'create_job' ? 'Job brief' : 'Estimate details',
+    'Fabric programme',
+  ];
+
+  Future<bool> _validateEntry({bool briefOnly = false}) async {
+    final guided = _guidedEntry;
+    final forms = guided ? _guidedForms : [formKey];
+    for (final (index, form) in forms.indexed) {
+      if (briefOnly && index > 0) break;
+      final state = form.currentState;
+      if (state == null) return false;
+      final invalid = state.validateGranularly();
+      if (invalid.isEmpty) continue;
       final errorContext = invalid.first.context;
+      if (guided && index != _entryStep) {
+        setState(() => _entryStep = index);
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || !errorContext.mounted) return false;
+      }
       await Scrollable.ensureVisible(
         errorContext,
         duration: workspaceMotion(context),
         alignment: .2,
       );
-      if (!mounted || !errorContext.mounted) return;
+      if (!mounted || !errorContext.mounted) return false;
       FocusNode? firstFocus;
       void visit(Element element) {
         if (firstFocus != null) return;
@@ -1626,6 +1649,45 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
 
       errorContext.visitChildElements(visit);
       firstFocus?.requestFocus();
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _nextEntryStep() async {
+    final revision = widget.api.accessRevision;
+    if (!await _validateEntry(briefOnly: true) ||
+        !mounted ||
+        revision != widget.api.accessRevision ||
+        !widget.api.accessReady) {
+      return;
+    }
+    _showEntryStep(1);
+  }
+
+  void _showEntryStep(int index) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _scrollToStart();
+    setState(() {
+      _entryStep = index;
+      validation = null;
+    });
+  }
+
+  Future<void> _review() async {
+    if (importedProgrammeBlocked ||
+        !widget.action.availableIn(workspace) ||
+        !widget.api.accessReady ||
+        draft?.state == CommandState.uncertain) {
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    final validationRevision = widget.api.accessRevision;
+    if (!await _validateEntry() ||
+        !mounted ||
+        !widget.api.accessReady ||
+        validationRevision != widget.api.accessRevision ||
+        review) {
       return;
     }
     try {
@@ -2218,6 +2280,8 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
         review: review,
         confirmed: draft?.state == CommandState.confirmed,
         error: !review ? validation : null,
+        entrySteps: _guidedEntry ? _entrySteps : const [],
+        entryStep: _entryStep,
         footer: _footer(),
         child: review
             ? _reviewPanel()
@@ -2239,14 +2303,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
                             'Full programme revision is unavailable for imported jobs until original programme compatibility is supported. Use Revise rate to change the agreed rate while preserving the original programme.',
                           ),
                         ),
-                      for (final section in _entrySections(
-                        widget.action,
-                        fields,
-                      ).entries)
-                        _EntrySection(
-                          title: section.key,
-                          child: _grid(section.value, values),
-                        ),
+                      ..._entryGroups(),
                       if (const {
                         'produce',
                         'produce_bulk',
@@ -2294,13 +2351,61 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
       ),
     ),
   );
+  List<Widget> _entryGroups() {
+    final sections = _entrySections(widget.action, fields).entries;
+    Widget section(MapEntry<String, List<KnitField>> group) =>
+        _EntrySection(title: group.key, child: _grid(group.value, values));
+    if (!_guidedEntry) return sections.map(section).toList();
+    return [
+      for (final (index, key) in _guidedForms.indexed)
+        Offstage(
+          offstage: _entryStep != index,
+          child: ExcludeFocus(
+            excluding: _entryStep != index,
+            child: Form(
+              key: key,
+              onChanged: _markDirty,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final group in sections)
+                    if ((group.key == _entrySteps.first) == (index == 0))
+                      section(group),
+                ],
+              ),
+            ),
+          ),
+        ),
+    ];
+  }
+
   Widget? _footer() {
     if (!review) {
-      return FilledButton.icon(
+      if (_guidedEntry && _entryStep == 0) {
+        return FilledButton.icon(
+          onPressed: _nextEntryStep,
+          icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+          label: const Text('Next'),
+        );
+      }
+      final action = FilledButton.icon(
         onPressed: importedProgrammeBlocked ? null : _review,
         icon: const Icon(Icons.arrow_forward, size: 17),
         label: const Text('Review entry'),
       );
+      return _guidedEntry
+          ? Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => _showEntryStep(0),
+                  child: const Text('Back'),
+                ),
+                action,
+              ],
+            )
+          : action;
     }
     if (checkingTotals || accessInvalidatedDraft) return null;
     final state = draft!.state;
@@ -2468,76 +2573,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
           ),
           const SizedBox(height: 20),
           if (invoiceReview != null && !confirmed) ...[
-            const SizedBox(height: 20),
-            Panel(
-              border: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Display('INVOICE · ${invoiceReview!['currency']}', size: 26),
-                  if ((job?['balances'] as Map?)?['captured_delivered_kg'] !=
-                      null)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 12),
-                      child: Text(
-                        'Current agreed rate: original delivery references use the current programme price. Check every rate below before posting this new invoice.',
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  for (final row in invoiceReview!['items'] as List)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${row['item']}\n${row['quantity']} ${row['uom']} × ${row['rate']}',
-                            ),
-                          ),
-                          Text(row['amount'].toString()),
-                        ],
-                      ),
-                    ),
-                  const Divider(height: 24),
-                  for (final tax
-                      in invoiceReview!['taxes'] as List? ?? const [])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text(tax['description'].toString())),
-                          Text(tax['amount'].toString()),
-                        ],
-                      ),
-                    ),
-                  for (final (key, label) in [
-                    ('net_total', 'Net total'),
-                    ('tax_total', 'Tax total'),
-                    ('grand_total', 'Total to post'),
-                  ])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            invoiceReview![key].toString(),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            _invoiceReviewPanel(invoiceReview!),
             const SizedBox(height: 20),
           ],
           if (!confirmed) ...[
@@ -2580,6 +2616,102 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
     );
   }
 
+  Widget _invoiceReviewPanel(Map<String, dynamic> quote) {
+    final currency = quote['currency']?.toString() ?? '';
+    final precision = int.tryParse(quote['precision']?.toString() ?? '') ?? 2;
+    final customer = quote['customer_name'] ?? quote['customer'];
+    Widget amountRow(Widget label, Object? value, {bool total = false}) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Text(
+                    formatInvoiceNumber(
+                      value,
+                      places: precision,
+                      indian: currency == 'INR',
+                    ),
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontWeight: total ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    return Panel(
+      border: true,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Display(
+            currency.isEmpty ? 'Invoice totals' : 'Invoice totals · $currency',
+            size: 26,
+          ),
+          if (customer != null && customer.toString().isNotEmpty)
+            Text('Bill to · $customer'),
+          if (quote['due_date'] != null)
+            Text("Due date · ${quote['due_date']}"),
+          if ((job?['balances'] as Map?)?['captured_delivered_kg'] != null)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Current agreed rate: original delivery references use the current programme price.',
+              ),
+            ),
+          const Divider(height: 18),
+          for (final row in (quote['items'] as List).whereType<Map>())
+            amountRow(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    row['item'].toString(),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    "${formatInvoiceNumber(row['quantity'])} ${row['uom'] ?? ''} × ${formatInvoiceNumber(row['rate'])}",
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              row['amount'],
+            ),
+          const Divider(height: 18),
+          amountRow(const Text('Net total'), quote['net_total']),
+          for (final row
+              in (quote['taxes'] as List? ?? const []).whereType<Map>())
+            amountRow(Text(row['description'].toString()), row['amount']),
+          if (quote['tax_total'] != null)
+            amountRow(const Text('Tax total'), quote['tax_total']),
+          if ((num.tryParse(quote['rounding_adjustment']?.toString() ?? '') ??
+                  0) !=
+              0)
+            amountRow(const Text('Rounding'), quote['rounding_adjustment']),
+          const Divider(height: 18),
+          amountRow(
+            const Text(
+              'Total to post',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            quote['payable_total'] ?? quote['grand_total'],
+            total: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _savedOutcome(KnittingDraft draft) {
     final data = Map<String, dynamic>.from(draft.result?['data'] as Map? ?? {});
     final rolls = data['rolls'] as List?;
@@ -2613,7 +2745,10 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             if (data['loss_kg'] != null)
               _outcomeMetric('Declared loss', '${data['loss_kg']} kg'),
             if (data['amount'] != null && workspace.allows('financial_read'))
-              _outcomeMetric('Document total', data['amount'].toString()),
+              _outcomeMetric(
+                'Document total',
+                '${data['currency'] == null ? '' : "${data['currency']} "}${data['amount']}',
+              ),
             if (data['status'] != null)
               _outcomeMetric('Status', data['status'].toString()),
             if (widget.action.id == 'produce_batches' &&
@@ -2656,7 +2791,7 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
             padding: const EdgeInsets.only(top: 12),
             child: Text('Destination · ${data['destination']}'),
           ),
-        for (final (type, name) in sources)
+        for (final (type, name) in sources) ...[
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(name),
@@ -2674,6 +2809,19 @@ class _KnittingCommandFormState extends State<KnittingCommandForm> {
               ),
             ),
           ),
+          if (type == 'Sales Invoice' &&
+              data['can_print'] == true &&
+              widget.onInvoicePreview != null &&
+              workspace.readableRecords.contains('Sales Invoice'))
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () => widget.onInvoicePreview!(name),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                label: const Text('Preview invoice PDF'),
+              ),
+            ),
+        ],
       ],
     );
   }

@@ -434,7 +434,8 @@ void main() {
       await t.pumpAndSettle();
       expect(api.reads.where((v) => v == 'A').length, greaterThanOrEqualTo(2));
       expect(find.text('Company default · Press Folio'), findsOneWidget);
-      expect(find.text('Invoice date · 2026-11-17'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Invoice date'), findsOneWidget);
+      expect(find.text('2026-11-17'), findsOneWidget);
       expect(t.takeException(), isNull);
     },
   );

@@ -1,0 +1,35 @@
+name: Publish prepared project
+on:
+  push:
+    paths: ['erp-project.bundle']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    if: github.repository == 'zanyishh/erp-workspace'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Import reviewed source and preserve its Git history
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f erp-project.bundle
+          git bundle verify erp-project.bundle
+          git fetch ./erp-project.bundle refs/heads/publish-windows-testers:refs/remotes/prepared/main
+          candidate=$(git rev-parse refs/remotes/prepared/main)
+          # Workflows are installed through the owner's signed-in browser first.
+          # The repository token only publishes the remaining project files.
+          diff <(git ls-tree -r HEAD .github/workflows) <(git ls-tree -r "$candidate" .github/workflows)
+          parent=$(git rev-parse HEAD)
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git read-tree --reset -u "$candidate"
+          commit=$(git commit-tree "$(git rev-parse "$candidate^{tree}")" -p "$parent" -p "$candidate" -m 'Publish ERP Workspace with Windows tester setup and full source history')
+          git reset --hard "$commit"
+          git push origin HEAD:main
+          echo "Published reviewed source $candidate as $commit" >> "$GITHUB_STEP_SUMMARY"

@@ -28,11 +28,13 @@ class InvoiceComposerView extends StatefulWidget {
     required this.linkField,
     required this.openEditor,
     required this.protect,
+    this.continueToEditor = false,
   });
   final InvoiceComposerViewModel model;
   final InvoiceLinkFieldBuilder linkField;
   final Future<String?> Function({String? name}) openEditor;
   final Widget Function(Widget, Future<void> Function()) protect;
+  final bool continueToEditor;
   @override
   State<InvoiceComposerView> createState() => _ComposerState();
 }
@@ -326,7 +328,7 @@ class _ComposerState extends State<InvoiceComposerView> {
   Future<void> checkSave({bool close = false}) async {
     final owner = model, receipt = await model.checkSave(close: close);
     if (receipt != null && mounted && identical(owner, model)) {
-      await saved(owner, receipt);
+      await saved(owner, receipt, advanced: widget.continueToEditor);
     }
   }
 
@@ -497,7 +499,7 @@ class _ComposerState extends State<InvoiceComposerView> {
       style: _numbers,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textInputAction: TextInputAction.next,
-      onEditingComplete: focus.rate.requestFocus,
+      onEditingComplete: () => _revealField(focus.rate),
       decoration: InputDecoration(
         labelText: 'Quantity',
         floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -600,33 +602,67 @@ class _ComposerState extends State<InvoiceComposerView> {
         ),
         if (checked != null && reviewed != null) ...[
           const SizedBox(height: 12),
-          Text(
-            "${reviewed['qty']} ${reviewed['uom']} × ${reviewed['rate']} = ${checked['currency']} ${money(reviewed['amount'], checked['precision'])}",
-            textAlign: TextAlign.end,
-            style: _numbers,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${formatInvoiceNumber(reviewed['qty'])} ${reviewed['uom'] ?? ''} × ${formatInvoiceNumber(reviewed['rate'])}',
+                  style: _numbers.copyWith(color: WorkspaceTheme.muted),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    "${checked['currency']} ${money(reviewed['amount'], checked['precision'])}",
+                    style: _numbers.copyWith(fontWeight: FontWeight.w700),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ],
     );
   }
 
+  Widget _dateField(String label, String value, {required bool forDue}) =>
+      TextButton(
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          alignment: Alignment.centerLeft,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        onPressed: editable ? () => pickDate(forDue) : null,
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            enabled: editable,
+            filled: false,
+            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+          ),
+          child: Text(value, style: Theme.of(context).textTheme.bodyLarge),
+        ),
+      );
+
   List<Widget> _draftFields(bool compact) {
     final checked = quote;
-    final dateStyle = OutlinedButton.styleFrom(
-      alignment: Alignment.centerLeft,
-      minimumSize: const Size(48, 56),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    );
     final dueFields = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        OutlinedButton.icon(
-          style: dateStyle,
-          onPressed: editable ? () => pickDate(true) : null,
-          icon: const Icon(Icons.event_outlined, size: 18),
-          label: Text(
-            'Due date · ${due.isEmpty ? (checked == null ? null : checked['due_date']) ?? 'Customer terms' : due}',
-          ),
+        _dateField(
+          'Due date',
+          due.isEmpty
+              ? (checked?['due_date']?.toString() ?? 'Customer terms')
+              : due,
+          forDue: true,
         ),
         if (due.isNotEmpty)
           TextButton(
@@ -688,13 +724,10 @@ class _ComposerState extends State<InvoiceComposerView> {
                   ? 'Choose a customer.'
                   : null,
             ),
-            OutlinedButton.icon(
-              style: dateStyle,
-              onPressed: editable ? () => pickDate(false) : null,
-              icon: const Icon(Icons.calendar_today_outlined, size: 18),
-              label: Text(
-                'Invoice date · ${posting.isEmpty ? 'Choose' : posting}',
-              ),
+            _dateField(
+              'Invoice date',
+              posting.isEmpty ? 'Choose date' : posting,
+              forDue: false,
             ),
           ),
           if (model.dueBeforeInvoice)
@@ -755,21 +788,30 @@ class _ComposerState extends State<InvoiceComposerView> {
         ),
       ),
       const SizedBox(height: 8),
-      for (final entry in model.reviewed!.summaryTotals)
+      for (final (label, value) in model.reviewed!.summaryTotals)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Text(entry.$1)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: label == 'Total'
+                      ? const TextStyle(fontWeight: FontWeight.w700)
+                      : null,
+                ),
+              ),
               const SizedBox(width: 12),
               Flexible(
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Text(
-                    "${checked['currency']} ${money(entry.$2, checked['precision'])}",
+                    "${checked['currency']} ${money(value, checked['precision'])}",
                     textAlign: TextAlign.end,
-                    style: _numbers,
+                    style: label == 'Total'
+                        ? _numbers.copyWith(fontWeight: FontWeight.w700)
+                        : _numbers,
                   ),
                 ),
               ),
@@ -828,9 +870,15 @@ class _ComposerState extends State<InvoiceComposerView> {
       );
     } else if (checked != null) {
       action = FilledButton.icon(
-        onPressed: busy ? null : () => save(),
+        onPressed: busy ? null : () => save(advanced: widget.continueToEditor),
         icon: const Icon(Icons.save_outlined),
-        label: Text(uncertain ? 'Retry same save' : 'Save draft'),
+        label: Text(
+          uncertain
+              ? 'Retry same save'
+              : widget.continueToEditor
+              ? 'Save and open invoice'
+              : 'Save draft',
+        ),
       );
     } else {
       action = FilledButton(

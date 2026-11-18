@@ -35,6 +35,8 @@ class KnittingScreen extends StatefulWidget {
     this.onRecords,
     this.onGeneral,
     this.onInvoices,
+    this.invoiceWorkspace,
+    this.onInvoicePreview,
     this.onHistory,
     this.onBusinessModule,
   });
@@ -42,6 +44,13 @@ class KnittingScreen extends StatefulWidget {
   final WorkspaceContext workspace;
   final ValueChanged<WorkspaceContext> onContextChanged;
   final VoidCallback? onCompany, onAccount, onRecords, onGeneral, onInvoices;
+  final Future<void> Function(String company, String name)? onInvoicePreview;
+  final Widget Function(
+    Widget jobBilling,
+    Future<void> Function()? billFromDelivery,
+    VoidCallback refreshBilling,
+  )?
+  invoiceWorkspace;
   final ValueChanged<ErpModule>? onBusinessModule;
   final ValueChanged<String>? onHistory;
   @override
@@ -67,6 +76,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
   final _searchField = TextEditingController();
   final _workflowScope = ValueNotifier(0);
   bool _drawerOpen = false;
+  Rect? _jobOrigin;
   Map<String, int> pageStarts = {};
   _MillLocation get _location => (
     page: page,
@@ -93,6 +103,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
   }
 
   void _resetNavigation() {
+    _jobOrigin = null;
     _history.clear();
     _searchField.clear();
     search = '';
@@ -148,6 +159,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
   }
 
   void refresh() => setState(() {
+    _jobOrigin = null;
     pageStarts = {};
     future = _reload();
   });
@@ -194,6 +206,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
   Future<void> _back() async {
     if (!await _canLeave() || !mounted || _history.isEmpty) return;
     setState(() {
+      _jobOrigin = null;
       final previous = _history.removeLast();
       if (previous.job != selected?['name']) {
         selected = previous.job == null ? null : {'name': previous.job};
@@ -223,6 +236,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
       'Overview',
       'Jobs',
       'Estimation',
+      'Billing',
     }.contains(value);
     if (page == value &&
         _location.filter == filter &&
@@ -231,6 +245,7 @@ class _KnittingScreenState extends State<KnittingScreen> {
     }
     if (!await _canLeave() || !mounted) return;
     setState(() {
+      _jobOrigin = null;
       if (page != value || (showRegister && selected != null)) _remember();
       if (selected != null && showRegister) {
         selected = null;
@@ -305,6 +320,9 @@ class _KnittingScreenState extends State<KnittingScreen> {
           job: spec.needsJob ? source : null,
           initial: initial,
           initialReferences: initialReferences,
+          onInvoicePreview: widget.onInvoicePreview == null || company == null
+              ? null
+              : (name) => widget.onInvoicePreview!(company, name),
         ),
       ),
     );
@@ -378,10 +396,11 @@ class _KnittingScreenState extends State<KnittingScreen> {
     }
   }
 
-  void openJob(Map<String, dynamic> job) => setState(() {
+  void openJob(Map<String, dynamic> job, {Rect? origin}) => setState(() {
     _remember();
     _searchField.clear();
     selected = job;
+    _jobOrigin = origin;
     page = 'Jobs';
     search = '';
     queueFilter = null;
@@ -454,6 +473,11 @@ class _KnittingScreenState extends State<KnittingScreen> {
     _ => ('Original orders', 'job'),
   };
 
+  bool get _billingIntegrated =>
+      widget.invoiceWorkspace != null &&
+      workspace.destinations.contains('Billing');
+  bool get _invoiceWorkspaceOpen => _billingIntegrated && page == 'Billing';
+
   @override
   Widget build(BuildContext context) => AccessGate(
     api: widget.api,
@@ -488,14 +512,22 @@ class _KnittingScreenState extends State<KnittingScreen> {
         onCompany: setupDirty ? null : widget.onCompany,
         onAccount: setupDirty ? null : widget.onAccount,
         onRecords: setupDirty ? null : widget.onRecords,
-        onInvoices: setupDirty ? null : widget.onInvoices,
+        onInvoices: setupDirty || _billingIntegrated ? null : widget.onInvoices,
         onHistory: setupDirty || widget.onHistory == null
             ? null
             : () => widget.onHistory!('job'),
         onGeneral: setupDirty ? null : widget.onGeneral,
         onBusinessModule: setupDirty ? null : widget.onBusinessModule,
         actions: [
-          if (widget.onHistory != null && !setupDirty)
+          if (!_invoiceWorkspaceOpen &&
+              page == 'Billing' &&
+              widget.onInvoices != null)
+            OutlinedButton.icon(
+              onPressed: widget.onInvoices,
+              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+              label: const Text('Invoice register'),
+            ),
+          if (!_invoiceWorkspaceOpen && widget.onHistory != null && !setupDirty)
             OutlinedButton.icon(
               onPressed: () => widget.onHistory!(_originalRecords.$2),
               icon: const Icon(Icons.history_outlined, size: 18),
@@ -514,183 +546,190 @@ class _KnittingScreenState extends State<KnittingScreen> {
               icon: const Icon(Icons.print_outlined, size: 18),
               label: const Text('Roll label'),
             ),
-          if (page != 'Reports' && page != 'Setup')
-            OutlinedButton.icon(
+          if (!_invoiceWorkspaceOpen && page != 'Reports' && page != 'Setup')
+            IconButton.outlined(
+              tooltip: 'Refresh knitting records',
               onPressed: refresh,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Refresh'),
+              icon: const Icon(Icons.refresh, size: 20),
             ),
-          if (primary != null)
+          if (!_invoiceWorkspaceOpen && primary != null)
             FilledButton.icon(
               onPressed: () => action(primary!),
               icon: Icon(primary!.icon, size: 18),
               label: Text(primary!.title),
             ),
         ],
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: page == 'Reports'
-                  ? KnittingReports(
-                      api: widget.api,
-                      company: workspace.company!,
-                      financialRead: workspace.allows('financial_read'),
-                      job: selected?['name'] as String?,
-                    )
-                  : page == 'Setup'
-                  ? _Setup(
-                      api: widget.api,
-                      workspace: workspace,
-                      parentHandlesBack: _history.isNotEmpty,
-                      onSaved: changedContext,
-                      onDirty: (value) {
-                        if (mounted && value != setupDirty) {
-                          setState(() => setupDirty = value);
-                        }
-                      },
-                    )
-                  : FutureBuilder<KnittingSnapshot>(
-                      future: future,
-                      builder: (context, state) {
-                        if (state.connectionState != ConnectionState.done) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              semanticsLabel: "Loading knitting workspace",
-                            ),
-                          );
-                        }
-                        if (state.hasError) {
-                          return MessagePanel(
-                            title: 'COULD NOT LOAD KNITTING',
-                            message: state.error.toString(),
-                            action: refresh,
-                          );
-                        }
-                        if (!state.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              semanticsLabel: 'Loading knitting records',
-                            ),
-                          );
-                        }
-                        final snap = state.data!;
-                        if (snap.company != workspace.company) {
-                          return const SizedBox.shrink();
-                        }
-                        if (selected != null) {
-                          final matches = snap
-                              .rows('jobs')
-                              .where((j) => j['name'] == selected!['name']);
-                          selected = matches.firstOrNull;
-                        }
-                        if (page == 'Overview') {
-                          return MillOverview(
-                            api: widget.api,
-                            snapshot: snap,
-                            workspace: workspace,
-                            onDestination: destination,
-                            onJob: openJob,
-                            onOriginalProduction: widget.onHistory == null
-                                ? null
-                                : () => widget.onHistory!('production'),
-                          );
-                        }
-                        if (page == 'Estimation') {
-                          return _EstimateRegister(
-                            api: widget.api,
-                            snapshot: snap,
-                            workspace: workspace,
-                            query: search,
-                            searchField: _searchField,
-                            onQuery: (value) => setState(() {
-                              search = value;
-                              pageStarts = {};
-                            }),
-                            start: pageStarts['estimates'] ?? 0,
-                            onPage: (value) => setState(
-                              () => pageStarts = {'estimates': value},
-                            ),
-                            fromDate: estimateFromDate,
-                            toDate: estimateToDate,
-                            onDates: (from, to) => setState(() {
-                              estimateFromDate = from;
-                              estimateToDate = to;
-                              pageStarts = {};
-                            }),
-                            onOpen: _openEstimate,
-                          );
-                        }
-                        return KnittingWorkbench(
-                          key: ValueKey(page),
-                          masterCategory: masterCategory,
-                          onMasterCategory: (value) => setState(() {
-                            masterCategory = value;
-                            pageStarts = {...pageStarts, 'masters': 0};
-                          }),
-                          onMaster: _openMaster,
-                          jobCustomer: jobCustomer,
-                          jobFromDate: jobFromDate,
-                          jobToDate: jobToDate,
-                          onJobFilters: (customer, from, to) => setState(() {
-                            jobCustomer = customer == null
-                                ? null
-                                : Map.from(customer);
-                            jobFromDate = from;
-                            jobToDate = to;
-                            pageStarts = {};
-                          }),
-                          queueFilter: queueFilter,
-                          onFilter: (value) => setState(() {
-                            queueFilter = value;
-                            pageStarts = {};
-                          }),
-                          api: widget.api,
-                          pageStarts: pageStarts,
-                          onPage: (key, start) => setState(() {
-                            pageStarts = {...pageStarts, key: start};
-                          }),
-                          snapshot: snap,
-                          page: page,
-                          selected: selected,
-                          query: search,
-                          searchField: _searchField,
-                          onQuery: (v) => setState(() {
-                            search = v;
-                            pageStarts = {};
-                          }),
-                          onJob: openJob,
-                          onAction: action,
-                          onRoll: openRoll,
-                          primaryAction: primary,
-                          onSource: source,
-                          onSubcontract: _openSubcontract,
-                          workspace: workspace,
-                          onFind: () async {
-                            final company = workspace.company!;
-                            final access = widget.api.accessRevision;
-                            final row = await pickKnitRecord(
-                              context,
-                              widget.api,
-                              company,
-                              'Job',
-                            );
-                            if (row != null &&
-                                mounted &&
-                                workspace.company == company &&
-                                access == widget.api.accessRevision) {
-                              openJob(row);
-                            }
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+        child: _invoiceWorkspaceOpen
+            ? widget.invoiceWorkspace!(
+                _workbench(),
+                primary == null ? null : _billFromDelivery,
+                refresh,
+              )
+            : _workbench(),
       ),
     ),
   );
+  Future<void> _billFromDelivery() async {
+    final bill = primary;
+    if (_invoiceWorkspaceOpen && bill != null && widget.api.accessReady) {
+      await action(bill);
+    }
+  }
+
+  Widget _workbench() => page == 'Reports'
+      ? KnittingReports(
+          api: widget.api,
+          company: workspace.company!,
+          financialRead: workspace.allows('financial_read'),
+          job: selected?['name'] as String?,
+        )
+      : page == 'Setup'
+      ? _Setup(
+          api: widget.api,
+          workspace: workspace,
+          parentHandlesBack: _history.isNotEmpty,
+          onSaved: changedContext,
+          onDirty: (value) {
+            if (mounted && value != setupDirty) {
+              setState(() => setupDirty = value);
+            }
+          },
+        )
+      : FutureBuilder<KnittingSnapshot>(
+          future: future,
+          builder: (context, state) {
+            if (state.connectionState != ConnectionState.done) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  semanticsLabel: "Loading knitting workspace",
+                ),
+              );
+            }
+            if (state.hasError) {
+              return MessagePanel(
+                title: 'COULD NOT LOAD KNITTING',
+                message: state.error.toString(),
+                action: refresh,
+              );
+            }
+            if (!state.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  semanticsLabel: 'Loading knitting records',
+                ),
+              );
+            }
+            final snap = state.data!;
+            if (snap.company != workspace.company) {
+              return const SizedBox.shrink();
+            }
+            if (selected != null) {
+              final matches = snap
+                  .rows('jobs')
+                  .where((j) => j['name'] == selected!['name']);
+              selected = matches.firstOrNull;
+            }
+            if (page == 'Overview') {
+              return MillOverview(
+                api: widget.api,
+                snapshot: snap,
+                workspace: workspace,
+                onDestination: destination,
+                onJob: openJob,
+                onJobFromRow: openJob,
+                onOriginalProduction: widget.onHistory == null
+                    ? null
+                    : () => widget.onHistory!('production'),
+              );
+            }
+            if (page == 'Estimation') {
+              return _EstimateRegister(
+                api: widget.api,
+                snapshot: snap,
+                workspace: workspace,
+                query: search,
+                searchField: _searchField,
+                onQuery: (value) => setState(() {
+                  search = value;
+                  pageStarts = {};
+                }),
+                start: pageStarts['estimates'] ?? 0,
+                onPage: (value) =>
+                    setState(() => pageStarts = {'estimates': value}),
+                fromDate: estimateFromDate,
+                toDate: estimateToDate,
+                onDates: (from, to) => setState(() {
+                  estimateFromDate = from;
+                  estimateToDate = to;
+                  pageStarts = {};
+                }),
+                onOpen: _openEstimate,
+              );
+            }
+            return KnittingWorkbench(
+              key: ValueKey(page),
+              masterCategory: masterCategory,
+              onMasterCategory: (value) => setState(() {
+                masterCategory = value;
+                pageStarts = {...pageStarts, 'masters': 0};
+              }),
+              onMaster: _openMaster,
+              jobCustomer: jobCustomer,
+              jobFromDate: jobFromDate,
+              jobToDate: jobToDate,
+              onJobFilters: (customer, from, to) => setState(() {
+                jobCustomer = customer == null ? null : Map.from(customer);
+                jobFromDate = from;
+                jobToDate = to;
+                pageStarts = {};
+              }),
+              queueFilter: queueFilter,
+              onFilter: (value) => setState(() {
+                queueFilter = value;
+                pageStarts = {};
+              }),
+              api: widget.api,
+              pageStarts: pageStarts,
+              onPage: (key, start) => setState(() {
+                pageStarts = {...pageStarts, key: start};
+              }),
+              snapshot: snap,
+              page: page,
+              selected: selected,
+              query: search,
+              searchField: _searchField,
+              onQuery: (v) => setState(() {
+                search = v;
+                pageStarts = {};
+              }),
+              onJob: openJob,
+              onJobFromRow: openJob,
+              jobOrigin: _jobOrigin,
+              onAction: action,
+              onRoll: openRoll,
+              primaryAction: primary,
+              onSource: source,
+              onSubcontract: _openSubcontract,
+              workspace: workspace,
+              onFind: () async {
+                final company = workspace.company!;
+                final access = widget.api.accessRevision;
+                final row = await pickKnitRecord(
+                  context,
+                  widget.api,
+                  company,
+                  'Job',
+                );
+                if (row != null &&
+                    mounted &&
+                    workspace.company == company &&
+                    access == widget.api.accessRevision) {
+                  openJob(row);
+                }
+              },
+            );
+          },
+        );
 }
 
 class KnittingWorkbench extends StatelessWidget {
@@ -722,6 +761,8 @@ class KnittingWorkbench extends StatelessWidget {
     this.masterCategory,
     this.onMasterCategory,
     this.onMaster,
+    this.onJobFromRow,
+    this.jobOrigin,
   });
   final String? masterCategory;
   final ValueChanged<String?>? onMasterCategory;
@@ -742,6 +783,8 @@ class KnittingWorkbench extends StatelessWidget {
   final Map<String, dynamic>? selected;
   final ValueChanged<String> onQuery;
   final ValueChanged<Map<String, dynamic>> onJob;
+  final MillJobRowAction? onJobFromRow;
+  final Rect? jobOrigin;
   final VoidCallback onFind;
   final TextEditingController? searchField;
   final Future<void> Function(KnitAction, {Map<String, dynamic> initial})
@@ -752,6 +795,16 @@ class KnittingWorkbench extends StatelessWidget {
       .rows(key)
       .where(
         (r) =>
+            (page != 'Billing' ||
+                key != 'events' ||
+                const {
+                  'invoice',
+                  'credit_invoice',
+                  'bill_yarn',
+                  'subcontract_bill',
+                  'migration_delivery_reference',
+                  'migration_billing_initialization',
+                }.contains(r['kind'])) &&
             (selected == null ||
                 const {
                   'masters',
@@ -877,7 +930,11 @@ class KnittingWorkbench extends StatelessWidget {
       children: [
         if (record != null) ...[
           if (jobPage)
-            _JobWorkflow(record, steps, workspace, onAction)
+            _JobCardExpansion(
+              key: ValueKey(record['name']),
+              origin: jobOrigin,
+              child: _JobWorkflow(record, steps, workspace, onAction),
+            )
           else
             Panel(
               border: true,
@@ -906,11 +963,15 @@ class KnittingWorkbench extends StatelessWidget {
             builder: (_, box) {
               final metrics = [
                 if (workspace.allows('materials'))
-                  ('yarn_kg', 'Yarn in custody', ArtObject.yarn),
-                ('fabric_kg', 'Fabric in house', ArtObject.fabric),
+                  ('yarn_kg', 'Yarn in custody', Icons.all_inbox_outlined),
+                ('fabric_kg', 'Fabric in house', Icons.layers_outlined),
                 if (workspace.allows('billing'))
-                  ('unbilled_kg', 'Awaiting invoice', ArtObject.invoice),
-                ('loss_kg', 'Process loss', ArtObject.inspection),
+                  (
+                    'unbilled_kg',
+                    'Awaiting invoice',
+                    Icons.receipt_long_outlined,
+                  ),
+                ('loss_kg', 'Process loss', Icons.scale_outlined),
               ];
               final columns = (box.maxWidth / 172).floor().clamp(
                 1,
@@ -920,11 +981,12 @@ class KnittingWorkbench extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  for (final (key, label, art) in metrics)
+                  for (final (key, label, icon) in metrics)
                     SizedBox(
                       width: (box.maxWidth - (columns - 1) * 12) / columns,
                       child: MetricTile(
-                        art: WorkspaceArt(art, width: 40, height: 30),
+                        icon: icon,
+                        accented: false,
                         label: label,
                         value: '${balances[key] ?? '—'}',
                         footer: record['reconciliation_available'] == false
@@ -1103,6 +1165,7 @@ class KnittingWorkbench extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, bounds) => CustomScrollView(
+        key: PageStorageKey((snapshot.company, page, record?['name'])),
         slivers: [
           SliverToBoxAdapter(child: main),
           if (page == 'Jobs' && record == null)
@@ -1115,6 +1178,7 @@ class KnittingWorkbench extends StatelessWidget {
                     sliverWidth: bounds.maxWidth,
                     jobs: records,
                     onJob: onJob,
+                    onJobFromRow: onJobFromRow,
                     showOutput: workspace.allows('production'),
                     title: snapshot.paginated ? 'Jobs' : 'Recent jobs',
                     caption: snapshot.paginated
@@ -1309,28 +1373,38 @@ class KnittingWorkbench extends StatelessWidget {
       if (queueFilter == null &&
               ['Billing', 'Delivery', 'Production', 'Quality'].contains(page) ||
           page == 'Jobs' && selected != null)
-        _registerSection('events', 'Posted activity', (r) {
-          final result = r['result'] as Map? ?? {};
-          return _row(
-            switch (r['kind']) {
-              'migration_delivery_reference' =>
-                'Original delivery available for billing',
-              'migration_billing_initialization' => 'Original delivery totals',
-              'migration_stock_initialization' => 'Imported stock opening',
-              _ => r['kind'].toString().replaceAll('_', ' '),
-            },
-            '${result['source_reference'] ?? r['name']} · ${result['original_date'] ?? r['occurred_at']}\n${result['quantity_kg'] != null ? '${result['quantity_kg']} kg' : ''}${r['cancelled'] == 1 ? ' · Cancelled' : ''}',
-            result['amount'] != null
-                ? '${workspace.companies.where((c) => c['name'] == workspace.company).firstOrNull?['default_currency'] ?? ''} ${result['amount']}'
-                : result['decision']?.toString() ?? '',
-            onTap: result['voucher'] != null
-                ? () => onSource(
-                    result['voucher_type'].toString(),
-                    result['voucher'].toString(),
-                  )
-                : null,
-          );
-        }),
+        _registerSection(
+          'events',
+          page == 'Billing' ? 'Job billing activity' : 'Posted activity',
+          (r) {
+            final result = r['result'] as Map? ?? {};
+            final billingVoucher = page == 'Billing' ? result['voucher'] : null;
+            return _row(
+              switch (r['kind']) {
+                'invoice' => 'Sales invoice',
+                'credit_invoice' => 'Credit note',
+                'bill_yarn' => 'Yarn purchase bill',
+                'subcontract_bill' => 'Subcontract bill',
+                'migration_delivery_reference' =>
+                  'Original delivery available for billing',
+                'migration_billing_initialization' =>
+                  'Original delivery totals',
+                'migration_stock_initialization' => 'Imported stock opening',
+                _ => r['kind'].toString().replaceAll('_', ' '),
+              },
+              '${billingVoucher ?? result['source_reference'] ?? r['name']} · ${result['original_date'] ?? r['occurred_at']}\n${result['quantity_kg'] != null ? '${result['quantity_kg']} kg' : ''}${r['cancelled'] == 1 ? ' · Cancelled' : ''}',
+              result['amount'] != null
+                  ? '${workspace.companies.where((c) => c['name'] == workspace.company).firstOrNull?['default_currency'] ?? ''} ${result['amount']}'
+                  : result['decision']?.toString() ?? '',
+              onTap: result['voucher'] != null
+                  ? () => onSource(
+                      result['voucher_type'].toString(),
+                      result['voucher'].toString(),
+                    )
+                  : null,
+            );
+          },
+        ),
       if (page == 'Billing')
         _registerSection(
           'rates',
@@ -1362,7 +1436,9 @@ class KnittingWorkbench extends StatelessWidget {
       toDate: key == 'jobs' ? jobToDate : null,
       job: selected?['name'] as String?,
       query: query,
-      state: const {'jobs', 'rolls', 'plans'}.contains(key)
+      state: key == 'events' && page == 'Billing'
+          ? 'Billing'
+          : const {'jobs', 'rolls', 'plans'}.contains(key)
           ? queueFilter
           : null,
       start: pageStarts[key] ?? 0,
@@ -1429,6 +1505,7 @@ class KnittingWorkbench extends StatelessWidget {
                       'MACHINE QUEUE' => 'Machine allocations appear here after a programme is scheduled.',
                       'ROLLS & QUALITY' => 'Recording production or receiving subcontract fabric creates rolls for inspection.',
                       'Posted activity' => 'Confirmed entries appear here with their source records.',
+                      'Job billing activity' => 'Bills, credits and original delivery references appear here.',
                       _ => 'Nothing recorded here yet.',
                     },
             )

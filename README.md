@@ -10,6 +10,8 @@ The [General ERP workflow verification](docs/coverage/2026-11-14-general-workflo
 
 ## Flutter application
 
+**Windows testers:** follow [Windows testing](docs/setup/WINDOWS_TESTING.md) to download both app editions, start your own local ERPNext backend and test General ERP, Knitting and shared invoicing. Repository access requires an accepted GitHub collaborator invitation.
+
 Double-click `scripts/erp-workspace.command` to start the isolated local service and install **ERP Workspace Local**. The app opens directly to **Meridian Trading**, the General ERP demo with its own invoices and customers. Choose **Kaveri Loomworks** in the company selector to open the separate Knitting demo. Each demo uses its own permission-scoped account and company invoice settings. After setup, open the app from your Applications folder. See the [native workflow guide](docs/setup/NATIVE_WORKFLOWS.md) for launch and recovery details.
 
 The separate customer copy uses `scripts/erp-customer.command` and **ERP Workspace Customer** with normal password sign-in and knitting-only customer navigation. Its supporting masters, accounting tools and original history remain available. Read the private KnitPack parity and delivery audit before a customer switch; matching captured balances does not establish identical everyday workflows. This customer build remains local to this Mac.

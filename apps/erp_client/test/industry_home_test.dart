@@ -3,6 +3,9 @@ import 'package:erp_client/erp_api.dart';
 import 'package:erp_client/erp_models.dart';
 import 'package:erp_client/knitting_models.dart';
 import 'package:erp_client/knitting_screen.dart';
+import 'package:erp_client/knitting_forms.dart';
+import 'package:erp_client/invoice_hub.dart';
+import 'package:erp_client/invoice_composer.dart';
 import 'package:erp_client/main.dart';
 import 'package:erp_client/native_catalog.dart';
 import 'package:erp_client/native_models.dart';
@@ -21,6 +24,8 @@ class _CompanyApi extends ErpApi {
   bool knittingOnly;
   bool knittingAvailable = true;
   bool financialActions = false;
+  bool billingAccess = false;
+  int invoiceReads = 0;
   int generalReads = 0;
   bool configured = false;
   bool activated = false;
@@ -38,13 +43,23 @@ class _CompanyApi extends ErpApi {
     'can_reconcile_payments': financialActions,
     'can_match_bank_statements': financialActions,
     'can_configure': true,
-    'readable_records': ['Sales Order', 'Item'],
+    'readable_records': [
+      'Sales Order',
+      'Item',
+      if (billingAccess) 'Sales Invoice',
+    ],
+    'creatable_records': [if (billingAccess) 'Sales Invoice'],
     'needs_industry_selection': name == 'New company' && !configured,
     'capabilities': ifMill(name),
   });
   List<String> ifMill(String name) =>
       (name == 'Mill' || activated) && knittingAvailable
-      ? ['overview', 'jobs', 'production']
+      ? [
+          'overview',
+          'jobs',
+          'production',
+          if (billingAccess) ...['billing', 'financial_read'],
+        ]
       : [];
 
   @override
@@ -64,6 +79,34 @@ class _CompanyApi extends ErpApi {
     String company, {
     String? job,
   }) async => KnittingSnapshot(company, {});
+
+  @override
+  Future<Map<String, dynamic>> salesInvoices(
+    String company, {
+    String query = '',
+    String status = 'All',
+    int start = 0,
+    int limit = 25,
+  }) async {
+    invoiceReads++;
+    return {
+      'company': company,
+      'rows': [
+        {
+          'name': 'TEST-MILL-BILL',
+          'knitting_job': 'TEST-JOB-01',
+          'knitting_job_reference': 'WO-487',
+        },
+      ],
+      'can_create': billingAccess,
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> invoiceDefaults(String company) async => {
+    'posting_date': '2026-11-18',
+    'currency': 'INR',
+  };
   @override
   Future<NativeCatalog> nativeCatalog({String? company}) async =>
       NativeCatalog.fromJson({
@@ -207,14 +250,19 @@ void main() {
     },
   );
 
-  Future<void> enter(WidgetTester tester, _CompanyApi api) async {
-    tester.view.physicalSize = const Size(1440, 1000);
+  Future<void> enter(
+    WidgetTester tester,
+    _CompanyApi api, {
+    Size viewport = const Size(1440, 1000),
+    TargetPlatform? platform,
+  }) async {
+    tester.view.physicalSize = viewport;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: WorkspaceTheme.theme,
+        theme: WorkspaceTheme.theme.copyWith(platform: platform),
         home: WorkspaceShell(connect: (_) => api),
       ),
     );
@@ -222,6 +270,75 @@ void main() {
         .widget<SignInScreen>(find.byType(SignInScreen))
         .onSignIn('demo', 'test');
     await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'mill billing owns the invoice register, job billing and originals',
+    (tester) async {
+      final api = _CompanyApi('Mill', knittingOnly: true)..billingAccess = true;
+      await enter(tester, api);
+      expect(find.text('Invoices'), findsNothing);
+      await tester.tap(find.text('Billing'));
+      await tester.pumpAndSettle();
+      expect(find.byType(KnittingScreen), findsOneWidget);
+      expect(find.byType(InvoiceHub), findsOneWidget);
+      expect(find.text('TEST-MILL-BILL'), findsOneWidget);
+      expect(find.text('Job WO-487'), findsOneWidget);
+      expect(find.text('Original KnitPack invoices'), findsOneWidget);
+      await tester.tap(find.text('Job billing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Job billing activity'), findsOneWidget);
+      expect(find.text('TEST-MILL-BILL'), findsNothing);
+      await tester.tap(find.text('Bill delivered fabric'));
+      await tester.pumpAndSettle();
+      expect(find.byType(KnittingCommandForm), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sales invoices'));
+      await tester.pumpAndSettle();
+      expect(api.invoiceReads, greaterThan(1));
+      await tester.tap(find.text('New invoice'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<InvoiceComposer>(find.byType(InvoiceComposer))
+            .continueToEditor,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final (platform, viewport) in const [
+    (TargetPlatform.iOS, Size(390, 844)),
+    (TargetPlatform.android, Size(360, 780)),
+  ]) {
+    testWidgets('mill billing stays usable on $platform', (tester) async {
+      final api = _CompanyApi('Mill', knittingOnly: true)..billingAccess = true;
+      await enter(tester, api, viewport: viewport, platform: platform);
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Billing'));
+      await tester.tap(find.text('Billing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Billing'), findsOneWidget);
+      expect(find.text('New invoice').hitTestable(), findsOneWidget);
+      expect(find.text('TEST-MILL-BILL').hitTestable(), findsOneWidget);
+      await tester.tap(find.byTooltip('More billing actions'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Original KnitPack invoices').hitTestable(),
+        findsOneWidget,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Job billing'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bill delivered fabric'));
+      await tester.pumpAndSettle();
+      expect(find.byType(KnittingCommandForm), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets(
@@ -233,7 +350,7 @@ void main() {
       expect(find.text('General ERP'), findsNothing);
       expect(find.byTooltip('Open a business area'), findsNothing);
       expect(find.text('Imported history'), findsOneWidget);
-      await tester.tap(find.text('Masters & accounts'));
+      await tester.tap(find.text('Company records'));
       await tester.pumpAndSettle();
       expect(find.byType(NativeCatalogScreen), findsOneWidget);
       expect(find.text('All modules & settings'), findsNothing);
@@ -253,7 +370,7 @@ void main() {
     final api = _CompanyApi('Mill', knittingOnly: true)
       ..financialActions = true;
     await enter(tester, api);
-    await tester.tap(find.text('Masters & accounts'));
+    await tester.tap(find.text('Company records'));
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Account actions'));
     await tester.pumpAndSettle();

@@ -818,7 +818,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Total to post'), findsOneWidget);
     expect(find.textContaining('Current agreed rate'), findsOneWidget);
-    expect(find.text('8800.00'), findsWidgets);
+    expect(find.text('Rounding'), findsOneWidget);
+    expect(find.text('8,800.00'), findsOneWidget);
     expect(api.writes, 0);
     await tester.ensureVisible(find.text('Confirm & post'));
     await tester.tap(find.text('Confirm & post'));
@@ -1205,12 +1206,14 @@ class TestKnitApi extends ErpApi {
           'quantity': '88.000',
           'uom': 'Kg',
           'rate': '100.00',
-          'amount': '8800.00',
+          'amount': '8799.55',
         },
       ],
-      'net_total': '8800.00',
+      'net_total': '8799.55',
       'tax_total': '0.00',
-      'grand_total': '8800.00',
+      'grand_total': '8799.55',
+      'rounding_adjustment': '0.45',
+      'payable_total': '8800.00',
       'preview_hash': 'review-verified',
     };
   }

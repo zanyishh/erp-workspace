@@ -1,16 +1,126 @@
 part of 'knitting_screen.dart';
 
-enum _JobStage {
-  receipt('Yarn', ArtObject.yarn),
-  production('Production', ArtObject.machine),
-  quality('Inspection', ArtObject.inspection),
-  dispatch('Dispatch', ArtObject.dispatch),
-  invoice('Invoice', ArtObject.invoice),
-  completion('Completion', ArtObject.fabric);
+class _JobCardExpansion extends StatefulWidget {
+  const _JobCardExpansion({
+    super.key,
+    required this.origin,
+    required this.child,
+  });
 
-  const _JobStage(this.label, this.art);
+  final Rect? origin;
+  final Widget child;
+
+  @override
+  State<_JobCardExpansion> createState() => _JobCardExpansionState();
+}
+
+class _JobCardExpansionState extends State<_JobCardExpansion>
+    with SingleTickerProviderStateMixin {
+  late final _flight = AnimationController(
+    vsync: this,
+    value: 1,
+    duration: const Duration(milliseconds: 240),
+  );
+  Rect? _start;
+  Size _target = Size.zero;
+  bool _measuring = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (workspaceReduceMotion(context)) _flight.value = 1;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final origin = widget.origin;
+    if (origin == null || origin.isEmpty) return;
+    _measuring = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = context.findRenderObject();
+      if (!workspaceReduceMotion(context) &&
+          widget.origin == origin &&
+          box is RenderBox &&
+          box.attached &&
+          box.hasSize &&
+          !box.size.isEmpty) {
+        final offset = box.localToGlobal(Offset.zero);
+        _start = origin.shift(-offset);
+        _target = box.size;
+        _flight.forward(from: 0);
+      }
+      setState(() => _measuring = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _flight.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.origin == null || workspaceReduceMotion(context)) {
+      return widget.child;
+    }
+    return AnimatedBuilder(
+      key: const ValueKey('mill-job-card-expansion'),
+      animation: _flight,
+      child: widget.child,
+      builder: (context, child) {
+        final start = _start;
+        final progress = Curves.easeOutCubic.transform(_flight.value);
+        final inFlight = _measuring || progress < 1;
+        final bounds = progress == 1 || start == null
+            ? null
+            : Rect.lerp(start, Offset.zero & _target, progress);
+        return ExcludeFocus(
+          excluding: inFlight,
+          child: IgnorePointer(
+            ignoring: inFlight,
+            child: ExcludeSemantics(
+              excluding: inFlight,
+              child: Opacity(
+                opacity: _measuring ? 0 : .74 + .26 * progress,
+                child: bounds == null
+                    ? child
+                    : Transform(
+                        key: const ValueKey('mill-job-card-flight'),
+                        transform: Matrix4.diagonal3Values(
+                          bounds.width / _target.width,
+                          bounds.height / _target.height,
+                          1,
+                        )..setTranslationRaw(bounds.left, bounds.top, 0),
+                        child: child,
+                      ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+enum _JobStage {
+  receipt('Yarn', ArtObject.yarn, Icons.all_inbox_outlined),
+  production(
+    'Production',
+    ArtObject.machine,
+    Icons.precision_manufacturing_outlined,
+  ),
+  quality('Inspection', ArtObject.inspection, Icons.fact_check_outlined),
+  dispatch('Dispatch', ArtObject.dispatch, Icons.local_shipping_outlined),
+  invoice('Invoice', ArtObject.invoice, Icons.receipt_long_outlined),
+  completion('Completion', ArtObject.fabric, Icons.check_circle_outline);
+
+  const _JobStage(this.label, this.art, this.icon);
   final String label;
   final ArtObject art;
+  final IconData icon;
 }
 
 class _JobStep {
@@ -308,6 +418,9 @@ class _JobWorkflow extends StatelessWidget {
           LayoutBuilder(
             builder: (context, c) {
               final compact = c.maxWidth < 600;
+              final showArt =
+                  c.maxWidth >=
+                  300 * MediaQuery.textScalerOf(context).scale(14) / 14;
               final art = WorkspaceArt(
                 step.stage.art,
                 width: compact ? 94 : 190,
@@ -344,7 +457,10 @@ class _JobWorkflow extends StatelessWidget {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      StatusChip(job['status']?.toString() ?? 'Job'),
+                      StatusChip(
+                        job['status']?.toString() ?? 'Job',
+                        monochrome: true,
+                      ),
                       if (job['material_mode'] != null)
                         Text('${job['material_mode']} material'),
                       if (job['target_kg'] != null)
@@ -360,8 +476,7 @@ class _JobWorkflow extends StatelessWidget {
               return Row(
                 children: [
                   Expanded(child: identity),
-                  const SizedBox(width: 10),
-                  art,
+                  if (showArt) ...[const SizedBox(width: 12), art],
                 ],
               );
             },
@@ -383,7 +498,8 @@ class _JobWorkflow extends StatelessWidget {
               for (final stage in _JobStage.values)
                 Semantics(
                   selected: step.stage == stage,
-                  child: DecoratedBox(
+                  child: AnimatedContainer(
+                    duration: workspaceMotion(context),
                     decoration: BoxDecoration(
                       color: step.stage == stage
                           ? WorkspaceTheme.palePeach
@@ -391,12 +507,12 @@ class _JobWorkflow extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 3, 8, 3),
+                      padding: const EdgeInsets.fromLTRB(7, 5, 9, 5),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          WorkspaceArt(stage.art, width: 32, height: 29),
-                          const SizedBox(width: 3),
+                          Icon(stage.icon, size: 17, color: WorkspaceTheme.ink),
+                          const SizedBox(width: 6),
                           Text(
                             stage.label,
                             style: TextStyle(

@@ -94,6 +94,14 @@ def _number(value):
     return format(Decimal(str(value)), 'f')
 
 
+def payable_total(doc):
+    grand = doc.get('grand_total')
+    rounded = doc.get('rounded_total')
+    if grand is not None and doc.get('disable_rounded_total') is not None and not cint(doc.get('disable_rounded_total')) and rounded:
+        return rounded
+    return grand
+
+
 def _text(value):
     if not value:
         return None
@@ -163,7 +171,8 @@ def _delivery_notes(doc):
         return []
     meta = frappe.get_meta(doctype)
     readable = _fieldnames(meta, 'read') - {field.fieldname for field in meta.get_masked_fields()}
-    fields = [field for field in ('posting_date', 'transporter', 'transporter_name', 'vehicle_no', 'lr_no', 'lr_date')
+    fields = [field for field in ('posting_date', 'dispatch_address', 'mode_of_transport', 'transporter',
+                                  'transporter_name', 'vehicle_no', 'lr_no', 'lr_date')
               if field in readable]
     filters = {'company': doc.company, 'customer': doc.customer, 'docstatus': 1, 'name': ['in', references]}
     try:
@@ -176,7 +185,12 @@ def _delivery_notes(doc):
     for name in references:
         row = by_name.get(name)
         if row and frappe.has_permission(doctype, 'read', doc=name) and frappe.has_permission(doctype, 'print', doc=name):
-            result.append({'name': name, **{key: str(row[key]) for key in fields if row.get(key)}})
+            details = {key: str(row[key]) for key in fields if row.get(key)}
+            if 'dispatch_address' in details:
+                address = _text(details.pop('dispatch_address'))
+                if address:
+                    details['dispatch_address'] = address
+            result.append({'name': name, **details})
     return result
 
 
@@ -197,7 +211,7 @@ def register(company: str, query: str = '', status: str = 'All', start: int = 0,
     if status not in statuses or start<0 or not 1<=limit<=100 or len(query)>140:
         frappe.throw('Choose a valid invoice filter and page size.')
     readable=_fieldnames(meta,'read') - {f.fieldname for f in meta.get_masked_fields()}
-    columns=('customer','customer_name','posting_date','due_date','currency','grand_total','rounded_total','disable_rounded_total','party_account_currency','outstanding_amount','status','is_return')
+    columns=('customer','customer_name','posting_date','due_date','currency','grand_total','rounded_total','disable_rounded_total','party_account_currency','outstanding_amount','status','is_return','knitting_job')
     fields=['name','docstatus',*[key for key in columns if key in readable]]
     filters={'company':company}
     if status!='All':
@@ -207,15 +221,30 @@ def register(company: str, query: str = '', status: str = 'All', start: int = 0,
     query=query.strip()
     search=[[key,'like',f'%{query}%'] for key in ('name','customer','customer_name','po_no') if key=='name' or key in readable] if query else None
     rows=frappe.get_list(DOCTYPE,filters=filters,or_filters=search,fields=fields,offset=start,limit=limit+1,order_by='posting_date desc, creation desc, name desc')
+    job_names = {row['knitting_job'] for row in rows[:limit] if row.get('knitting_job')}
+    visible_jobs = {}
+    if job_names and frappe.has_permission('Knitting Job', 'read'):
+        try:
+            job_meta = frappe.get_meta('Knitting Job')
+            job_fields = _fieldnames(job_meta, 'read') - {f.fieldname for f in job_meta.get_masked_fields()}
+            reference_readable = 'source_reference' in job_fields
+            jobs = frappe.get_list('Knitting Job', filters={'company': company, 'name': ['in', sorted(job_names)]},
+                                   fields=['name', *(['source_reference'] if reference_readable else [])],
+                                   limit=len(job_names))
+            visible_jobs = {job['name']: job.get('source_reference') if reference_readable else None for job in jobs}
+        except frappe.PermissionError:
+            pass
     settings=frappe.get_cached_doc('Print Settings')
     display=[]
     for row in rows[:limit]:
         outstanding_currency=row.get('party_account_currency')
         grand_total = row.get('grand_total')
-        payable = grand_total
-        if (grand_total is not None and 'disable_rounded_total' in row
-                and not cint(row.get('disable_rounded_total')) and row.get('rounded_total')):
-            payable = row.rounded_total
+        payable = payable_total(row)
+        job = row.get('knitting_job')
+        if job not in visible_jobs:
+            row.pop('knitting_job', None)
+        elif visible_jobs[job]:
+            row['knitting_job_reference'] = visible_jobs[job]
         display.append({**row,'grand_total':_number(grand_total),'payable_total':_number(payable),'outstanding_amount':_number(row.get('outstanding_amount')),
             'posting_date':str(row.posting_date) if row.get('posting_date') else None,'due_date':str(row.due_date) if row.get('due_date') else None,
             'precision':_precision('grand_total',row.get('currency')),'outstanding_currency':outstanding_currency,

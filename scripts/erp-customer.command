@@ -41,4 +41,12 @@ if [[ "${1:-}" == '--install-only' ]]; then
   print -r -- "Installed $installed"
   exit 0
 fi
-open -n "$installed"
+for (( attempt=1; attempt<=30; attempt++ )); do
+  if curl --noproxy '*' -fsS --max-time 2 http://127.0.0.1:8082/api/method/ping 2>/dev/null |
+      /usr/bin/grep -Eq '"message"[[:space:]]*:[[:space:]]*"pong"'; then
+    exec open -n "$installed"
+  fi
+  sleep 1
+done
+print -u2 'The local knitting ERPNext service did not become ready at 127.0.0.1:8082. Check customer-frontend and native-test-backend in the colima-erp Docker context.'
+exit 1

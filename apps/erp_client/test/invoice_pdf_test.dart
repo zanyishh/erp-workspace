@@ -33,6 +33,13 @@ void main() {
       final temp = await Directory.systemTemp.createTemp('invoice-paper-');
       addTearDown(() => temp.delete(recursive: true));
       final data = await brandedInvoice();
+      data['delivery_notes'] = [
+        {
+          'name': 'DN-2026-0024',
+          'dispatch_address': 'Depot Gate 002',
+          'mode_of_transport': 'Road',
+        },
+      ];
       final base = (data['items'] as List).first as Map;
       data['items'] = [
         for (var i = 1; i <= 35; i++)
@@ -89,6 +96,9 @@ void main() {
           'Demo Manager',
           'Thank you for your order',
           'CGST',
+          'DN-2026-0024',
+          'Depot Gate 002',
+          'Transport mode Road',
         ]) {
           expect(
             output,

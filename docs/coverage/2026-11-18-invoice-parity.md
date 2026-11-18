@@ -46,3 +46,11 @@ Three Swift synthetic executables passed in this review. `TemplateCatalogChecks`
 The initial comparison was read-only. A subsequent Flutter source pass restored line ordering and keyboard progression, aligned quantity and rate validation with the server’s decimal limits, and applied the PDF decimal formatter to review and confirmation totals. Real-device interaction, printer output and an end-to-end ERP journey through actual posting, payment and reprint were outside this comparison.
 
 The phone company-settings screen keeps Save settings above the keyboard. Seven pinned settings cases passed, including saving a signatory and clearing the footer. A synthetic schema-upgrade and legacy-client exercise preserved these values across older clients. The connected schema upgrade remains unverified.
+
+## Knitting billing integration
+
+The preserved KnitPack catalogue lists separate top-level Masters and Accounts menus. It lists Invoice under Knitpack Order, General Invoice under Knitpack Accounts, and date, party and job variants of the historical invoice register. The ERP sidebar shortcut previously labelled Masters & accounts opens the permission-scoped company catalogue and now appears as Company records.
+
+In the mill workspace, Billing contains the shared ERP sales register, delivery-linked job billing and invoice templates. Original KnitPack invoices open in the read-only history filtered to invoices. A normal bill uses the shared composer and opens the saved draft in the full ERP editor. A delivered-fabric bill uses the job's confirmed deliveries, requires an explicit tax decision and shows the server-calculated payable amount, including any rounding, before posting. The confirmed bill can open the shared PDF preview if the account can read and print it. The sales register can show the original job reference where the account has access to that job and field. Original delivery references remain visible in job billing with their source dates.
+
+The original date-, party- and job-filtered reports and the Swift issued-PDF archive should be assessed independently of this navigation and totals change. This pass verified synthetic desktop and phone interactions. Database-backed posting against the isolated site still requires a running local ERPNext service.

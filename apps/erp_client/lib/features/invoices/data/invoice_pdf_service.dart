@@ -884,6 +884,11 @@ class _InvoiceSheet {
               _s(delivery['name']),
               if (_s(delivery['posting_date']).isNotEmpty)
                 'Dispatch posted ${_date(delivery['posting_date'])}',
+              if (_s(delivery['dispatch_address']).isNotEmpty &&
+                  _s(delivery['dispatch_address']) != v('dispatch_address'))
+                'Dispatch from ${_s(delivery['dispatch_address'])}',
+              if (_s(delivery['mode_of_transport']).isNotEmpty)
+                'Transport mode ${_s(delivery['mode_of_transport'])}',
               if (_s(delivery['transporter_name']).isNotEmpty)
                 'Transporter ${_s(delivery['transporter_name'])}'
               else if (_s(delivery['transporter']).isNotEmpty)

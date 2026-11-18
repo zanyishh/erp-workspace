@@ -12,7 +12,7 @@ import 'invoice_register_view_model.dart';
 import 'invoice_register_row.dart';
 import 'invoice_gallery.dart';
 
-enum _Section { invoices, templates }
+enum _Section { invoices, jobBilling, templates }
 
 class InvoiceRegisterView extends StatefulWidget {
   const InvoiceRegisterView({
@@ -21,6 +21,9 @@ class InvoiceRegisterView extends StatefulWidget {
     required this.company,
     required this.canCreate,
     this.onImportedHistory,
+    this.jobBilling,
+    this.onBillFromDelivery,
+    this.onRefreshJobBilling,
     this.identityFor,
     this.templateScope,
     required this.gallery,
@@ -36,6 +39,9 @@ class InvoiceRegisterView extends StatefulWidget {
   final String company;
   final bool canCreate;
   final VoidCallback? onImportedHistory;
+  final Widget? jobBilling;
+  final Future<void> Function()? onBillFromDelivery;
+  final VoidCallback? onRefreshJobBilling;
   final Widget Function(String?, ValueChanged<InvoiceTemplate>) gallery;
   final Future<String?> Function(InvoiceRegisterPage, String?, InvoiceTemplate?)
   openEditor;
@@ -58,6 +64,8 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
   final search = TextEditingController();
   Timer? debounce;
   var section = _Section.invoices;
+  bool _openingDelivery = false;
+  bool get _embedded => widget.jobBilling != null;
   String get query => widget.model.query;
   String get status => widget.model.status;
   int get start => widget.model.start;
@@ -74,7 +82,10 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
   @override
   void didUpdateWidget(covariant InvoiceRegisterView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.model != widget.model) _resetView();
+    if (oldWidget.model != widget.model ||
+        (!_embedded && section == _Section.jobBilling)) {
+      _resetView();
+    }
   }
 
   @override
@@ -211,39 +222,66 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
       MediaQuery.sizeOf(context).width < 690 ||
       MediaQuery.textScalerOf(context).scale(14) > 20;
 
+  void _selectSection(_Section next) {
+    if (section == next) return;
+    if (next == _Section.invoices) {
+      widget.model.reload();
+    }
+    setState(() => section = next);
+  }
+
+  Future<void> _billFromDelivery() async {
+    final open = widget.onBillFromDelivery;
+    if (open == null || _openingDelivery) return;
+    final model = widget.model, scope = model.scope;
+    if (!model.isCurrent(scope)) return;
+    setState(() => _openingDelivery = true);
+    try {
+      await open();
+    } finally {
+      if (mounted) {
+        setState(() => _openingDelivery = false);
+        if (identical(model, widget.model) && model.isCurrent(scope))
+          _refresh();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => widget.protect(
-    Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _compact(context) ? 'Invoices' : widget.company,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          if (widget.onImportedHistory != null)
-            if (MediaQuery.sizeOf(context).width < 600)
-              IconButton(
-                onPressed: widget.onImportedHistory,
-                icon: const Icon(Icons.history_outlined),
-                tooltip: 'Imported invoices',
-              )
-            else
-              TextButton.icon(
-                onPressed: widget.onImportedHistory,
-                icon: const Icon(Icons.history_outlined),
-                label: const Text('Imported invoices'),
+    _embedded
+        ? _body()
+        : Scaffold(
+            appBar: AppBar(
+              title: Text(
+                _compact(context) ? 'Invoices' : widget.company,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-          if (section == _Section.invoices)
-            IconButton(
-              tooltip: 'Refresh invoices',
-              onPressed: () => _refresh(),
-              icon: const Icon(Icons.refresh_outlined),
+              actions: [
+                if (widget.onImportedHistory != null)
+                  if (MediaQuery.sizeOf(context).width < 600)
+                    IconButton(
+                      onPressed: widget.onImportedHistory,
+                      icon: const Icon(Icons.history_outlined),
+                      tooltip: 'Imported invoices',
+                    )
+                  else
+                    TextButton.icon(
+                      onPressed: widget.onImportedHistory,
+                      icon: const Icon(Icons.history_outlined),
+                      label: const Text('Imported invoices'),
+                    ),
+                if (section == _Section.invoices)
+                  IconButton(
+                    tooltip: 'Refresh invoices',
+                    onPressed: () => _refresh(),
+                    icon: const Icon(Icons.refresh_outlined),
+                  ),
+              ],
             ),
-        ],
-      ),
-      body: SafeArea(child: _body()),
-    ),
+            body: SafeArea(child: _body()),
+          ),
     _revalidate,
   );
 
@@ -256,19 +294,31 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
       final canCreate = widget.canCreate && widget.model.canCreate(page);
       return LayoutBuilder(
         builder: (context, box) {
-          final pad = box.maxWidth >= 700 ? 26.0 : 14.0;
+          final pad = _embedded ? 0.0 : (box.maxWidth >= 700 ? 26.0 : 14.0);
           final compact = _compact(context);
           final controls = [
-            _heading(page, pad, compact, canCreate),
+            if (_embedded && compact)
+              _phoneActions(page, canCreate)
+            else
+              _heading(page, pad, compact, canCreate),
             _tabs(box, pad),
             if (section == _Section.invoices) _filters(data, pad, compact),
           ];
-          final content = section == _Section.templates
-              ? widget.gallery(
-                  data?['default_template_id'] as String?,
-                  (t) => _sample(page, t, canCreate),
-                )
-              : _registerBody(state, page, pad, compact, canCreate, box);
+          final content = switch (section) {
+            _Section.templates => widget.gallery(
+              data?['default_template_id'] as String?,
+              (t) => _sample(page, t, canCreate),
+            ),
+            _Section.jobBilling => widget.jobBilling!,
+            _Section.invoices => _registerBody(
+              state,
+              page,
+              pad,
+              compact,
+              canCreate,
+              box,
+            ),
+          };
           if (compact) {
             return NestedScrollView(
               headerSliverBuilder: (_, _) => [
@@ -307,9 +357,9 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
       spacing: 12,
       runSpacing: 4,
       children: [
-        if (compact)
+        if (!_embedded && compact)
           Text(widget.company, style: Theme.of(context).textTheme.titleMedium)
-        else
+        else if (!_embedded)
           Semantics(
             headingLevel: 1,
             child: const Display('Invoices', size: 48),
@@ -318,7 +368,8 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
           spacing: 8,
           runSpacing: 4,
           children: [
-            if (widget.model.canManageSettings(page))
+            if (section != _Section.jobBilling &&
+                widget.model.canManageSettings(page))
               Tooltip(
                 message: 'Invoice settings',
                 child: OutlinedButton.icon(
@@ -327,7 +378,33 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
                   label: const Text('Invoice settings'),
                 ),
               ),
-            if (canCreate)
+            if (_embedded &&
+                section != _Section.templates &&
+                widget.onBillFromDelivery != null)
+              OutlinedButton.icon(
+                onPressed: _openingDelivery ? null : _billFromDelivery,
+                icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                label: const Text('Bill delivered fabric'),
+              ),
+            if (_embedded &&
+                section == _Section.invoices &&
+                widget.onImportedHistory != null)
+              TextButton.icon(
+                onPressed: widget.onImportedHistory,
+                icon: const Icon(Icons.history_outlined, size: 18),
+                label: const Text('Original KnitPack invoices'),
+              ),
+            if (_embedded && section != _Section.templates)
+              IconButton.outlined(
+                tooltip: section == _Section.jobBilling
+                    ? 'Refresh job billing'
+                    : 'Refresh invoices',
+                onPressed: section == _Section.jobBilling
+                    ? widget.onRefreshJobBilling
+                    : () => _refresh(),
+                icon: const Icon(Icons.refresh_outlined, size: 18),
+              ),
+            if (canCreate && section != _Section.jobBilling)
               FilledButton.icon(
                 onPressed: () => _openEditor(page!),
                 icon: const Icon(Icons.add),
@@ -339,45 +416,119 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
     ),
   );
 
+  Widget _phoneActions(InvoiceRegisterPage? page, bool canCreate) {
+    final sales = section == _Section.invoices;
+    final jobBilling = section == _Section.jobBilling;
+    final billDelivery = widget.onBillFromDelivery != null;
+    final newInvoice = canCreate && !jobBilling;
+    final deliveryIsPrimary =
+        billDelivery && (jobBilling || sales && !newInvoice);
+    final actions = <PopupMenuEntry<VoidCallback>>[
+      if (sales && billDelivery && !deliveryIsPrimary)
+        PopupMenuItem(
+          value: _billFromDelivery,
+          enabled: !_openingDelivery,
+          child: const Text('Bill delivered fabric'),
+        ),
+      if (sales && widget.onImportedHistory != null)
+        PopupMenuItem(
+          value: widget.onImportedHistory,
+          child: const Text('Original KnitPack invoices'),
+        ),
+      if (!jobBilling && widget.model.canManageSettings(page))
+        PopupMenuItem(
+          value: () => _settings(page!),
+          child: const Text('Invoice settings'),
+        ),
+      if (sales || jobBilling && widget.onRefreshJobBilling != null)
+        PopupMenuItem(
+          value: jobBilling ? widget.onRefreshJobBilling : () => _refresh(),
+          child: Text(jobBilling ? 'Refresh job billing' : 'Refresh invoices'),
+        ),
+    ];
+    if (!newInvoice && !deliveryIsPrimary && actions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 8),
+      child: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (newInvoice)
+            FilledButton.icon(
+              onPressed: () => _openEditor(page!),
+              icon: const Icon(Icons.add),
+              label: const Text('New invoice'),
+            ),
+          if (deliveryIsPrimary)
+            FilledButton.icon(
+              onPressed: _openingDelivery ? null : _billFromDelivery,
+              icon: const Icon(Icons.local_shipping_outlined, size: 18),
+              label: const Text('Bill delivered fabric'),
+            ),
+          if (actions.isNotEmpty)
+            PopupMenuButton<VoidCallback>(
+              tooltip: 'More billing actions',
+              icon: const Icon(Icons.more_horiz),
+              onSelected: (action) => action(),
+              itemBuilder: (_) => actions,
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _sectionLabel(_Section value) => switch (value) {
+    _Section.invoices => 'Sales invoices',
+    _Section.jobBilling => 'Job billing',
+    _Section.templates => 'Templates',
+  };
+
   Widget _tabs(BoxConstraints box, double pad) => Padding(
     padding: EdgeInsets.fromLTRB(pad, 0, pad, 8),
     child: Align(
       alignment: Alignment.centerLeft,
       child:
-          (box.maxWidth < 450 &&
-              MediaQuery.textScalerOf(context).scale(14) > 16)
+          (_embedded && box.maxWidth < 550 ||
+              box.maxWidth < 450 &&
+                  MediaQuery.textScalerOf(context).scale(14) > 16)
           ? Wrap(
               spacing: 6,
               runSpacing: 2,
               children: [
                 for (final tab in _Section.values)
-                  ChoiceChip(
-                    selected: section == tab,
-                    showCheckmark: false,
-                    label: Text(
-                      tab == _Section.invoices ? 'Sales invoices' : 'Templates',
+                  if (_embedded || tab != _Section.jobBilling)
+                    ChoiceChip(
+                      selected: section == tab,
+                      showCheckmark: false,
+                      label: Text(_sectionLabel(tab)),
+                      onSelected: (_) => _selectSection(tab),
                     ),
-                    onSelected: (_) => setState(() => section = tab),
-                  ),
               ],
             )
           : SegmentedButton<_Section>(
               showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(
+              segments: [
+                const ButtonSegment(
                   value: _Section.invoices,
                   icon: Icon(Icons.receipt_long_outlined, size: 18),
                   label: Text('Sales invoices'),
                 ),
-                ButtonSegment(
+                if (_embedded)
+                  const ButtonSegment(
+                    value: _Section.jobBilling,
+                    icon: Icon(Icons.local_shipping_outlined, size: 18),
+                    label: Text('Job billing'),
+                  ),
+                const ButtonSegment(
                   value: _Section.templates,
                   icon: Icon(Icons.style_outlined, size: 18),
                   label: Text('Templates'),
                 ),
               ],
               selected: {section},
-              onSelectionChanged: (value) =>
-                  setState(() => section = value.first),
+              onSelectionChanged: (value) => _selectSection(value.first),
             ),
     ),
   );

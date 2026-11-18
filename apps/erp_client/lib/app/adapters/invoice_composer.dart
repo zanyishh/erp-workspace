@@ -15,10 +15,12 @@ class InvoiceComposer extends StatefulWidget {
     required this.api,
     required this.company,
     this.templateId,
+    this.continueToEditor = false,
   });
   final ErpApi api;
   final String company;
   final String? templateId;
+  final bool continueToEditor;
   @override
   State<InvoiceComposer> createState() => _InvoiceComposerState();
 }
@@ -143,6 +145,7 @@ class _InvoiceComposerState extends State<InvoiceComposer> {
     model: _model,
     linkField: _link,
     openEditor: _openEditor,
+    continueToEditor: widget.continueToEditor,
     protect: (child, revalidate) => AccessGate(
       key: ValueKey(_owned),
       api: widget.api,

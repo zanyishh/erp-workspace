@@ -10,6 +10,70 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets('$platform new job guides entry and keeps earlier values', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      final api = _SourceApi();
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme.copyWith(platform: platform),
+          home: KnittingCommandForm(
+            api: api,
+            workspace: WorkspaceContext.fromJson({
+              'company': 'Sample Mill',
+              'knitting_enabled': true,
+              'capabilities': ['jobs', 'new_job'],
+            }),
+            action: knitActions.firstWhere((spec) => spec.id == 'create_job'),
+            initial: {
+              'customer': 'MATERIAL-CUSTOMER',
+              'programme': [
+                {
+                  'id': 'P1',
+                  'fabric': 'Jersey',
+                  'knit_type': 'Tubular',
+                  'target_kg': '5.000',
+                },
+              ],
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Job brief · 1 of 4'), findsOneWidget);
+      expect(find.text('Jersey'), findsNothing);
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Job brief · 1 of 4'), findsOneWidget);
+      final weight = find.widgetWithText(TextFormField, 'Target · kg');
+      await tester.ensureVisible(weight);
+      await tester.enterText(weight, '5.000');
+      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      await tester.pumpAndSettle();
+      expect(find.text('Next').hitTestable(), findsOneWidget);
+      await tester.tap(find.text('Next'));
+      tester.view.resetViewInsets();
+      await tester.pumpAndSettle();
+      expect(find.text('Fabric programme · 2 of 4'), findsOneWidget);
+      expect(find.text('Jersey'), findsWidgets);
+      await tester.tap(find.widgetWithText(TextButton, 'Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('5.000'), findsOneWidget);
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Review entry'));
+      await tester.pumpAndSettle();
+      expect(find.text('Review · 3 of 4'), findsOneWidget);
+      expect(find.text('Confirm & post').hitTestable(), findsOneWidget);
+      expect(api.writes, 0);
+      expect(tester.takeException(), isNull);
+    });
     testWidgets('$platform yarn receipt stays usable while entering weight', (
       tester,
     ) async {

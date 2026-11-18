@@ -32,8 +32,8 @@ def kg(value):
     return f"{Decimal(str(value)):.3f}"
 
 
-def money(value):
-    return f"{Decimal(str(value)):.2f}"
+def money(value, precision=2):
+    return f"{Decimal(str(value)):.{precision}f}"
 
 
 def json_value(value, default=None):
@@ -768,6 +768,7 @@ def delivery_billed(job, delivery, line=None, roll=None, *, batch=None, legacy_l
 
 def invoice(event, data, job, *, preview=False):
     from . import posting
+    from erp_extensions.invoices import _precision, payable_total
     names = data.get("deliveries")
     if not isinstance(names, list) or not names or len(set(names)) != len(names):
         frappe.throw("Select distinct confirmed source deliveries.")
@@ -855,7 +856,10 @@ def invoice(event, data, job, *, preview=False):
             charge["invoice_item"] = doc.items[charge.pop("row_index")].name
             item = next(row for row in doc.items if row.name == charge['invoice_item'])
             charge['quantity'], charge['amount'] = str(item.qty), money(item.amount)
-    return {"invoice": doc.name, "quantity_kg": kg(total), "amount": money(doc.grand_total), "allocations": allocations,
+    precision = _precision('grand_total', doc.currency)
+    return {"invoice": doc.name, "quantity_kg": kg(total), "amount": money(payable_total(doc), precision),
+            "currency": doc.currency, "can_print": bool(doc.has_permission('read') and doc.has_permission('print')),
+            "allocations": allocations,
             "voucher": doc.name, "voucher_type": "Sales Invoice"}
 
 

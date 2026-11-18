@@ -252,6 +252,114 @@ void main() {
       },
     );
   }
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'mill phone dock stays scoped and clears space for typing on $platform',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+        final api = _MillApi();
+        addTearDown(api.close);
+        final restricted = WorkspaceContext.fromJson({
+          'company': 'Pilot mill',
+          'setup_state': 'Active',
+          'knitting_enabled': true,
+          'knitting_only': true,
+          'capabilities': ['overview', 'jobs', 'billing'],
+        });
+        var openedRegister = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: WorkspaceTheme.theme.copyWith(platform: platform),
+            home: KnittingScreen(
+              api: api,
+              workspace: restricted,
+              onContextChanged: (_) {},
+              onInvoices: () => openedRegister = true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Mill overview'), findsOneWidget);
+        expect(find.text('Pilot mill'), findsOneWidget);
+        final jobs = find.widgetWithText(TextButton, 'Jobs');
+        expect(tester.getSize(jobs).height, greaterThanOrEqualTo(48));
+        expect(find.text('Production'), findsNothing);
+        await tester.tap(jobs);
+        await tester.pumpAndSettle();
+        expect(find.text('Job register'), findsOneWidget);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pumpAndSettle();
+        expect(jobs, findsNothing);
+        expect(find.byTooltip('Open navigation menu'), findsOneWidget);
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Open navigation menu').hitTestable());
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(TextButton, 'Billing').hitTestable(),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, 'Invoice register'),
+        );
+        expect(openedRegister, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  for (final reduced in [false, true]) {
+    testWidgets('job card continuity respects Reduce Motion $reduced', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final api = _MillApi();
+      addTearDown(api.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: WorkspaceTheme.theme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
+            child: child!,
+          ),
+          home: KnittingScreen(
+            api: api,
+            workspace: _workspace,
+            onContextChanged: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final job = find.text('Pilot job');
+      await tester.ensureVisible(job);
+      await tester.pumpAndSettle();
+      await tester.tap(job.hitTestable());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 45));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('Job details'), findsOneWidget);
+      final flight = find.byKey(const ValueKey('mill-job-card-flight'));
+      expect(flight, reduced ? findsNothing : findsOneWidget);
+      if (!reduced) {
+        expect(
+          tester.widget<Transform>(flight).transform.entry(1, 1),
+          lessThan(1),
+        );
+      }
+      await tester.pumpAndSettle();
+      expect(flight, findsNothing);
+      await tester.tap(find.byTooltip('Back to overview'));
+      await tester.pumpAndSettle();
+      expect(job.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
   testWidgets('phone drawer back leaves the current knitting page open', (
     tester,
   ) async {

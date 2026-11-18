@@ -24,6 +24,7 @@ import '../pos_checkout.dart';
 import '../overview.dart';
 import '../invoice_hub.dart';
 import '../invoice_composer.dart';
+import '../invoice_preview.dart';
 import '../imported_history.dart';
 import '../sign_in.dart';
 import '../local_workspace.dart';
@@ -802,6 +803,22 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     if (mounted && identical(api, _api)) _refresh();
   }
 
+  Future<void> _previewMillInvoice(String company, String name) async {
+    final api = _api;
+    if (api == null ||
+        !api.accessReady ||
+        _workspace?.company != company ||
+        !_canOpenInvoices)
+      return;
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            InvoicePreviewScreen(api: api, company: company, invoice: name),
+      ),
+    );
+  }
+
   Future<void> _edit(String doctype, {String? name}) async {
     final api = _api;
     final company = _workspace?.company;
@@ -1084,6 +1101,23 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
               onRecords: _catalog,
               onGeneral: _workspace!.knittingOnly ? null : _showGeneral,
               onInvoices: _canOpenInvoices ? _openInvoices : null,
+              onInvoicePreview: _canOpenInvoices ? _previewMillInvoice : null,
+              invoiceWorkspace: _canOpenInvoices
+                  ? (jobBilling, billFromDelivery, refreshBilling) =>
+                        InvoiceHub(
+                          api: api,
+                          company: _workspace!.company!,
+                          canCreate: _workspace!.creatableRecords.contains(
+                            'Sales Invoice',
+                          ),
+                          jobBilling: jobBilling,
+                          onBillFromDelivery: billFromDelivery,
+                          onRefreshJobBilling: refreshBilling,
+                          onImportedHistory: _workspace!.canReadImportedHistory
+                              ? () => _openImportedHistory(family: 'invoice')
+                              : null,
+                        )
+                  : null,
               onHistory: _workspace!.canReadImportedHistory
                   ? (family) => _openImportedHistory(family: family)
                   : null,

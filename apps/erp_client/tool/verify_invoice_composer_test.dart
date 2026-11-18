@@ -202,7 +202,13 @@ void main() {
       }
 
       await wait(
-        () => find.textContaining('Invoice date · 20').evaluate().isNotEmpty,
+        () => find
+            .descendant(
+              of: find.widgetWithText(TextButton, 'Invoice date'),
+              matching: find.textContaining(RegExp(r'^20\d{2}-\d{2}-\d{2}$')),
+            )
+            .evaluate()
+            .isNotEmpty,
       );
       await t.enterText(
         find.widgetWithText(TextFormField, 'Customer'),

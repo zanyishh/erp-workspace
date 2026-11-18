@@ -34,7 +34,12 @@ STATES = {
     "rolls": ("state", {"Awaiting QC", "Released", "On Hold", "Rework", "Rejected", "Delivered", "Split", "Cancelled"}),
     "plans": ("state", {"Planned", "Started", "Completed", "Cancelled"}),
     "subcontracts": ("status", {"Open", "Completed", "Cancelled"}),
+    "events": ("kind", {"Billing"}),
 }
+BILLING_KINDS = [
+    'invoice', 'credit_invoice', 'bill_yarn', 'subcontract_bill',
+    'migration_delivery_reference', 'migration_billing_initialization',
+]
 SEARCH_FIELDS = {"name", "title", "source_reference", "customer", "kind", "status", "item", "party", "source_lot", "material_owner",
                  "job", "machine", "operator", "shift", "state", "programme_line", "supplier", "category", "description",
                  "fabric", "yarn_count", "gauge", "dia", "knit_type", "component_type", "checker", "decision", "remarks", "party_name"}
@@ -292,7 +297,9 @@ def _page(company, collection, job=None, start=0, query="", state=None, producti
             filters["name"] = frappe.db.get_value("Knitting Job", job, "quotation") or ""
         elif frappe.get_meta(doctype).has_field("job"):
             filters["job"] = job
-    if state is not None:
+    if collection == 'events' and state == 'Billing':
+        filters['kind'] = ['in', BILLING_KINDS]
+    elif state is not None:
         filters[STATES[collection][0]] = state
     if production_date is not None:
         begin = datetime.strptime(production_date, "%Y-%m-%d")

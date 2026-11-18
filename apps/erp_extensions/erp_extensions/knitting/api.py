@@ -294,10 +294,23 @@ def export(company, format, filters=None):
 
 
 def invoice_review(doc):
-    return {"currency": doc.currency, "net_total": domain.money(doc.net_total), "tax_total": domain.money(doc.total_taxes_and_charges), "grand_total": domain.money(doc.grand_total),
+    from erp_extensions.invoices import _precision, payable_total
+    precision = _precision('grand_total', doc.currency)
+    payable = payable_total(doc)
+
+    def money(value):
+        return domain.money(value, precision)
+
+    return {"currency": doc.currency, "precision": precision,
+        "net_total": money(doc.net_total), "tax_total": money(doc.total_taxes_and_charges), "grand_total": money(doc.grand_total),
+        "rounding_adjustment": money(Decimal(str(payable)) - Decimal(str(doc.grand_total))),
+        "payable_total": money(payable), "customer": doc.customer,
+        "customer_name": doc.customer_name, "due_date": str(doc.due_date) if doc.due_date else None,
         "tax_template": doc.taxes_and_charges or None, "no_tax": bool(doc.flags.get("knitting_tax_choice", {}).get("no_tax")),
-        "items": [{"item": row.item_code, "quantity": format(Decimal(str(row.qty)).normalize(), "f"), "rate": domain.money(row.rate), "amount": domain.money(row.amount), "uom": row.uom} for row in doc.items],
-        "taxes": [{"description": row.description, "account": row.account_head, "rate": str(row.rate), "amount": domain.money(row.tax_amount)} for row in doc.taxes]}
+        "items": [{"item": row.item_code, "quantity": format(Decimal(str(row.qty)).normalize(), "f"),
+                   "rate": format(Decimal(str(row.rate)).normalize(), "f"), "amount": money(row.amount), "uom": row.uom} for row in doc.items],
+        "taxes": [{"description": row.description, "account": row.account_head, "rate": str(row.rate),
+                   "amount": money(row.tax_amount_after_discount_amount)} for row in doc.taxes]}
 
 
 def invoice_signature(doc):
