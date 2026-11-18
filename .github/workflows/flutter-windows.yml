@@ -1,0 +1,196 @@
+name: Windows tester builds
+on:
+  workflow_dispatch:
+    inputs:
+      test_server:
+        description: Test origin; keep the default for the local Windows backend
+        required: false
+        default: http://127.0.0.1:8081
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: ${{ matrix.edition }} on Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: ERP Workspace
+            package: ERP-Workspace-Windows-x64
+            knitting_only: 'false'
+          - edition: Knitting Workspace
+            package: Knitting-Workspace-Windows-x64
+            knitting_only: 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Read SDK pin and validate the test origin
+        id: settings
+        shell: pwsh
+        env:
+          TEST_SERVER: ${{ inputs.test_server }}
+        run: |
+          $pin = Get-Content infrastructure/erpnext/quality/flutter-toolchain.json -Raw | ConvertFrom-Json
+          "version=$($pin.version.frameworkVersion)" >> $env:GITHUB_OUTPUT
+          $origin = $null
+          if (-not [uri]::TryCreate($env:TEST_SERVER, [UriKind]::Absolute, [ref]$origin) -or
+              ($origin.Scheme -ne 'https' -and -not ($origin.Scheme -eq 'http' -and $origin.IsLoopback)) -or
+              $origin.UserInfo -or $origin.Query -or $origin.Fragment -or $origin.AbsolutePath -ne '/') {
+            throw 'Use an HTTPS test origin or HTTP loopback, without a path or credentials.'
+          }
+          "origin=$($origin.GetLeftPart([UriPartial]::Authority))" >> $env:GITHUB_OUTPUT
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ steps.settings.outputs.version }}
+          cache: true
+      - name: Verify Flutter SDK
+        shell: pwsh
+        run: |
+          $expected = (Get-Content infrastructure/erpnext/quality/flutter-toolchain.json -Raw | ConvertFrom-Json -AsHashtable).version
+          $actual = flutter --version --machine | ConvertFrom-Json -AsHashtable
+          foreach ($key in $expected.Keys) {
+            if ($expected[$key] -cne $actual[$key]) {
+              throw "Flutter SDK differs from the project pin at $key."
+            }
+          }
+      - name: Windows analysis and regression suite
+        working-directory: apps/erp_client
+        shell: pwsh
+        run: |
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          flutter analyze --no-pub
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          flutter test --no-pub --concurrency=2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          flutter test --no-pub --dart-define=ERP_LOCAL_WORKSPACE=false test/local_workspace_test.dart
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Compile native release
+        working-directory: apps/erp_client
+        shell: pwsh
+        env:
+          TEST_ORIGIN: ${{ steps.settings.outputs.origin }}
+          KNITTING_ONLY: ${{ matrix.knitting_only }}
+        run: |
+          flutter pub get --enforce-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          flutter build windows --release --no-pub `
+            "--dart-define=ERP_SERVER=$env:TEST_ORIGIN" `
+            "--dart-define=ERP_LOCAL_WORKSPACE=false" `
+            "--dart-define=ERP_KNITTING_CUSTOMER=$env:KNITTING_ONLY"
+      - name: Verify the native executable opens
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path 'apps/erp_client/build/windows/x64/runner/Release/erp_client.exe').Path
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            Start-Sleep -Seconds 8
+            $process.Refresh()
+            if ($process.HasExited -or $process.MainWindowHandle -eq 0) {
+              throw 'The Windows application did not open a native window.'
+            }
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
+            $image = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height
+            $graphics = [Drawing.Graphics]::FromImage($image)
+            try {
+              $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size)
+              New-Item -ItemType Directory -Force build-evidence | Out-Null
+              $image.Save((Join-Path (Resolve-Path build-evidence) 'windows-launch.png'))
+            } finally { $graphics.Dispose(); $image.Dispose() }
+          } finally { if (-not $process.HasExited) { Stop-Process -Id $process.Id } }
+      - name: Assemble portable app and notices
+        shell: pwsh
+        env:
+          EDITION: ${{ matrix.edition }}
+          SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}/tree/${{ github.sha }}
+        run: |
+          $release = 'apps/erp_client/build/windows/x64/runner/Release'
+          foreach ($path in @('erp_client.exe', 'flutter_windows.dll', 'data/icudtl.dat', 'data/app.so')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $release $path) -PathType Leaf)) {
+              throw "Missing Flutter build output $path."
+            }
+          }
+          New-Item -ItemType Directory -Path package | Out-Null
+          Copy-Item "$release/*.dll", "$release/erp_client.exe", "$release/data" -Destination package -Recurse
+          Copy-Item LICENSE, NOTICE.md, licenses -Destination package -Recurse
+          @"
+          $env:EDITION for Windows x64
+
+          Extract the entire download and open erp_client.exe. Keep the DLLs and data folder beside it.
+          First start your local backend using scripts/windows-test.ps1 from the repository source.
+          Read docs/setup/WINDOWS_TESTING.md. Sign in using .local/windows-test/accounts.json.
+          Use only synthetic companies for all entries.
+          This portable test build is unsigned.
+
+          If the Microsoft Visual C++ runtime is missing, install the x64 package from:
+          https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/
+
+          Corresponding source and build workflow for this exact revision:
+          $env:SOURCE_URL
+          "@ | Set-Content package/START-HERE.txt -Encoding utf8
+      - name: Upload tester download
+        id: download
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.package }}
+          path: package/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload native launch evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: launch-evidence-${{ matrix.package }}
+          path: build-evidence/
+          if-no-files-found: ignore
+      - name: Link the Windows package
+        shell: pwsh
+        env:
+          DOWNLOAD_URL: ${{ steps.download.outputs.artifact-url }}
+          EDITION: ${{ matrix.edition }}
+        run: |
+          "[$env:EDITION for Windows x64]($env:DOWNLOAD_URL)" >> $env:GITHUB_STEP_SUMMARY
+
+  local-backend:
+    name: Fresh isolated ERPNext backend and both company logins
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path scripts/windows-test.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
+      - name: Start the actual tester backend from an empty database
+        shell: pwsh
+        run: ./scripts/windows-test.ps1 -DockerContext default
+      - name: Verify scoped login and sample invoices for both editions
+        run: python3 scripts/verify-windows-test.py
+      - name: Verify restart preserves the backend and accounts
+        shell: pwsh
+        run: |
+          ./scripts/windows-test.ps1 -DockerContext default -Action Stop
+          ./scripts/windows-test.ps1 -DockerContext default
+      - name: Repeat scoped login after restart
+        run: python3 scripts/verify-windows-test.py
+      - name: Capture service logs
+        if: always()
+        run: docker compose --project-name erp-windows-test -f infrastructure/erpnext/compose.yaml --profile native-test logs --no-color --tail 100 > backend-logs.txt
+      - name: Save backend evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: local-backend-evidence
+          path: backend-logs.txt

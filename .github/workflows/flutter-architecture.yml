@@ -1,0 +1,63 @@
+name: Flutter architecture
+on:
+  pull_request:
+    paths:
+      - 'apps/erp_client/**'
+      - 'scripts/*flutter*'
+      - 'docs/architecture/**'
+      - 'ARCHITECTURE.md'
+      - 'infrastructure/erpnext/quality/flutter-toolchain.json'
+      - '.github/workflows/flutter-architecture.yml'
+  push:
+    paths:
+      - 'apps/erp_client/**'
+      - 'scripts/*flutter*'
+      - 'docs/architecture/**'
+      - 'ARCHITECTURE.md'
+      - 'infrastructure/erpnext/quality/flutter-toolchain.json'
+      - '.github/workflows/flutter-architecture.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  flutter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+      - name: Verify SDK pin
+        run: |
+          flutter --version --machine > /tmp/flutter-version.json
+          python3 - <<'PY'
+          import json
+          expected = json.load(open('infrastructure/erpnext/quality/flutter-toolchain.json'))['version']
+          actual = json.load(open('/tmp/flutter-version.json'))
+          assert all(actual.get(k) == v for k, v in expected.items()), 'Flutter SDK differs from the project pin'
+          PY
+      - name: Architecture lint and regression tests
+        run: |
+          python3 -m unittest scripts/test_flutter_architecture.py
+          python3 scripts/check_flutter_architecture.py
+      - name: Resolve dependencies
+        working-directory: apps/erp_client
+        run: flutter pub get --enforce-lockfile
+      - name: Formatting
+        working-directory: apps/erp_client
+        run: dart format --output=none --set-exit-if-changed lib test tool
+      - name: Analysis
+        working-directory: apps/erp_client
+        run: flutter analyze --no-pub
+      - name: Unit and widget suite
+        working-directory: apps/erp_client
+        run: flutter test --no-pub --concurrency=4
+      - name: Local-launch opt-out variant
+        working-directory: apps/erp_client
+        run: flutter test --no-pub --dart-define=ERP_LOCAL_WORKSPACE=false test/local_workspace_test.dart
+# Connected rehearsals under tool/ require an isolated native-test backend and
+# synthetic accounts. Their source-hashed receipt is a separate release gate;
+# this job does not claim that default tests ran connected integration tests.

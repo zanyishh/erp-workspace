@@ -1,0 +1,132 @@
+name: Flutter mobile
+on:
+  push:
+    paths:
+      - 'apps/erp_client/**'
+      - 'infrastructure/erpnext/quality/flutter-toolchain.json'
+      - '.github/workflows/flutter-mobile.yml'
+  pull_request:
+    paths:
+      - 'apps/erp_client/**'
+      - 'infrastructure/erpnext/quality/flutter-toolchain.json'
+      - '.github/workflows/flutter-mobile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile:
+    name: ${{ matrix.platform }} release build and mobile workflows
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Android
+            runner: ubuntu-latest
+          - platform: iOS
+            runner: macos-26
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/erp_client
+        shell: bash
+    env:
+      MAESTRO_CLI_NO_ANALYTICS: "true"
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read project Flutter version
+        id: sdk
+        run: echo "version=$(jq -er .version.frameworkVersion ../../infrastructure/erpnext/quality/flutter-toolchain.json)" >> "$GITHUB_OUTPUT"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ steps.sdk.outputs.version }}
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify Flutter release and resolve packages
+        run: |
+          flutter --version --machine > "$RUNNER_TEMP/flutter-version.json"
+          jq -en --slurpfile expected ../../infrastructure/erpnext/quality/flutter-toolchain.json \
+            --slurpfile actual "$RUNNER_TEMP/flutter-version.json" \
+            'all($expected[0].version | to_entries[]; $actual[0][.key] == .value)'
+          flutter pub get --enforce-lockfile
+      - name: Install Maestro for simulator and emulator checks
+        working-directory: ${{ runner.temp }}
+        run: |
+          release=https://github.com/mobile-dev-inc/maestro/releases/download/cli-2.12.1
+          curl --fail --location --retry 3 --output maestro.zip "$release/maestro.zip"
+          curl --fail --location --retry 3 --output checksums_sha256.txt "$release/checksums_sha256.txt"
+          shasum -a 256 --check checksums_sha256.txt
+          unzip -q maestro.zip -d maestro-cli
+          executable=$(find "$PWD/maestro-cli" -path '*/bin/maestro' -type f)
+          test -x "$executable"
+          dirname "$executable" >> "$GITHUB_PATH"
+      - name: Start the local mobile fixture
+        run: |
+          python3 -u tool/mobile/fixture_server.py > "$RUNNER_TEMP/mobile-fixture.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/mobile-fixture.pid"
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:8081/health
+      - name: Build Android release bundle and emulator APK
+        if: matrix.platform == 'Android'
+        run: |
+          flutter build appbundle --release --no-pub --dart-define=ERP_SERVER=https://native-test.localhost
+          test -s build/app/outputs/bundle/release/app-release.aab
+          flutter build apk --debug --no-pub --target-platform android-x64
+      - name: Allow the emulator to use KVM
+        if: matrix.platform == 'Android'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise sign-in, invoicing and yarn receipt on Android
+        if: matrix.platform == 'Android'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_5
+          working-directory: apps/erp_client
+          script: |
+            adb shell settings put secure show_ime_with_hard_keyboard 1
+            adb install build/app/outputs/flutter-apk/app-debug.apk
+            maestro test --test-output-dir=build/mobile-smoke/sign-in -e APP_ID=org.localerp.erp_client tool/mobile/sign_in.yaml
+            maestro test --test-output-dir=build/mobile-smoke/company_invoice -e APP_ID=org.localerp.erp_client tool/mobile/company_invoice.yaml
+            maestro test --test-output-dir=build/mobile-smoke/yarn_receipt -e APP_ID=org.localerp.erp_client tool/mobile/yarn_receipt.yaml
+      - name: Build unsigned iOS release and simulator app
+        if: matrix.platform == 'iOS'
+        run: |
+          flutter build ios --release --no-codesign --no-pub --dart-define=ERP_SERVER=https://native-test.localhost
+          test -x build/ios/iphoneos/Runner.app/Runner
+          flutter build ios --simulator --debug --no-pub
+      - name: Exercise sign-in, invoicing and yarn receipt on iPhone
+        if: matrix.platform == 'iOS'
+        run: |
+          iphone=$(xcrun simctl list devices available --json | jq -er '
+            [.devices | to_entries[] | select(.key | contains(".iOS-"))
+             | .value[] | select(.name | startswith("iPhone"))] | last.udid // error("No available iPhone")')
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool NO
+          xcrun simctl bootstatus "$iphone" -b
+          xcrun simctl install "$iphone" build/ios/iphonesimulator/Runner.app
+          maestro --device "$iphone" test --test-output-dir=build/mobile-smoke/sign-in -e APP_ID=org.localerp.erpClient tool/mobile/sign_in.yaml
+          maestro --device "$iphone" test --test-output-dir=build/mobile-smoke/company_invoice -e APP_ID=org.localerp.erpClient tool/mobile/company_invoice.yaml
+          maestro --device "$iphone" test --test-output-dir=build/mobile-smoke/yarn_receipt -e APP_ID=org.localerp.erpClient tool/mobile/yarn_receipt.yaml
+      - name: Stop the local mobile fixture
+        if: always()
+        run: |
+          if [[ -s "$RUNNER_TEMP/mobile-fixture.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/mobile-fixture.pid")" || true
+          fi
+      - name: Save device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-smoke-${{ matrix.platform }}
+          path: apps/erp_client/build/mobile-smoke
+          if-no-files-found: ignore
