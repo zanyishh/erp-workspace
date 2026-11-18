@@ -54,6 +54,9 @@ jobs:
         shell: pwsh
         run: |
           $expected = (Get-Content infrastructure/erpnext/quality/flutter-toolchain.json -Raw | ConvertFrom-Json -AsHashtable).version
+          # The first Windows invocation builds the tool and prints non-JSON progress.
+          flutter --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $actual = flutter --version --machine | ConvertFrom-Json -AsHashtable
           foreach ($key in $expected.Keys) {
             if ($expected[$key] -cne $actual[$key]) {
