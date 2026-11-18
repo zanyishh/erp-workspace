@@ -25,7 +25,7 @@ jobs:
           - platform: Android
             runner: ubuntu-latest
           - platform: iOS
-            runner: macos-26
+            runner: macos-26-intel
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     defaults:
@@ -37,6 +37,17 @@ jobs:
       MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
     steps:
       - uses: actions/checkout@v4
+      - name: Reclaim space on the disposable Android runner
+        if: matrix.platform == 'Android'
+        working-directory: ${{ runner.temp }}
+        run: |
+          test "$GITHUB_ACTIONS" = true
+          test "$RUNNER_OS" = Linux
+          df -h .
+          # These unused preinstalled toolchains belong to this disposable VM.
+          # Keep Android SDKs, the checkout and all Docker application volumes.
+          sudo rm -rf /usr/share/dotnet /usr/local/share/boost /opt/ghc
+          df -h .
       - name: Read project Flutter version
         id: sdk
         run: echo "version=$(jq -er .version.frameworkVersion ../../infrastructure/erpnext/quality/flutter-toolchain.json)" >> "$GITHUB_OUTPUT"
