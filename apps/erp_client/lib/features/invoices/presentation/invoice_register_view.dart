@@ -241,8 +241,9 @@ class _InvoiceRegisterViewState extends State<InvoiceRegisterView> {
     } finally {
       if (mounted) {
         setState(() => _openingDelivery = false);
-        if (identical(model, widget.model) && model.isCurrent(scope))
+        if (identical(model, widget.model) && model.isCurrent(scope)) {
           _refresh();
+        }
       }
     }
   }

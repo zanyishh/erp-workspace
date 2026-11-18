@@ -808,8 +808,9 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
     if (api == null ||
         !api.accessReady ||
         _workspace?.company != company ||
-        !_canOpenInvoices)
+        !_canOpenInvoices) {
       return;
+    }
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
